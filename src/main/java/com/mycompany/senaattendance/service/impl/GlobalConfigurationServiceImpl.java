@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.GlobalConfiguration;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.GlobalConfigurationService;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.service.mapper.GlobalConfigurationMapper;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,15 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
     public GlobalConfigurationDTO save(GlobalConfigurationDTO globalConfigurationDTO) {
         LOG.debug("Request to save GlobalConfiguration : {}", globalConfigurationDTO);
         GlobalConfiguration globalConfiguration = globalConfigurationMapper.toEntity(globalConfigurationDTO);
+
+        // Inserta fecha de creación
+        globalConfiguration.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            // Inserta quien lo creo
+            globalConfiguration.setCreatedBy(currentUserLogin.get());
+        }
+
         globalConfiguration = globalConfigurationRepository.save(globalConfiguration);
         return globalConfigurationMapper.toDto(globalConfiguration);
     }
@@ -45,6 +56,20 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
     public GlobalConfigurationDTO update(GlobalConfigurationDTO globalConfigurationDTO) {
         LOG.debug("Request to update GlobalConfiguration : {}", globalConfigurationDTO);
         GlobalConfiguration globalConfiguration = globalConfigurationMapper.toEntity(globalConfigurationDTO);
+
+        Optional<GlobalConfiguration> optionalGlobalConfiguration = globalConfigurationRepository.findById(globalConfiguration.getId());
+        if (optionalGlobalConfiguration.isPresent()) {
+            GlobalConfiguration existingGlobalConfiguration = optionalGlobalConfiguration.get();
+            globalConfiguration.setCreatedBy(existingGlobalConfiguration.getCreatedBy());
+            globalConfiguration.setCreatedDate(existingGlobalConfiguration.getCreatedDate());
+        } else {
+            globalConfiguration.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                globalConfiguration.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         globalConfiguration = globalConfigurationRepository.save(globalConfiguration);
         return globalConfigurationMapper.toDto(globalConfiguration);
     }
