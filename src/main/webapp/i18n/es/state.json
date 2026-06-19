@@ -1,0 +1,9 @@
+{
+  "senaAttendanceApp": {
+    "State": {
+      "null": "",
+      "ACTIVO": "ACTIVO",
+      "INACTIVO": "INACTIVO"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "senaAttendanceApp": {
+    "desertionCounter": {
+      "home": {
+        "title": "Desertion Counters",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Desertion Counter",
+        "createOrEditLabel": "Crear o editar Desertion Counter",
+        "notFound": "Ningún Desertion Counters encontrado"
+      },
+      "created": "Un nuevo Desertion Counter ha sido creado con el identificador {{ param }}",
+      "updated": "Un Desertion Counter ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Desertion Counter ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Desertion Counter {{ id }}?"
+      },
+      "detail": {
+        "title": "Desertion Counter"
+      },
+      "id": "ID",
+      "totalGlobalAbsences": "Total Global Absences",
+      "accumulatedLateArrivals": "Accumulated Late Arrivals",
+      "workJustificationsUsed": "Work Justifications Used",
+      "alertsSent": "Alerts Sent",
+      "student": "Student",
+      "trimester": "Trimester"
+    }
+  }
+}

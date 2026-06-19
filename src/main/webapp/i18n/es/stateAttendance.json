@@ -1,0 +1,11 @@
+{
+  "senaAttendanceApp": {
+    "StateAttendance": {
+      "null": "",
+      "PRESENTE": "PRESENTE",
+      "FALLA": "FALLA",
+      "JUSTIFICADA": "JUSTIFICADA",
+      "TARDE": "TARDE"
+    }
+  }
+}

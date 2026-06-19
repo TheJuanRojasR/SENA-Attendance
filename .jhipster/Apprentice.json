@@ -1,0 +1,37 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202201"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "stateAcademic",
+      "fieldType": "StateAcademic",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "RETIRO_VOLUNTARIO,APLAZADO,CANCELADO,MATRICULADO,INACTIVO"
+    }
+  ],
+  "name": "Apprentice",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "documentNumber",
+      "otherEntityName": "userProfile",
+      "relationshipName": "student",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "code",
+      "otherEntityName": "grade",
+      "relationshipName": "grade",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

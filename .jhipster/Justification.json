@@ -1,0 +1,61 @@
+{
+  "annotations": {
+    "changelogDate": "20260619203001"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "description",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "300"
+    },
+    {
+      "fieldName": "startDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "endDate",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "evidence",
+      "fieldType": "AnyBlob",
+      "fieldValidateRules": ["required", "minbytes", "maxbytes"],
+      "fieldValidateRulesMaxbytes": "5000000",
+      "fieldValidateRulesMinbytes": "1000"
+    }
+  ],
+  "name": "Justification",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "justificationDetails",
+      "otherEntityRelationshipName": "justification",
+      "relationshipName": "details",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-many"
+    },
+    {
+      "otherEntityField": "name",
+      "otherEntityName": "justificationType",
+      "relationshipName": "justificationType",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "documentNumber",
+      "otherEntityName": "userProfile",
+      "relationshipName": "student",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

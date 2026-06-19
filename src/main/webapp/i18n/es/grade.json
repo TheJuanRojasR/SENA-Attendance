@@ -1,0 +1,30 @@
+{
+  "senaAttendanceApp": {
+    "grade": {
+      "home": {
+        "title": "Grades",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Grade",
+        "createOrEditLabel": "Crear o editar Grade",
+        "notFound": "Ningún Grades encontrado"
+      },
+      "created": "Un nuevo Grade ha sido creado con el identificador {{ param }}",
+      "updated": "Un Grade ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Grade ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Grade {{ id }}?"
+      },
+      "detail": {
+        "title": "Grade"
+      },
+      "id": "ID",
+      "code": "Code",
+      "state": "State",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "program": "Program",
+      "modality": "Modality",
+      "timeSlot": "Time Slot"
+    }
+  }
+}

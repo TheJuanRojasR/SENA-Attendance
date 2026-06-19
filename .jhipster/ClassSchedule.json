@@ -1,0 +1,47 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202501"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "dayOfWeek",
+      "fieldType": "DayOfWeek",
+      "fieldValues": "LUNES,MARTES,MIERCOLES,JUEVES,VIERNES,SABADO,DOMINGO"
+    },
+    {
+      "fieldName": "startTime",
+      "fieldType": "LocalTime",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "endTime",
+      "fieldType": "LocalTime",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "ClassSchedule",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "name",
+      "otherEntityName": "trimester",
+      "relationshipName": "trimester",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "subjectName",
+      "otherEntityName": "classSection",
+      "otherEntityRelationshipName": "schedules",
+      "relationshipName": "classSection",
+      "relationshipSide": "right",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

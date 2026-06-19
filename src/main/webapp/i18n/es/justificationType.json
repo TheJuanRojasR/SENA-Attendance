@@ -1,0 +1,26 @@
+{
+  "senaAttendanceApp": {
+    "justificationType": {
+      "home": {
+        "title": "Justification Types",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Justification Type",
+        "createOrEditLabel": "Crear o editar Justification Type",
+        "notFound": "Ningún Justification Types encontrado"
+      },
+      "created": "Un nuevo Justification Type ha sido creado con el identificador {{ param }}",
+      "updated": "Un Justification Type ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Justification Type ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Justification Type {{ id }}?"
+      },
+      "detail": {
+        "title": "Justification Type"
+      },
+      "id": "ID",
+      "name": "Name",
+      "limitPerTrimester": "Limit Per Trimester",
+      "state": "State"
+    }
+  }
+}

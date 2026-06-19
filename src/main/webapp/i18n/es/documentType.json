@@ -1,0 +1,25 @@
+{
+  "senaAttendanceApp": {
+    "documentType": {
+      "home": {
+        "title": "Document Types",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Document Type",
+        "createOrEditLabel": "Crear o editar Document Type",
+        "notFound": "Ningún Document Types encontrado"
+      },
+      "created": "Un nuevo Document Type ha sido creado con el identificador {{ param }}",
+      "updated": "Un Document Type ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Document Type ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Document Type {{ id }}?"
+      },
+      "detail": {
+        "title": "Document Type"
+      },
+      "id": "ID",
+      "name": "Name",
+      "initials": "Initials"
+    }
+  }
+}

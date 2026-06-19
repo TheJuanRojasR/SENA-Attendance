@@ -1,0 +1,56 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202401"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "subjectName",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "200"
+    },
+    {
+      "fieldName": "isActive",
+      "fieldType": "Boolean",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "ClassSection",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "classSchedule",
+      "otherEntityRelationshipName": "classSection",
+      "relationshipName": "schedules",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-many"
+    },
+    {
+      "otherEntityName": "classException",
+      "otherEntityRelationshipName": "classSection",
+      "relationshipName": "exceptions",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-many"
+    },
+    {
+      "otherEntityField": "documentNumber",
+      "otherEntityName": "userProfile",
+      "relationshipName": "instructor",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "code",
+      "otherEntityName": "grade",
+      "relationshipName": "grade",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

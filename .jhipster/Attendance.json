@@ -1,0 +1,55 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202801"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "date",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "stateAttendance",
+      "fieldType": "StateAttendance",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PRESENTE,FALLA,JUSTIFICADA,TARDE"
+    }
+  ],
+  "name": "Attendance",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "auditLog",
+      "otherEntityRelationshipName": "attendance",
+      "relationshipName": "auditLogs",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-many"
+    },
+    {
+      "otherEntityField": "subjectName",
+      "otherEntityName": "classSection",
+      "relationshipName": "classSection",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "documentNumber",
+      "otherEntityName": "userProfile",
+      "relationshipName": "student",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityName": "justification",
+      "relationshipName": "modifiedByJustification",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

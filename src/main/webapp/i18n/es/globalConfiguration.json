@@ -1,0 +1,28 @@
+{
+  "senaAttendanceApp": {
+    "globalConfiguration": {
+      "home": {
+        "title": "Global Configurations",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Global Configuration",
+        "createOrEditLabel": "Crear o editar Global Configuration",
+        "notFound": "Ningún Global Configurations encontrado"
+      },
+      "created": "Un nuevo Global Configuration ha sido creado con el identificador {{ param }}",
+      "updated": "Un Global Configuration ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Global Configuration ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Global Configuration {{ id }}?"
+      },
+      "detail": {
+        "title": "Global Configuration"
+      },
+      "id": "ID",
+      "studentJustificationDays": "Student Justification Days",
+      "instructorResponseDays": "Instructor Response Days",
+      "lateArrivalsToFail": "Late Arrivals To Fail",
+      "maxPostponementJustifications": "Max Postponement Justifications",
+      "standardTrimesterMonths": "Standard Trimester Months"
+    }
+  }
+}

@@ -1,0 +1,269 @@
+application {
+  config {
+    baseName senaAttendance
+    applicationType monolith
+    packageName com.mycompany.senaattendance
+    authenticationType jwt
+    databaseType mongodb
+    devDatabaseType mongodb
+    prodDatabaseType mongodb
+    cacheProvider no
+    buildTool maven
+    clientFramework react
+    enableTranslation true
+    nativeLanguage es
+    languages [es]
+    websocket false
+    testFrameworks [cucumber]
+    jhiPrefix project
+    reactive false
+    serverPort 8080
+    searchEngine false
+    clientTheme litera
+    clientThemeVariant primary
+  }
+  entities *
+}
+
+// ============================================================================
+// ENUMERACIONES
+// ============================================================================
+
+enum StateAccount {
+  ACTIVO,
+  INACTIVO,
+  BLOQUEADO
+}
+
+enum StateGrade {
+  ACTIVA,
+  INACTIVA,
+  APLAZADA
+}
+
+enum StateAttendance {
+  PRESENTE,
+  FALLA,
+  JUSTIFICADA,
+  TARDE
+}
+
+enum StateJustification {
+  ACEPTADA,
+  RECHAZADA,
+  PENDIENTE
+}
+
+enum StateAcademic {
+  RETIRO_VOLUNTARIO,
+  APLAZADO,
+  CANCELADO,
+  MATRICULADO,
+  INACTIVO // GRADUADO
+}
+
+enum State {
+  ACTIVO,
+  INACTIVO
+}
+
+enum DayOfWeek {
+  LUNES,
+  MARTES,
+  MIERCOLES,
+  JUEVES,
+  VIERNES,
+  SABADO,
+  DOMINGO
+}
+
+// ============================================================================
+// ENTIDADES
+// ============================================================================
+
+entity GlobalConfiguration {
+  studentJustificationDays Integer required
+  instructorResponseDays Integer required
+  lateArrivalsToFail Integer required
+  maxPostponementJustifications Integer required
+  standardTrimesterMonths Integer required
+}
+
+entity TimeSlot {
+  name String required unique maxlength(50)
+  isActive Boolean required
+  startTime LocalTime required
+  endTime LocalTime required
+}
+
+entity Modality {
+  name String required unique maxlength(50)
+  isActive Boolean required
+}
+
+entity Program {
+  name String required unique maxlength(200)
+  initials String required unique maxlength(10)
+  code String required unique maxlength(30)
+  trimesters Integer required
+}
+
+entity Grade {
+  code String required unique maxlength(20)
+  state StateGrade required
+  startDate LocalDate required // Inicio de ficha
+  endDate LocalDate required   // Fin de ficha
+}
+
+entity DocumentType {
+  name String required maxlength(30)
+  initials String required maxlength(10)
+}
+
+// UserProfile maneja la data personal de negocio 
+entity UserProfile {
+  firstName String required maxlength(30)
+  middleName String maxlength(30)
+  firstLastName String required maxlength(30)
+  secondLastName String maxlength(30)
+  documentNumber String required maxlength(15)
+  phoneNumber String required maxlength(20)
+  // stateAccount StateAccount required
+}
+
+// Pivote UserProfile - Grade (Enrollment)
+entity Apprentice {
+  stateAcademic StateAcademic required
+}
+
+entity Trimester {
+  name String required maxlength(30)
+  startDate LocalDate required
+  endDate LocalDate required
+  state State required
+}
+
+// Pivote UserProfile - Grade - Class
+entity ClassSection {
+  subjectName String required maxlength(200)
+  isActive Boolean required
+}
+
+// Horarios por sección de clase
+entity ClassSchedule {
+  dayOfWeek DayOfWeek
+  startTime LocalTime required
+  endTime LocalTime required
+}
+
+entity ClassException {
+  date LocalDate required
+  reason String required maxlength(200)
+}
+
+entity JustificationType {
+  name String required maxlength(100)
+  limitPerTrimester Integer 
+  state State required
+}
+
+entity Attendance {
+  date LocalDate required
+  stateAttendance StateAttendance required
+}
+
+// Coleccion interna
+entity AuditLog {
+  previousState StateAttendance required
+  newState StateAttendance required
+  editDate Instant required 
+}
+
+entity Justification {
+  description String required maxlength(300)
+  startDate LocalDate required
+  endDate LocalDate required
+  evidence AnyBlob required minbytes(1000) maxbytes(5000000)
+}
+
+entity JustificationDetails {
+  stateJustification StateJustification
+  rejectionReason String required maxlength(300)
+  correctionText String required maxlength(300)
+  correctionFileUrl AnyBlob required minbytes(1000) maxbytes(5000000)
+  responseDate Instant required
+}
+
+// Coleccion interna
+entity DesertionCounter {
+  totalGlobalAbsences Integer
+  accumulatedLateArrivals Integer
+  workJustificationsUsed Integer
+  alertsSent Boolean
+}
+
+// ============================================================================
+// RELACIONES
+// ============================================================================
+
+relationship OneToOne {
+  // Relación 1:1 estricta con el User embebido de JHipster
+  UserProfile{user(login) required} to User with builtInEntity
+}
+
+relationship ManyToOne {
+  // --- Catálogos Maestros ---
+  UserProfile{documentType(name) required} to DocumentType
+
+  // --- Configuración de Fichas (Grades) ---
+  Grade{program(name) required} to Program
+  Grade{modality(name) required} to Modality
+  Grade{timeSlot(name) required} to TimeSlot
+
+  // --- Matrículas (Apprentice) ---
+  Apprentice{student(documentNumber) required} to UserProfile
+  Apprentice{grade(code) required} to Grade
+
+  // --- Asignación de Clases (ClassSection) ---
+  ClassSection{instructor(documentNumber) required} to UserProfile
+  ClassSection{grade(code) required} to Grade
+
+  // --- Dependencias de Horarios ---
+  ClassSchedule{trimester(name) required} to Trimester
+
+  // --- Asistencia ---
+  Attendance{classSection(subjectName) required} to ClassSection
+  Attendance{student(documentNumber) required} to UserProfile
+  Attendance{modifiedByJustification} to Justification 
+
+  // --- Auditoría ---
+  AuditLog{modifiedBy(documentNumber) required} to UserProfile
+
+  // --- Detalles de Justificación ---
+  Justification{justificationType(name) required} to JustificationType
+  Justification{student(documentNumber) required} to UserProfile
+  JustificationDetails{classSection(subjectName) required} to ClassSection
+
+  // --- Motor de Deserción ---
+  DesertionCounter{student(documentNumber) required} to UserProfile
+  DesertionCounter{trimester(name) required} to Trimester
+}
+
+relationship OneToMany {
+  // --- Anidamiento Fuerte (Embedding Patterns para NoSQL) ---
+  ClassSection{schedules} to ClassSchedule{classSection(subjectName) required}
+  ClassSection{exceptions} to ClassException{classSection(subjectName) required}
+  
+  Attendance{auditLogs} to AuditLog{attendance(date) required}
+  
+  Justification{details} to JustificationDetails{justification(description) required}
+}
+
+// ============================================================================
+// OPCIONES DE JHIPSTER
+// ============================================================================
+
+dto * with mapstruct
+service * with serviceImpl
+paginate Program, Grade, UserProfile, Apprentice, Trimester, ClassSection, ClassSchedule, ClassException, Attendance, AuditLog, Justification, JustificationDetails, DesertionCounter with pagination
+//search * with elasticsearch

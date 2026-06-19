@@ -1,0 +1,30 @@
+{
+  "senaAttendanceApp": {
+    "justificationDetails": {
+      "home": {
+        "title": "Justification Details",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Justification Details",
+        "createOrEditLabel": "Crear o editar Justification Details",
+        "notFound": "Ningún Justification Details encontrado"
+      },
+      "created": "Un nuevo Justification Details ha sido creado con el identificador {{ param }}",
+      "updated": "Un Justification Details ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Justification Details ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Justification Details {{ id }}?"
+      },
+      "detail": {
+        "title": "Justification Details"
+      },
+      "id": "ID",
+      "stateJustification": "State Justification",
+      "rejectionReason": "Rejection Reason",
+      "correctionText": "Correction Text",
+      "correctionFileUrl": "Correction File Url",
+      "responseDate": "Response Date",
+      "classSection": "Class Section",
+      "justification": "Justification"
+    }
+  }
+}

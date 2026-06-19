@@ -1,0 +1,25 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202001"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "name",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "30"
+    },
+    {
+      "fieldName": "initials",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "10"
+    }
+  ],
+  "name": "DocumentType",
+  "relationships": [],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

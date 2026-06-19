@@ -1,0 +1,49 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202901"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "previousState",
+      "fieldType": "StateAttendance",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PRESENTE,FALLA,JUSTIFICADA,TARDE"
+    },
+    {
+      "fieldName": "newState",
+      "fieldType": "StateAttendance",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PRESENTE,FALLA,JUSTIFICADA,TARDE"
+    },
+    {
+      "fieldName": "editDate",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "AuditLog",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "documentNumber",
+      "otherEntityName": "userProfile",
+      "relationshipName": "modifiedBy",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "date",
+      "otherEntityName": "attendance",
+      "otherEntityRelationshipName": "auditLogs",
+      "relationshipName": "attendance",
+      "relationshipSide": "right",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

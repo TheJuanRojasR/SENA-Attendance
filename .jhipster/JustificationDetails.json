@@ -1,0 +1,61 @@
+{
+  "annotations": {
+    "changelogDate": "20260619203101"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "stateJustification",
+      "fieldType": "StateJustification",
+      "fieldValues": "ACEPTADA,RECHAZADA,PENDIENTE"
+    },
+    {
+      "fieldName": "rejectionReason",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "300"
+    },
+    {
+      "fieldName": "correctionText",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "300"
+    },
+    {
+      "fieldName": "correctionFileUrl",
+      "fieldType": "AnyBlob",
+      "fieldValidateRules": ["required", "minbytes", "maxbytes"],
+      "fieldValidateRulesMaxbytes": "5000000",
+      "fieldValidateRulesMinbytes": "1000"
+    },
+    {
+      "fieldName": "responseDate",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "JustificationDetails",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "subjectName",
+      "otherEntityName": "classSection",
+      "relationshipName": "classSection",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "description",
+      "otherEntityName": "justification",
+      "otherEntityRelationshipName": "details",
+      "relationshipName": "justification",
+      "relationshipSide": "right",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

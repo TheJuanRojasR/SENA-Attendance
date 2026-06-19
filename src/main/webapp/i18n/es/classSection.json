@@ -1,0 +1,29 @@
+{
+  "senaAttendanceApp": {
+    "classSection": {
+      "home": {
+        "title": "Class Sections",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Class Section",
+        "createOrEditLabel": "Crear o editar Class Section",
+        "notFound": "Ningún Class Sections encontrado"
+      },
+      "created": "Un nuevo Class Section ha sido creado con el identificador {{ param }}",
+      "updated": "Un Class Section ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Class Section ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Class Section {{ id }}?"
+      },
+      "detail": {
+        "title": "Class Section"
+      },
+      "id": "ID",
+      "subjectName": "Subject Name",
+      "isActive": "Is Active",
+      "schedules": "Schedules",
+      "exceptions": "Exceptions",
+      "instructor": "Instructor",
+      "grade": "Grade"
+    }
+  }
+}

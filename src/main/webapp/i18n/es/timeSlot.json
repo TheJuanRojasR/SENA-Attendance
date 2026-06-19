@@ -1,0 +1,27 @@
+{
+  "senaAttendanceApp": {
+    "timeSlot": {
+      "home": {
+        "title": "Time Slots",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Time Slot",
+        "createOrEditLabel": "Crear o editar Time Slot",
+        "notFound": "Ningún Time Slots encontrado"
+      },
+      "created": "Un nuevo Time Slot ha sido creado con el identificador {{ param }}",
+      "updated": "Un Time Slot ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Time Slot ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Time Slot {{ id }}?"
+      },
+      "detail": {
+        "title": "Time Slot"
+      },
+      "id": "ID",
+      "name": "Name",
+      "isActive": "Is Active",
+      "startTime": "Start Time",
+      "endTime": "End Time"
+    }
+  }
+}

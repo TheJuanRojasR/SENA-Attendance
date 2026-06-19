@@ -1,0 +1,35 @@
+{
+  "annotations": {
+    "changelogDate": "20260619202601"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "date",
+      "fieldType": "LocalDate",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "200"
+    }
+  ],
+  "name": "ClassException",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "subjectName",
+      "otherEntityName": "classSection",
+      "otherEntityRelationshipName": "exceptions",
+      "relationshipName": "classSection",
+      "relationshipSide": "right",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

@@ -1,0 +1,26 @@
+{
+  "senaAttendanceApp": {
+    "classException": {
+      "home": {
+        "title": "Class Exceptions",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Class Exception",
+        "createOrEditLabel": "Crear o editar Class Exception",
+        "notFound": "Ningún Class Exceptions encontrado"
+      },
+      "created": "Un nuevo Class Exception ha sido creado con el identificador {{ param }}",
+      "updated": "Un Class Exception ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Class Exception ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Class Exception {{ id }}?"
+      },
+      "detail": {
+        "title": "Class Exception"
+      },
+      "id": "ID",
+      "date": "Date",
+      "reason": "Reason",
+      "classSection": "Class Section"
+    }
+  }
+}

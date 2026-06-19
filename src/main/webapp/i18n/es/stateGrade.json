@@ -1,0 +1,10 @@
+{
+  "senaAttendanceApp": {
+    "StateGrade": {
+      "null": "",
+      "ACTIVA": "ACTIVA",
+      "INACTIVA": "INACTIVA",
+      "APLAZADA": "APLAZADA"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "senaAttendanceApp": {
+    "auditLog": {
+      "home": {
+        "title": "Audit Logs",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Audit Log",
+        "createOrEditLabel": "Crear o editar Audit Log",
+        "notFound": "Ningún Audit Logs encontrado"
+      },
+      "created": "Un nuevo Audit Log ha sido creado con el identificador {{ param }}",
+      "updated": "Un Audit Log ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Audit Log ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Audit Log {{ id }}?"
+      },
+      "detail": {
+        "title": "Audit Log"
+      },
+      "id": "ID",
+      "previousState": "Previous State",
+      "newState": "New State",
+      "editDate": "Edit Date",
+      "modifiedBy": "Modified By",
+      "attendance": "Attendance"
+    }
+  }
+}

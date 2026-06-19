@@ -1,0 +1,12 @@
+{
+  "senaAttendanceApp": {
+    "StateAcademic": {
+      "null": "",
+      "RETIRO_VOLUNTARIO": "RETIRO_VOLUNTARIO",
+      "APLAZADO": "APLAZADO",
+      "CANCELADO": "CANCELADO",
+      "MATRICULADO": "MATRICULADO",
+      "INACTIVO": "INACTIVO"
+    }
+  }
+}

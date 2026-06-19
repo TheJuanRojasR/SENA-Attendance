@@ -1,0 +1,26 @@
+{
+  "senaAttendanceApp": {
+    "apprentice": {
+      "home": {
+        "title": "Apprentices",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Apprentice",
+        "createOrEditLabel": "Crear o editar Apprentice",
+        "notFound": "Ningún Apprentices encontrado"
+      },
+      "created": "Un nuevo Apprentice ha sido creado con el identificador {{ param }}",
+      "updated": "Un Apprentice ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Apprentice ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Apprentice {{ id }}?"
+      },
+      "detail": {
+        "title": "Apprentice"
+      },
+      "id": "ID",
+      "stateAcademic": "State Academic",
+      "student": "Student",
+      "grade": "Grade"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "senaAttendanceApp": {
+    "classSchedule": {
+      "home": {
+        "title": "Class Schedules",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Class Schedule",
+        "createOrEditLabel": "Crear o editar Class Schedule",
+        "notFound": "Ningún Class Schedules encontrado"
+      },
+      "created": "Un nuevo Class Schedule ha sido creado con el identificador {{ param }}",
+      "updated": "Un Class Schedule ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Class Schedule ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Class Schedule {{ id }}?"
+      },
+      "detail": {
+        "title": "Class Schedule"
+      },
+      "id": "ID",
+      "dayOfWeek": "Day Of Week",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "trimester": "Trimester",
+      "classSection": "Class Section"
+    }
+  }
+}

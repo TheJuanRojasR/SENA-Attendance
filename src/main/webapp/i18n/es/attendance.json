@@ -1,0 +1,29 @@
+{
+  "senaAttendanceApp": {
+    "attendance": {
+      "home": {
+        "title": "Attendances",
+        "refreshListLabel": "Refrescar lista",
+        "createLabel": "Crear nuevo Attendance",
+        "createOrEditLabel": "Crear o editar Attendance",
+        "notFound": "Ningún Attendances encontrado"
+      },
+      "created": "Un nuevo Attendance ha sido creado con el identificador {{ param }}",
+      "updated": "Un Attendance ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Attendance ha sido eliminado con el identificador {{ param }}",
+      "delete": {
+        "question": "¿Seguro que quiere eliminar Attendance {{ id }}?"
+      },
+      "detail": {
+        "title": "Attendance"
+      },
+      "id": "ID",
+      "date": "Date",
+      "stateAttendance": "State Attendance",
+      "auditLogs": "Audit Logs",
+      "classSection": "Class Section",
+      "student": "Student",
+      "modifiedByJustification": "Modified By Justification"
+    }
+  }
+}

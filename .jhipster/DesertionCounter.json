@@ -1,0 +1,47 @@
+{
+  "annotations": {
+    "changelogDate": "20260619203201"
+  },
+  "applications": ["senaAttendance"],
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "totalGlobalAbsences",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "accumulatedLateArrivals",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "workJustificationsUsed",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "alertsSent",
+      "fieldType": "Boolean"
+    }
+  ],
+  "name": "DesertionCounter",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "documentNumber",
+      "otherEntityName": "userProfile",
+      "relationshipName": "student",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    },
+    {
+      "otherEntityField": "name",
+      "otherEntityName": "trimester",
+      "relationshipName": "trimester",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}
