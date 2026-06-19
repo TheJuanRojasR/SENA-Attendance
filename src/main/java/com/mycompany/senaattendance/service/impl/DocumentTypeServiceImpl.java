@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.DocumentTypeService;
 import com.mycompany.senaattendance.service.dto.DocumentTypeDTO;
 import com.mycompany.senaattendance.service.mapper.DocumentTypeMapper;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +36,15 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     public DocumentTypeDTO save(DocumentTypeDTO documentTypeDTO) {
         LOG.debug("Request to save DocumentType : {}", documentTypeDTO);
         DocumentType documentType = documentTypeMapper.toEntity(documentTypeDTO);
+
+        // Inserta la fecha de creación
+        documentType.setCreatedDate(Instant.now());
+        // Si existe el usuario se inserta quien lo creo
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            documentType.setCreatedBy(currentUserLogin.get());
+        }
+
         documentType = documentTypeRepository.save(documentType);
         return documentTypeMapper.toDto(documentType);
     }
@@ -42,6 +53,21 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     public DocumentTypeDTO update(DocumentTypeDTO documentTypeDTO) {
         LOG.debug("Request to update DocumentType : {}", documentTypeDTO);
         DocumentType documentType = documentTypeMapper.toEntity(documentTypeDTO);
+
+        // Trae el documentType por ID
+        Optional<DocumentType> optionalDocumentType = documentTypeRepository.findById(documentType.getId());
+        if (optionalDocumentType.isPresent()) {
+            DocumentType existingDocumentType = optionalDocumentType.get();
+            documentType.setCreatedBy(existingDocumentType.getCreatedBy());
+            documentType.setCreatedDate(existingDocumentType.getCreatedDate());
+        } else {
+            documentType.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                documentType.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         documentType = documentTypeRepository.save(documentType);
         return documentTypeMapper.toDto(documentType);
     }
