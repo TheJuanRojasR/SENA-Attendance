@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,15 @@ public class GradeServiceImpl implements GradeService {
     public GradeDTO save(GradeDTO gradeDTO) {
         LOG.debug("Request to save Grade : {}", gradeDTO);
         Grade grade = gradeMapper.toEntity(gradeDTO);
+
+        // Inserta fecha de creación
+        grade.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            // Inserta quien lo creo
+            grade.setCreatedBy(currentUserLogin.get());
+        }
+
         grade = gradeRepository.save(grade);
         return gradeMapper.toDto(grade);
     }
@@ -41,6 +52,20 @@ public class GradeServiceImpl implements GradeService {
     public GradeDTO update(GradeDTO gradeDTO) {
         LOG.debug("Request to update Grade : {}", gradeDTO);
         Grade grade = gradeMapper.toEntity(gradeDTO);
+
+        Optional<Grade> optionalGrade = gradeRepository.findById(grade.getId());
+        if (optionalGrade.isPresent()) {
+            Grade existingGrade = optionalGrade.get();
+            grade.setCreatedBy(existingGrade.getCreatedBy());
+            grade.setCreatedDate(existingGrade.getCreatedDate());
+        } else {
+            grade.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                grade.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         grade = gradeRepository.save(grade);
         return gradeMapper.toDto(grade);
     }
