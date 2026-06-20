@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Attendance;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
 import com.mycompany.senaattendance.service.mapper.AttendanceMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceDTO save(AttendanceDTO attendanceDTO) {
         LOG.debug("Request to save Attendance : {}", attendanceDTO);
         Attendance attendance = attendanceMapper.toEntity(attendanceDTO);
+
+        attendance.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            attendance.setCreatedBy(currentUserLogin.get());
+        }
+
         attendance = attendanceRepository.save(attendance);
         return attendanceMapper.toDto(attendance);
     }
@@ -41,6 +50,20 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceDTO update(AttendanceDTO attendanceDTO) {
         LOG.debug("Request to update Attendance : {}", attendanceDTO);
         Attendance attendance = attendanceMapper.toEntity(attendanceDTO);
+
+        Optional<Attendance> optionalAttendance = attendanceRepository.findById(attendance.getId());
+        if (optionalAttendance.isPresent()) {
+            Attendance existingAttendance = optionalAttendance.get();
+            attendance.setCreatedBy(existingAttendance.getCreatedBy());
+            attendance.setCreatedDate(existingAttendance.getCreatedDate());
+        } else {
+            attendance.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                attendance.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         attendance = attendanceRepository.save(attendance);
         return attendanceMapper.toDto(attendance);
     }
