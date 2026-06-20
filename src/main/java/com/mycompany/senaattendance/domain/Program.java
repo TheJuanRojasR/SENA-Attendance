@@ -12,7 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  */
 @Document(collection = "program")
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class Program implements Serializable {
+public class Program extends AbstractAuditingEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;

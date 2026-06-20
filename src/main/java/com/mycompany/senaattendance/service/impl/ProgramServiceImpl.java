@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ProgramService;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import com.mycompany.senaattendance.service.mapper.ProgramMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,15 @@ public class ProgramServiceImpl implements ProgramService {
     public ProgramDTO save(ProgramDTO programDTO) {
         LOG.debug("Request to save Program : {}", programDTO);
         Program program = programMapper.toEntity(programDTO);
+
+        // Inserta fecha de creación
+        program.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            // Inserta quien lo creo
+            program.setCreatedBy(currentUserLogin.get());
+        }
+
         program = programRepository.save(program);
         return programMapper.toDto(program);
     }
@@ -41,6 +52,20 @@ public class ProgramServiceImpl implements ProgramService {
     public ProgramDTO update(ProgramDTO programDTO) {
         LOG.debug("Request to update Program : {}", programDTO);
         Program program = programMapper.toEntity(programDTO);
+
+        Optional<Program> optionalProgram = programRepository.findById(program.getId());
+        if (optionalProgram.isPresent()) {
+            Program existingProgram = optionalProgram.get();
+            program.setCreatedBy(existingProgram.getCreatedBy());
+            program.setCreatedDate(existingProgram.getCreatedDate());
+        } else {
+            program.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                program.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         program = programRepository.save(program);
         return programMapper.toDto(program);
     }
