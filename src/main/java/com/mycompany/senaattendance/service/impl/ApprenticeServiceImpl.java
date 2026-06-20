@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Apprentice;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ApprenticeService;
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
 import com.mycompany.senaattendance.service.mapper.ApprenticeMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class ApprenticeServiceImpl implements ApprenticeService {
     public ApprenticeDTO save(ApprenticeDTO apprenticeDTO) {
         LOG.debug("Request to save Apprentice : {}", apprenticeDTO);
         Apprentice apprentice = apprenticeMapper.toEntity(apprenticeDTO);
+
+        apprentice.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            apprentice.setCreatedBy(currentUserLogin.get());
+        }
+
         apprentice = apprenticeRepository.save(apprentice);
         return apprenticeMapper.toDto(apprentice);
     }
@@ -41,6 +50,20 @@ public class ApprenticeServiceImpl implements ApprenticeService {
     public ApprenticeDTO update(ApprenticeDTO apprenticeDTO) {
         LOG.debug("Request to update Apprentice : {}", apprenticeDTO);
         Apprentice apprentice = apprenticeMapper.toEntity(apprenticeDTO);
+
+        Optional<Apprentice> optionalApprentice = apprenticeRepository.findById(apprentice.getId());
+        if (optionalApprentice.isPresent()) {
+            Apprentice existingApprentice = optionalApprentice.get();
+            apprentice.setCreatedBy(existingApprentice.getCreatedBy());
+            apprentice.setCreatedDate(existingApprentice.getCreatedDate());
+        } else {
+            apprentice.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                apprentice.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         apprentice = apprenticeRepository.save(apprentice);
         return apprenticeMapper.toDto(apprentice);
     }
