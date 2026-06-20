@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.UserProfileService;
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.service.mapper.UserProfileMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class UserProfileServiceImpl implements UserProfileService {
     public UserProfileDTO save(UserProfileDTO userProfileDTO) {
         LOG.debug("Request to save UserProfile : {}", userProfileDTO);
         UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
+
+        userProfile.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            userProfile.setCreatedBy(currentUserLogin.get());
+        }
+
         userProfile = userProfileRepository.save(userProfile);
         return userProfileMapper.toDto(userProfile);
     }
@@ -41,6 +50,20 @@ public class UserProfileServiceImpl implements UserProfileService {
     public UserProfileDTO update(UserProfileDTO userProfileDTO) {
         LOG.debug("Request to update UserProfile : {}", userProfileDTO);
         UserProfile userProfile = userProfileMapper.toEntity(userProfileDTO);
+
+        Optional<UserProfile> optionalUserProfile = userProfileRepository.findById(userProfile.getId());
+        if (optionalUserProfile.isPresent()) {
+            UserProfile existingUserProfile = optionalUserProfile.get();
+            userProfile.setCreatedBy(existingUserProfile.getCreatedBy());
+            userProfile.setCreatedDate(existingUserProfile.getCreatedDate());
+        } else {
+            userProfile.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                userProfile.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         userProfile = userProfileRepository.save(userProfile);
         return userProfileMapper.toDto(userProfile);
     }

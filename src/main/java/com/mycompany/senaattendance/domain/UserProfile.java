@@ -13,7 +13,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  */
 @Document(collection = "user_profile")
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class UserProfile implements Serializable {
+public class UserProfile extends AbstractAuditingEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
