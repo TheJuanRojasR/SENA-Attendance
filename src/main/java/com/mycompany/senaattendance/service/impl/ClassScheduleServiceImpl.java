@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassScheduleService;
 import com.mycompany.senaattendance.service.dto.ClassScheduleDTO;
 import com.mycompany.senaattendance.service.mapper.ClassScheduleMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
     public ClassScheduleDTO save(ClassScheduleDTO classScheduleDTO) {
         LOG.debug("Request to save ClassSchedule : {}", classScheduleDTO);
         ClassSchedule classSchedule = classScheduleMapper.toEntity(classScheduleDTO);
+
+        classSchedule.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            classSchedule.setCreatedBy(currentUserLogin.get());
+        }
+
         classSchedule = classScheduleRepository.save(classSchedule);
         return classScheduleMapper.toDto(classSchedule);
     }
@@ -41,6 +50,20 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
     public ClassScheduleDTO update(ClassScheduleDTO classScheduleDTO) {
         LOG.debug("Request to update ClassSchedule : {}", classScheduleDTO);
         ClassSchedule classSchedule = classScheduleMapper.toEntity(classScheduleDTO);
+
+        Optional<ClassSchedule> optionalClassSchedule = classScheduleRepository.findById(classSchedule.getId());
+        if (optionalClassSchedule.isPresent()) {
+            ClassSchedule existingClassSchedule = optionalClassSchedule.get();
+            classSchedule.setCreatedBy(existingClassSchedule.getCreatedBy());
+            classSchedule.setCreatedDate(existingClassSchedule.getCreatedDate());
+        } else {
+            classSchedule.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                classSchedule.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         classSchedule = classScheduleRepository.save(classSchedule);
         return classScheduleMapper.toDto(classSchedule);
     }

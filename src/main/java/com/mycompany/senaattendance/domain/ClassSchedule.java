@@ -16,7 +16,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  */
 @Document(collection = "class_schedule")
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class ClassSchedule implements Serializable {
+public class ClassSchedule extends AbstractAuditingEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
