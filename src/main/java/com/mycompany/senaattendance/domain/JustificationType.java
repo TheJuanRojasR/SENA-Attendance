@@ -13,7 +13,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  */
 @Document(collection = "justification_type")
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class JustificationType implements Serializable {
+public class JustificationType extends AbstractAuditingEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;

@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.JustificationType;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationTypeService;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationTypeMapper;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,13 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     public JustificationTypeDTO save(JustificationTypeDTO justificationTypeDTO) {
         LOG.debug("Request to save JustificationType : {}", justificationTypeDTO);
         JustificationType justificationType = justificationTypeMapper.toEntity(justificationTypeDTO);
+
+        justificationType.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            justificationType.setCreatedBy(currentUserLogin.get());
+        }
+
         justificationType = justificationTypeRepository.save(justificationType);
         return justificationTypeMapper.toDto(justificationType);
     }
@@ -45,6 +54,20 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     public JustificationTypeDTO update(JustificationTypeDTO justificationTypeDTO) {
         LOG.debug("Request to update JustificationType : {}", justificationTypeDTO);
         JustificationType justificationType = justificationTypeMapper.toEntity(justificationTypeDTO);
+
+        Optional<JustificationType> optionalJustificationType = justificationTypeRepository.findById(justificationType.getId());
+        if (optionalJustificationType.isPresent()) {
+            JustificationType existingJustificationType = optionalJustificationType.get();
+            justificationType.setCreatedBy(existingJustificationType.getCreatedBy());
+            justificationType.setCreatedDate(existingJustificationType.getCreatedDate());
+        } else {
+            justificationType.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                justificationType.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         justificationType = justificationTypeRepository.save(justificationType);
         return justificationTypeMapper.toDto(justificationType);
     }
