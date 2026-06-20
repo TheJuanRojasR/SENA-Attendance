@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.repository.JustificationRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class JustificationServiceImpl implements JustificationService {
     public JustificationDTO save(JustificationDTO justificationDTO) {
         LOG.debug("Request to save Justification : {}", justificationDTO);
         Justification justification = justificationMapper.toEntity(justificationDTO);
+
+        justification.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            justification.setCreatedBy(currentUserLogin.get());
+        }
+
         justification = justificationRepository.save(justification);
         return justificationMapper.toDto(justification);
     }
@@ -41,6 +50,20 @@ public class JustificationServiceImpl implements JustificationService {
     public JustificationDTO update(JustificationDTO justificationDTO) {
         LOG.debug("Request to update Justification : {}", justificationDTO);
         Justification justification = justificationMapper.toEntity(justificationDTO);
+
+        Optional<Justification> optionalJustification = justificationRepository.findById(justification.getId());
+        if (optionalJustification.isPresent()) {
+            Justification existingJustification = optionalJustification.get();
+            justification.setCreatedBy(existingJustification.getCreatedBy());
+            justification.setCreatedDate(existingJustification.getCreatedDate());
+        } else {
+            justification.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                justification.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         justification = justificationRepository.save(justification);
         return justificationMapper.toDto(justification);
     }
