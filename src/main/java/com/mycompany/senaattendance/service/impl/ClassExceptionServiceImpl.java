@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassExceptionService;
 import com.mycompany.senaattendance.service.dto.ClassExceptionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassExceptionMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class ClassExceptionServiceImpl implements ClassExceptionService {
     public ClassExceptionDTO save(ClassExceptionDTO classExceptionDTO) {
         LOG.debug("Request to save ClassException : {}", classExceptionDTO);
         ClassException classException = classExceptionMapper.toEntity(classExceptionDTO);
+
+        classException.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            classException.setCreatedBy(currentUserLogin.get());
+        }
+
         classException = classExceptionRepository.save(classException);
         return classExceptionMapper.toDto(classException);
     }
@@ -41,6 +50,20 @@ public class ClassExceptionServiceImpl implements ClassExceptionService {
     public ClassExceptionDTO update(ClassExceptionDTO classExceptionDTO) {
         LOG.debug("Request to update ClassException : {}", classExceptionDTO);
         ClassException classException = classExceptionMapper.toEntity(classExceptionDTO);
+
+        Optional<ClassException> optionalClassException = classExceptionRepository.findById(classException.getId());
+        if (optionalClassException.isPresent()) {
+            ClassException existingClassException = optionalClassException.get();
+            classException.setCreatedBy(existingClassException.getCreatedBy());
+            classException.setCreatedDate(existingClassException.getCreatedDate());
+        } else {
+            classException.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                classException.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         classException = classExceptionRepository.save(classException);
         return classExceptionMapper.toDto(classException);
     }
