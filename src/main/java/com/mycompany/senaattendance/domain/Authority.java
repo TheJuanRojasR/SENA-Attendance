@@ -10,7 +10,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 /**
  * A Authority.
  */
-@Document(collection = "project_authority")
+@Document(collection = "authority")
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class Authority implements Serializable {
 

@@ -20,7 +20,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 /**
  * A user.
  */
-@org.springframework.data.mongodb.core.mapping.Document(collection = "project_user")
+@org.springframework.data.mongodb.core.mapping.Document(collection = "user")
 public class User extends AbstractAuditingEntity<String> implements Serializable {
 
     @Serial
