@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     public ClassSectionDTO save(ClassSectionDTO classSectionDTO) {
         LOG.debug("Request to save ClassSection : {}", classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
+
+        classSection.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            classSection.setCreatedBy(currentUserLogin.get());
+        }
+
         classSection = classSectionRepository.save(classSection);
         return classSectionMapper.toDto(classSection);
     }
@@ -41,6 +50,20 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     public ClassSectionDTO update(ClassSectionDTO classSectionDTO) {
         LOG.debug("Request to update ClassSection : {}", classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
+
+        Optional<ClassSection> optionalClassSection = classSectionRepository.findById(classSection.getId());
+        if (optionalClassSection.isPresent()) {
+            ClassSection existingClassSection = optionalClassSection.get();
+            classSection.setCreatedBy(existingClassSection.getCreatedBy());
+            classSection.setCreatedDate(existingClassSection.getCreatedDate());
+        } else {
+            classSection.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                classSection.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         classSection = classSectionRepository.save(classSection);
         return classSectionMapper.toDto(classSection);
     }
