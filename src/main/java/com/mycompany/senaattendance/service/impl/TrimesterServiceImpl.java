@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import com.mycompany.senaattendance.service.mapper.TrimesterMapper;
+import java.time.Instant;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,13 @@ public class TrimesterServiceImpl implements TrimesterService {
     public TrimesterDTO save(TrimesterDTO trimesterDTO) {
         LOG.debug("Request to save Trimester : {}", trimesterDTO);
         Trimester trimester = trimesterMapper.toEntity(trimesterDTO);
+
+        trimester.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            trimester.setCreatedBy(currentUserLogin.get());
+        }
+
         trimester = trimesterRepository.save(trimester);
         return trimesterMapper.toDto(trimester);
     }
@@ -41,6 +50,20 @@ public class TrimesterServiceImpl implements TrimesterService {
     public TrimesterDTO update(TrimesterDTO trimesterDTO) {
         LOG.debug("Request to update Trimester : {}", trimesterDTO);
         Trimester trimester = trimesterMapper.toEntity(trimesterDTO);
+
+        Optional<Trimester> optionalTrimester = trimesterRepository.findById(trimester.getId());
+        if (optionalTrimester.isPresent()) {
+            Trimester existingTrimester = optionalTrimester.get();
+            trimester.setCreatedBy(existingTrimester.getCreatedBy());
+            trimester.setCreatedDate(existingTrimester.getCreatedDate());
+        } else {
+            trimester.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                trimester.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         trimester = trimesterRepository.save(trimester);
         return trimesterMapper.toDto(trimester);
     }
