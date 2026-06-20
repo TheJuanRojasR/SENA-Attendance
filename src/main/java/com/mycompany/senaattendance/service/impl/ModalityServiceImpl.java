@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.repository.ModalityRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ModalityService;
 import com.mycompany.senaattendance.service.dto.ModalityDTO;
 import com.mycompany.senaattendance.service.mapper.ModalityMapper;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +36,15 @@ public class ModalityServiceImpl implements ModalityService {
     public ModalityDTO save(ModalityDTO modalityDTO) {
         LOG.debug("Request to save Modality : {}", modalityDTO);
         Modality modality = modalityMapper.toEntity(modalityDTO);
+
+        // Inserta fecha de creación
+        modality.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            // Inserta quien lo creo
+            modality.setCreatedBy(currentUserLogin.get());
+        }
+
         modality = modalityRepository.save(modality);
         return modalityMapper.toDto(modality);
     }
@@ -42,6 +53,20 @@ public class ModalityServiceImpl implements ModalityService {
     public ModalityDTO update(ModalityDTO modalityDTO) {
         LOG.debug("Request to update Modality : {}", modalityDTO);
         Modality modality = modalityMapper.toEntity(modalityDTO);
+
+        Optional<Modality> optionalModality = modalityRepository.findById(modality.getId());
+        if (optionalModality.isPresent()) {
+            Modality existingModality = optionalModality.get();
+            modality.setCreatedBy(existingModality.getCreatedBy());
+            modality.setCreatedDate(existingModality.getCreatedDate());
+        } else {
+            modality.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                modality.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         modality = modalityRepository.save(modality);
         return modalityMapper.toDto(modality);
     }

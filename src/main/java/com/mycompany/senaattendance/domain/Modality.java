@@ -12,7 +12,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  */
 @Document(collection = "modality")
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class Modality implements Serializable {
+public class Modality extends AbstractAuditingEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
