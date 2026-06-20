@@ -2,9 +2,11 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
+import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TimeSlotService;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.TimeSlotMapper;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +36,15 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public TimeSlotDTO save(TimeSlotDTO timeSlotDTO) {
         LOG.debug("Request to save TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
+
+        // Insertar fecha de creación
+        timeSlot.setCreatedDate(Instant.now());
+        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+        if (currentUserLogin.isPresent()) {
+            // Insertar quien lo creo
+            timeSlot.setCreatedBy(currentUserLogin.get());
+        }
+
         timeSlot = timeSlotRepository.save(timeSlot);
         return timeSlotMapper.toDto(timeSlot);
     }
@@ -42,6 +53,20 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public TimeSlotDTO update(TimeSlotDTO timeSlotDTO) {
         LOG.debug("Request to update TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
+
+        Optional<TimeSlot> optionalTimeSlot = timeSlotRepository.findById(timeSlot.getId());
+        if (optionalTimeSlot.isPresent()) {
+            TimeSlot existingTimeSlot = optionalTimeSlot.get();
+            timeSlot.setCreatedBy(existingTimeSlot.getCreatedBy());
+            timeSlot.setCreatedDate(existingTimeSlot.getCreatedDate());
+        } else {
+            timeSlot.setCreatedDate(Instant.now());
+            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
+            if (currentUserLogin.isPresent()) {
+                timeSlot.setCreatedBy(currentUserLogin.get());
+            }
+        }
+
         timeSlot = timeSlotRepository.save(timeSlot);
         return timeSlotMapper.toDto(timeSlot);
     }

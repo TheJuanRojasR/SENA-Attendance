@@ -13,7 +13,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  */
 @Document(collection = "time_slot")
 @SuppressWarnings("common-java:DuplicatedBlocks")
-public class TimeSlot implements Serializable {
+public class TimeSlot extends AbstractAuditingEntity implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
