@@ -33,7 +33,9 @@ const LoginModal = (props: ILoginModalProps) => {
     <Modal show={props.showModal} onHide={handleClose} backdrop="static" id="login-page" autoFocus={false}>
       <Form onSubmit={handleLoginSubmit}>
         <ModalHeader id="login-title" data-cy="loginTitle" closeButton>
-          <Translate contentKey="login.title">Sign in</Translate>
+          <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+            <Translate contentKey="login.title">Sign in</Translate>
+          </span>
         </ModalHeader>
         <ModalBody>
           <Row>
@@ -71,30 +73,27 @@ const LoginModal = (props: ILoginModalProps) => {
                 error={errors.password as FieldError}
                 isTouched={touchedFields.password}
               />
-              <ValidatedField
+              {/* <ValidatedField
                 name="rememberMe"
                 type="checkbox"
                 check
                 label={translate('login.form.rememberme')}
                 value={true}
                 register={register}
-              />
+              /> */}
             </Col>
           </Row>
-          <div className="mt-1">&nbsp;</div>
-          <Alert variant="warning">
-            <Link to="/account/reset/request" data-cy="forgetYourPasswordSelector">
-              <Translate contentKey="login.password.forgot">Did you forget your password?</Translate>
+          <div className="mt-1 text-center" style={{ color: '#6c757d', fontSize: '0.85rem' }}>
+            <Link to="/account/reset/request" data-cy="forgetYourPasswordSelector" className="text-primary">
+              <Translate contentKey="login.password.forgot" />
             </Link>
-          </Alert>
-          <Alert variant="warning">
-            <span>
-              <Translate contentKey="global.messages.info.register.noaccount">You don&apos;t have an account yet?</Translate>
-            </span>{' '}
-            <Link to="/account/register">
-              <Translate contentKey="global.messages.info.register.link">Register a new account</Translate>
+          </div>
+          <div className="mt-2 text-center" style={{ color: '#6c757d', fontSize: '0.85rem' }}>
+            <Translate contentKey="global.messages.info.register.noaccount" />{' '}
+            <Link to="/account/register" className="text-primary">
+              <Translate contentKey="global.messages.info.register.link" />
             </Link>
-          </Alert>
+          </div>
         </ModalBody>
         <ModalFooter>
           <Button variant="secondary" onClick={handleClose} tabIndex={1}>
