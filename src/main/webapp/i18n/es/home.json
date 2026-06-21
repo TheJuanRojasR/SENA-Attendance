@@ -1,7 +1,7 @@
 {
   "home": {
-    "title": "¡Bienvenido, Java Hipster!",
-    "subtitle": "Esta es su página de inicio",
+    "title": "¡Bienvenido a SENA Attendance!",
+    "subtitle": "Sistema de control y registro de asistencia para aprendices.",
     "logged": {
       "message": "Está conectado como \"{{username}}\"."
     },

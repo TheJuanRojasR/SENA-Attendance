@@ -65,13 +65,14 @@
     "messages": {
       "info": {
         "authenticated": {
-          "prefix": "Si desea ",
-          "link": "iniciar sesión",
-          "suffix": ", puede intentar con las cuentas predeterminadas:<br/>- Administrador (usuario=\"admin\" y contraseña=\"admin\") <br/>- Usuario (usuario=\"user\" y contraseña=\"user\")."
+          "prefix": "Si ya tienes un perfil en el sistema, ingresa con tu ",
+          "link": "email y contraseña",
+          "suffix": ". Si olvidaste tu contraseña, puedes restablecerla desde la pantalla de inicio de sesión."
         },
         "register": {
-          "noaccount": "¿Aún no tienes una cuenta?",
-          "link": "Crea una cuenta"
+          "noaccount": "¿Aún no tienes acceso? Si eres Aprendiz puedes",
+          "link": "regístrarte aquí",
+          "suffix": ". Si eres Instructor o Coordinador, comunícate con el administrador para la creación de tu perfil."
         }
       },
       "error": {
@@ -161,5 +162,5 @@
       "not.image": "Se esperaba que el fichero fuera una imagen pero se encontro \"{{ fileType }}\""
     }
   },
-  "footer": "Pie de página"
+  "footer": ""
 }
