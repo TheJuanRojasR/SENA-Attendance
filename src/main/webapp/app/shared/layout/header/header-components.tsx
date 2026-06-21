@@ -18,7 +18,7 @@ export const Brand = () => (
     <span className="brand-title">
       <Translate contentKey="global.title">SenaAttendance</Translate>
     </span>
-    <span className="navbar-version">{VERSION.toLowerCase().startsWith('v') ? VERSION : `v${VERSION}`}</span>
+    {/* Número de versión eliminado */}
   </NavbarBrand>
 );
 
