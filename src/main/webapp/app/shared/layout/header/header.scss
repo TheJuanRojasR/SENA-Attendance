@@ -1,4 +1,4 @@
-$header-color: #fff;
+$header-color: #212121;
 $header-color-secondary: #bbb;
 $header-color-hover: darken($header-color, 20%);
 
@@ -57,11 +57,11 @@ Navbar styles
     text-decoration: none;
   }
   .brand-icon {
-    height: 35px;
+    height: 40px;
     width: auto;
     display: inline-block;
     img {
-      width: 45px;
+      width: 50px;
     }
   }
 }
@@ -74,6 +74,10 @@ Navbar styles
     color: $header-color-hover;
     text-decoration: none;
   }
+}
+
+.navbar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .loading-bar {
