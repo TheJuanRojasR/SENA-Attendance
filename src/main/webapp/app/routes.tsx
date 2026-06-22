@@ -9,6 +9,7 @@ import Register from 'app/modules/account/register/register';
 import Home from 'app/modules/home/home';
 import Login from 'app/modules/login/login';
 import Logout from 'app/modules/login/logout';
+import Dashboard from 'app/modules/dashboard/dashboard';
 import PrivateRoute from 'app/shared/auth/private-route';
 import ErrorBoundaryRoutes from 'app/shared/error/error-boundary-routes';
 import PageNotFound from 'app/shared/error/page-not-found';
@@ -56,6 +57,15 @@ const AppRoutes = () => {
             element={
               <PrivateRoute hasAnyAuthorities={[Authority.USER]}>
                 <EntitiesRoutes />
+              </PrivateRoute>
+            }
+          />
+          {/* Ruta del Admin Dashboard Protegida */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+                <Dashboard />
               </PrivateRoute>
             }
           />
