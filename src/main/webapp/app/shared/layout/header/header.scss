@@ -1,6 +1,7 @@
-$header-color: #212121;
-$header-color-secondary: #bbb;
-$header-color-hover: darken($header-color, 20%);
+$header-color: #f1faf2;
+$header-color-secondary: #212121;
+
+@use '../../../_bootstrap-variables.scss';
 
 /* ==========================================================================
 Development Ribbon
@@ -61,7 +62,7 @@ Navbar styles
     width: auto;
     display: inline-block;
     img {
-      width: 50px;
+      width: 40px;
     }
   }
 }
@@ -69,14 +70,11 @@ Navbar styles
 .brand-title {
   font-size: 1.25rem;
   margin-left: 0.25rem;
-  color: $header-color;
-  &:hover {
-    color: $header-color-hover;
-    text-decoration: none;
-  }
+  color: $header-color-secondary;
 }
 
 .navbar {
+  background-color: bootstrap-variables.$navbar-primary;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 

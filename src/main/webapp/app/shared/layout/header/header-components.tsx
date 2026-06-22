@@ -16,7 +16,7 @@ export const Brand = () => (
   <NavbarBrand as={Link as any} to="/" className="brand-logo">
     <BrandIcon />
     <span className="brand-title">
-      <span style={{ color: '#212121' }}>SENA </span>
+      <span> SENA </span>
       <span style={{ color: '#16C829' }}>Attendance</span>
     </span>
     {/* Número de versión eliminado */}
