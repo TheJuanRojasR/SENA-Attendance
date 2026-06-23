@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -55,6 +57,15 @@ public class AttendanceResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize(
+        "hasAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.COORDINATOR +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\")"
+    )
     public ResponseEntity<AttendanceDTO> createAttendance(@Valid @RequestBody AttendanceDTO attendanceDTO) throws URISyntaxException {
         LOG.debug("REST request to save Attendance : {}", attendanceDTO);
         if (attendanceDTO.getId() != null) {
@@ -77,6 +88,15 @@ public class AttendanceResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize(
+        "hasAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.COORDINATOR +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\")"
+    )
     public ResponseEntity<AttendanceDTO> updateAttendance(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody AttendanceDTO attendanceDTO
@@ -111,6 +131,15 @@ public class AttendanceResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize(
+        "hasAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.COORDINATOR +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\")"
+    )
     public ResponseEntity<AttendanceDTO> partialUpdateAttendance(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody AttendanceDTO attendanceDTO
@@ -178,6 +207,15 @@ public class AttendanceResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize(
+        "hasAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.COORDINATOR +
+            "\") or hasAuthority(\"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\")"
+    )
     public ResponseEntity<Void> deleteAttendance(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Attendance : {}", id);
         attendanceService.delete(id);
