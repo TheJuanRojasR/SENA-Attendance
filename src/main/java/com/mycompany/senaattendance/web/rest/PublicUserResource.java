@@ -19,15 +19,7 @@ import tech.jhipster.web.util.PaginationUtil;
 @RequestMapping("/api")
 public class PublicUserResource {
 
-    private static final List<String> ALLOWED_ORDERED_PROPERTIES = List.of(
-        "id",
-        "login",
-        "firstName",
-        "lastName",
-        "email",
-        "activated",
-        "langKey"
-    );
+    private static final List<String> ALLOWED_ORDERED_PROPERTIES = List.of("id", "login", "email", "activated", "langKey");
 
     private static final Logger LOG = LoggerFactory.getLogger(PublicUserResource.class);
 

@@ -40,14 +40,6 @@ public class User extends AbstractAuditingEntity<String> implements Serializable
     @Size(min = 60, max = 60)
     private String password;
 
-    @Size(max = 50)
-    @Field("first_name")
-    private String firstName;
-
-    @Size(max = 50)
-    @Field("last_name")
-    private String lastName;
-
     @Email
     @Size(min = 5, max = 254)
     @Indexed
@@ -102,22 +94,6 @@ public class User extends AbstractAuditingEntity<String> implements Serializable
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
     }
 
     public String getEmail() {
@@ -206,8 +182,6 @@ public class User extends AbstractAuditingEntity<String> implements Serializable
     public String toString() {
         return "User{" +
             "login='" + login + '\'' +
-            ", firstName='" + firstName + '\'' +
-            ", lastName='" + lastName + '\'' +
             ", email='" + email + '\'' +
             ", imageUrl='" + imageUrl + '\'' +
             ", activated='" + activated + '\'' +

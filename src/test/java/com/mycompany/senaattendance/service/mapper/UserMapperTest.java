@@ -36,8 +36,6 @@ class UserMapperTest {
         user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
         user.setActivated(true);
         user.setEmail("johndoe@localhost");
-        user.setFirstName("john");
-        user.setLastName("doe");
         user.setImageUrl("image_url");
         user.setCreatedBy(DEFAULT_LOGIN);
         user.setCreatedDate(Instant.now());
@@ -60,8 +58,6 @@ class UserMapperTest {
 
         assertThat(convertedUserDto.getId()).isEqualTo(user.getId());
         assertThat(convertedUserDto.getLogin()).isEqualTo(user.getLogin());
-        assertThat(convertedUserDto.getFirstName()).isEqualTo(user.getFirstName());
-        assertThat(convertedUserDto.getLastName()).isEqualTo(user.getLastName());
         assertThat(convertedUserDto.getEmail()).isEqualTo(user.getEmail());
         assertThat(convertedUserDto.isActivated()).isEqualTo(user.isActivated());
         assertThat(convertedUserDto.getImageUrl()).isEqualTo(user.getImageUrl());
@@ -79,8 +75,6 @@ class UserMapperTest {
 
         assertThat(convertedUser.getId()).isEqualTo(userDto.getId());
         assertThat(convertedUser.getLogin()).isEqualTo(userDto.getLogin());
-        assertThat(convertedUser.getFirstName()).isEqualTo(userDto.getFirstName());
-        assertThat(convertedUser.getLastName()).isEqualTo(userDto.getLastName());
         assertThat(convertedUser.getEmail()).isEqualTo(userDto.getEmail());
         assertThat(convertedUser.isActivated()).isEqualTo(userDto.isActivated());
         assertThat(convertedUser.getImageUrl()).isEqualTo(userDto.getImageUrl());
