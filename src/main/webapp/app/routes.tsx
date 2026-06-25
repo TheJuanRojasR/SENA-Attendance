@@ -20,7 +20,15 @@ const loading = <div>loading ...</div>;
 const Account = React.lazy(() => import(/* webpackChunkName: "account" */ 'app/modules/account'));
 
 const Admin = React.lazy(() => import(/* webpackChunkName: "administration" */ 'app/modules/administration'));
-const AppRoutes = () => {
+
+export interface IDashboardProps {
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isInstructor: boolean;
+  isAprentice: boolean;
+}
+
+const AppRoutes = (props: IDashboardProps) => {
   return (
     <div className="view-routes">
       <Suspense fallback={loading}>
@@ -64,8 +72,13 @@ const AppRoutes = () => {
           <Route
             path="/dashboard"
             element={
-              <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
-                <Dashboard />
+              <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.INSTRUCTOR, Authority.APPRENTICE]}>
+                <Dashboard
+                  isAuthenticated={props.isAuthenticated}
+                  isAdmin={props.isAdmin}
+                  isInstructor={props.isInstructor}
+                  isAprentice={props.isAprentice}
+                />
               </PrivateRoute>
             }
           />

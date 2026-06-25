@@ -32,6 +32,8 @@ export const App = () => {
   const currentLocale = useAppSelector(state => state.locale.currentLocale);
   const isAuthenticated = useAppSelector(state => state.authentication.isAuthenticated);
   const isAdmin = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.ADMIN]));
+  const isInstructor = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.INSTRUCTOR]));
+  const isAprentice = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.APPRENTICE]));
   const ribbonEnv = useAppSelector(state => state.applicationProfile.ribbonEnv);
   const isInProduction = useAppSelector(state => state.applicationProfile.inProduction);
   const isOpenAPIEnabled = useAppSelector(state => state.applicationProfile.isOpenAPIEnabled);
@@ -51,14 +53,16 @@ export const App = () => {
             isOpenAPIEnabled={isOpenAPIEnabled}
           />
         </ErrorBoundary>
-        <Sidebar isAuthenticated={isAuthenticated} isAdmin={isAdmin} isOpenAPIEnabled={isOpenAPIEnabled} />
-        <div className="container-fluid view-container" id="app-view-container">
-          <Card className="jh-card">
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </Card>
-          <Footer />
+        <div className="app-main-content">
+          <Sidebar isAuthenticated={isAuthenticated} isAdmin={isAdmin} isOpenAPIEnabled={isOpenAPIEnabled} />
+          <div className="container-fluid view-container" id="app-view-container">
+            <Card className="jh-card">
+              <ErrorBoundary>
+                <AppRoutes isAuthenticated={isAuthenticated} isAdmin={isAdmin} isInstructor={isInstructor} isAprentice={isAprentice} />
+              </ErrorBoundary>
+            </Card>
+            <Footer />
+          </div>
         </div>
       </div>
     </BrowserRouter>

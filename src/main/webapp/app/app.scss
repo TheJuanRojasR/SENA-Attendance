@@ -27,6 +27,12 @@ a {
 
 .app-container {
   box-sizing: border-box;
+  .app-main-content {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    position: relative;
+  }
   .view-container {
     width: 100%;
     height: calc(100% - 40px);

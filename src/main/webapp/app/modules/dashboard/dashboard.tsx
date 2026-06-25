@@ -1,18 +1,20 @@
 import React from 'react';
 
-import { SupAdminDashboard } from './dashboard-components';
+import { AprenticeDashboard, InstructorDashboard, SupAdminDashboard } from './dashboard-components';
 
-export interface IHeaderProps {
+export interface IDashboardProps {
   isAuthenticated: boolean;
   isAdmin: boolean;
-  isOpenAPIEnabled: boolean;
-  currentLocale: string;
+  isInstructor: boolean;
+  isAprentice: boolean;
 }
 
-const Dashboard = () => {
+const Dashboard = (props: IDashboardProps) => {
   return (
     <div>
-      <SupAdminDashboard />
+      {props.isAuthenticated && props.isAdmin && <SupAdminDashboard />}
+      {props.isAuthenticated && props.isInstructor && <InstructorDashboard />}
+      {props.isAuthenticated && props.isAprentice && <AprenticeDashboard />}
     </div>
   );
 };
