@@ -8,6 +8,14 @@ export const SupAdminDashboard = () => {
     </div>
   );
 };
+export const CoordinatorDashboard = () => {
+  return (
+    <div>
+      <h2>Coordinador Dashboard</h2>
+      <p>Bienvenido al Dashboard de Coordinador! Aqui puedes manejar la informacion del centro de formacion.</p>
+    </div>
+  );
+};
 export const InstructorDashboard = () => {
   return (
     <div>
