@@ -2,26 +2,26 @@
   "senaAttendanceApp": {
     "timeSlot": {
       "home": {
-        "title": "Time Slots",
+        "title": "Jornadas",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Time Slot",
-        "createOrEditLabel": "Crear o editar Time Slot",
-        "notFound": "Ningún Time Slots encontrado"
+        "createLabel": "Crear nueva Jornada",
+        "createOrEditLabel": "Crear o editar Jornada",
+        "notFound": "Ninguna Jornada encontrada"
       },
-      "created": "Un nuevo Time Slot ha sido creado con el identificador {{ param }}",
-      "updated": "Un Time Slot ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Time Slot ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Jornada ha sido creada con el identificador {{ param }}",
+      "updated": "Una Jornada ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Una Jornada ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Time Slot {{ id }}?"
+        "question": "¿Seguro que quiere eliminar la Jornada {{ id }}?"
       },
       "detail": {
-        "title": "Time Slot"
+        "title": "Jornada"
       },
       "id": "ID",
-      "name": "Name",
-      "isActive": "Is Active",
-      "startTime": "Start Time",
-      "endTime": "End Time"
+      "name": "Nombre",
+      "isActive": "Activo",
+      "startTime": "Hora inicio",
+      "endTime": "Hora fin"
     }
   }
 }

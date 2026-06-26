@@ -2,24 +2,24 @@
   "senaAttendanceApp": {
     "modality": {
       "home": {
-        "title": "Modalities",
+        "title": "Modalidad",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Modality",
-        "createOrEditLabel": "Crear o editar Modality",
-        "notFound": "Ningún Modalities encontrado"
+        "createLabel": "Crear nueva Modalidad",
+        "createOrEditLabel": "Crear o editar Modalidad",
+        "notFound": "Ninguna Modalidad encontrada"
       },
-      "created": "Un nuevo Modality ha sido creado con el identificador {{ param }}",
-      "updated": "Un Modality ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Modality ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Modalidad ha sido creada con el identificador {{ param }}",
+      "updated": "Una Modalidad ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Una Modalidad ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Modality {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Modalidad {{ id }}?"
       },
       "detail": {
-        "title": "Modality"
+        "title": "Modalidad"
       },
       "id": "ID",
-      "name": "Name",
-      "isActive": "Is Active"
+      "name": "Nombre",
+      "isActive": "Activo"
     }
   }
 }

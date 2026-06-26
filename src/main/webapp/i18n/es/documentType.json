@@ -2,24 +2,24 @@
   "senaAttendanceApp": {
     "documentType": {
       "home": {
-        "title": "Document Types",
+        "title": "Tipos de Documento",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Document Type",
-        "createOrEditLabel": "Crear o editar Document Type",
-        "notFound": "Ningún Document Types encontrado"
+        "createLabel": "Crear nuevo Tipo de Documento",
+        "createOrEditLabel": "Crear o editar Tipo de Documento",
+        "notFound": "Ningún Tipo de Documento encontrado"
       },
-      "created": "Un nuevo Document Type ha sido creado con el identificador {{ param }}",
-      "updated": "Un Document Type ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Document Type ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Tipo de Documento ha sido creado con el identificador {{ param }}",
+      "updated": "Un Tipo de Documento ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Tipo de Documento ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Document Type {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Tipo de Documento {{ id }}?"
       },
       "detail": {
-        "title": "Document Type"
+        "title": "Tipo de Documento"
       },
       "id": "ID",
-      "name": "Name",
-      "initials": "Initials"
+      "name": "Nombre",
+      "initials": "Iniciales"
     }
   }
 }
