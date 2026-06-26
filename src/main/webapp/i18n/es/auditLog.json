@@ -2,27 +2,27 @@
   "senaAttendanceApp": {
     "auditLog": {
       "home": {
-        "title": "Audit Logs",
+        "title": "Registros de Auditoría",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Audit Log",
-        "createOrEditLabel": "Crear o editar Audit Log",
-        "notFound": "Ningún Audit Logs encontrado"
+        "createLabel": "Crear nuevo Registro de Auditoría",
+        "createOrEditLabel": "Crear o editar Registro de Auditoría",
+        "notFound": "Ningún Registro de Auditoría encontrado"
       },
-      "created": "Un nuevo Audit Log ha sido creado con el identificador {{ param }}",
-      "updated": "Un Audit Log ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Audit Log ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Registro de Auditoría ha sido creado con el identificador {{ param }}",
+      "updated": "Un Registro de Auditoría ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Registro de Auditoría ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Audit Log {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Registro de Auditoría {{ id }}?"
       },
       "detail": {
-        "title": "Audit Log"
+        "title": "Registro de Auditoría"
       },
       "id": "ID",
-      "previousState": "Previous State",
-      "newState": "New State",
-      "editDate": "Edit Date",
-      "modifiedBy": "Modified By",
-      "attendance": "Attendance"
+      "previousState": "Estado Anterior",
+      "newState": "Estado Nuevo",
+      "editDate": "Fecha de Edición",
+      "modifiedBy": "Modificado Por",
+      "attendance": "Asistencia"
     }
   }
 }

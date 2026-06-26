@@ -2,26 +2,26 @@
   "senaAttendanceApp": {
     "trimester": {
       "home": {
-        "title": "Trimesters",
+        "title": "Trimestres",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Trimester",
-        "createOrEditLabel": "Crear o editar Trimester",
-        "notFound": "Ningún Trimesters encontrado"
+        "createLabel": "Crear nuevo Trimestre",
+        "createOrEditLabel": "Crear o editar Trimestre",
+        "notFound": "Ningún Trimestre encontrado"
       },
-      "created": "Un nuevo Trimester ha sido creado con el identificador {{ param }}",
-      "updated": "Un Trimester ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Trimester ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Trimestre ha sido creado con el identificador {{ param }}",
+      "updated": "Un Trimestre ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Trimestre ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Trimester {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Trimestre {{ id }}?"
       },
       "detail": {
-        "title": "Trimester"
+        "title": "Trimestre"
       },
       "id": "ID",
-      "name": "Name",
-      "startDate": "Start Date",
-      "endDate": "End Date",
-      "state": "State"
+      "name": "Nombre",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin",
+      "state": "Estado"
     }
   }
 }

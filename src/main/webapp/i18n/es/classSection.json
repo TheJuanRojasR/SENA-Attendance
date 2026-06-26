@@ -2,28 +2,28 @@
   "senaAttendanceApp": {
     "classSection": {
       "home": {
-        "title": "Class Sections",
+        "title": "Secciones de Clase",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Class Section",
-        "createOrEditLabel": "Crear o editar Class Section",
-        "notFound": "Ningún Class Sections encontrado"
+        "createLabel": "Crear nueva Sección de Clase",
+        "createOrEditLabel": "Crear o editar Sección de Clase",
+        "notFound": "Ninguna Sección de Clase encontrada"
       },
-      "created": "Un nuevo Class Section ha sido creado con el identificador {{ param }}",
-      "updated": "Un Class Section ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Class Section ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Sección de Clase ha sido creada con el identificador {{ param }}",
+      "updated": "Una Sección de Clase ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Una Sección de Clase ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Class Section {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Sección de Clase {{ id }}?"
       },
       "detail": {
-        "title": "Class Section"
+        "title": "Sección de Clase"
       },
       "id": "ID",
-      "subjectName": "Subject Name",
-      "isActive": "Is Active",
-      "schedules": "Schedules",
-      "exceptions": "Exceptions",
+      "subjectName": "Nombre de la Materia",
+      "isActive": "Está Activo",
+      "schedules": "Horarios",
+      "exceptions": "Excepciones",
       "instructor": "Instructor",
-      "grade": "Grade"
+      "grade": "Ficha"
     }
   }
 }

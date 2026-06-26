@@ -2,20 +2,20 @@
   "senaAttendanceApp": {
     "justification": {
       "home": {
-        "title": "Justifications",
+        "title": "Justificación",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Justification",
-        "createOrEditLabel": "Crear o editar Justification",
-        "notFound": "Ningún Justifications encontrado"
+        "createLabel": "Crear nueva Justificación",
+        "createOrEditLabel": "Crear o editar Justificación",
+        "notFound": "Ninguna Justificación encontrada"
       },
-      "created": "Un nuevo Justification ha sido creado con el identificador {{ param }}",
-      "updated": "Un Justification ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Justification ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nueva Justificación ha sido creada con el identificador {{ param }}",
+      "updated": "Un Justificación ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Un Justificación ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Justification {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Justificación {{ id }}?"
       },
       "detail": {
-        "title": "Justification"
+        "title": "Justificación"
       },
       "id": "ID",
       "description": "Description",

@@ -2,28 +2,28 @@
   "senaAttendanceApp": {
     "attendance": {
       "home": {
-        "title": "Attendances",
+        "title": "Asistencias",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Attendance",
-        "createOrEditLabel": "Crear o editar Attendance",
-        "notFound": "Ningún Attendances encontrado"
+        "createLabel": "Crear nueva Asistencia",
+        "createOrEditLabel": "Crear o editar Asistencia",
+        "notFound": "Ninguna Asistencia encontrada"
       },
-      "created": "Un nuevo Attendance ha sido creado con el identificador {{ param }}",
-      "updated": "Un Attendance ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Attendance ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Asistencia ha sido creada con el identificador {{ param }}",
+      "updated": "Una Asistencia ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Una Asistencia ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Attendance {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Asistencia {{ id }}?"
       },
       "detail": {
-        "title": "Attendance"
+        "title": "Asistencia"
       },
       "id": "ID",
-      "date": "Date",
-      "stateAttendance": "State Attendance",
-      "auditLogs": "Audit Logs",
-      "classSection": "Class Section",
-      "student": "Student",
-      "modifiedByJustification": "Modified By Justification"
+      "date": "Fecha",
+      "stateAttendance": "Estado de Asistencia",
+      "auditLogs": "Registros de Auditoría",
+      "classSection": "Sección de Clase",
+      "student": "Estudiante",
+      "modifiedByJustification": "Justificación asociada"
     }
   }
 }

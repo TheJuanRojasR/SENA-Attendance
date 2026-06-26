@@ -2,25 +2,25 @@
   "senaAttendanceApp": {
     "apprentice": {
       "home": {
-        "title": "Apprentices",
+        "title": "Matrículas",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Apprentice",
-        "createOrEditLabel": "Crear o editar Apprentice",
-        "notFound": "Ningún Apprentices encontrado"
+        "createLabel": "Crear nueva Matrícula",
+        "createOrEditLabel": "Crear o editar Matrícula",
+        "notFound": "Ninguna Matrícula encontrada"
       },
-      "created": "Un nuevo Apprentice ha sido creado con el identificador {{ param }}",
-      "updated": "Un Apprentice ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Apprentice ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Matrícula ha sido creada con el identificador {{ param }}",
+      "updated": "Una Matrícula ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Una Matrícula ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Apprentice {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Matrícula {{ id }}?"
       },
       "detail": {
-        "title": "Apprentice"
+        "title": "Matrícula"
       },
       "id": "ID",
-      "stateAcademic": "State Academic",
-      "student": "Student",
-      "grade": "Grade"
+      "stateAcademic": "Estado académico",
+      "student": "Aprendiz",
+      "grade": "Ficha"
     }
   }
 }
