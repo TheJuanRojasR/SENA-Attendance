@@ -49,10 +49,10 @@ const Header = (props: IHeaderProps) => {
       <LoadingBar ref={loadingBarRef} className="loading-bar" color="#009cd8" />
       <Navbar data-cy="navbar" data-bs-theme="light" expand="md" fixed="top" className="navbar" collapseOnSelect>
         <Navbar.Toggle aria-controls="header-tabs" aria-label="Menu" />
-        <Brand />
+        <Brand isAuthenticated={props.isAuthenticated} />
         <Navbar.Collapse id="header-tabs">
           <Nav className="ms-auto">
-            <Home />
+            <Home isAuthenticated={props.isAuthenticated} />
             {props.isAuthenticated && <EntitiesMenu />}
             {props.isAuthenticated && props.isAdmin && <AdminMenu showOpenAPI={props.isOpenAPIEnabled} />}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />

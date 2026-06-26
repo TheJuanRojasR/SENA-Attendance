@@ -6,14 +6,18 @@ import { NavLink as Link } from 'react-router';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
+interface IHomeProps {
+  isAuthenticated: boolean;
+}
+
 export const BrandIcon = props => (
   <div {...props} className="brand-icon">
     <img src="content/images/logo.png" alt="Logo" />
   </div>
 );
 
-export const Brand = () => (
-  <NavbarBrand as={Link as any} to="/" className="brand-logo">
+export const Brand = (props: IHomeProps) => (
+  <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo">
     <BrandIcon />
     <span className="brand-title">
       <span> SENA </span>
@@ -23,9 +27,9 @@ export const Brand = () => (
   </NavbarBrand>
 );
 
-export const Home = () => (
+export const Home = (props: IHomeProps) => (
   <NavItem>
-    <NavLink as={Link as any} to="/" className="d-flex align-items-center">
+    <NavLink as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="d-flex align-items-center">
       <FontAwesomeIcon icon={faHome} />
       <span>
         <Translate contentKey="global.menu.home">Home</Translate>
