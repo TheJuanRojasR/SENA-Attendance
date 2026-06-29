@@ -201,7 +201,7 @@ export const Grade = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.grade.home.notFound">No Grades found</Translate>
             </div>
           )

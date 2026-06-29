@@ -188,7 +188,7 @@ export const Apprentice = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.apprentice.home.notFound">No Apprentices found</Translate>
             </div>
           )

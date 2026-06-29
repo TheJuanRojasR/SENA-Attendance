@@ -153,7 +153,7 @@ export const TimeSlot = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.timeSlot.home.notFound">No Time Slots found</Translate>
             </div>
           )

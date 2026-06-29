@@ -235,7 +235,7 @@ export const Justification = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.justification.home.notFound">No Justifications found</Translate>
             </div>
           )

@@ -187,7 +187,7 @@ export const Program = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.program.home.notFound">No Programs found</Translate>
             </div>
           )

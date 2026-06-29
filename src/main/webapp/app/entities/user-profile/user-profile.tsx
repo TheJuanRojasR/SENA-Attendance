@@ -218,7 +218,7 @@ export const UserProfile = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.userProfile.home.notFound">No User Profiles found</Translate>
             </div>
           )

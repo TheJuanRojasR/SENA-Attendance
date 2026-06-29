@@ -211,7 +211,7 @@ export const ClassSchedule = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.classSchedule.home.notFound">No Class Schedules found</Translate>
             </div>
           )

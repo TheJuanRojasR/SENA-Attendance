@@ -143,7 +143,7 @@ export const Modality = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.modality.home.notFound">No Modalities found</Translate>
             </div>
           )

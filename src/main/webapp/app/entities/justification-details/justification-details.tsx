@@ -250,7 +250,7 @@ export const JustificationDetails = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.justificationDetails.home.notFound">No Justification Details found</Translate>
             </div>
           )

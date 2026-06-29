@@ -155,7 +155,7 @@ export const DocumentType = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.documentType.home.notFound">No Document Types found</Translate>
             </div>
           )
