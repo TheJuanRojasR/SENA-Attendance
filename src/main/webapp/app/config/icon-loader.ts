@@ -1,6 +1,8 @@
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
   faArrowLeft,
+  faCalendarAlt,
+  faClock,
   faAsterisk,
   faBan,
   faBell,
@@ -28,16 +30,27 @@ import {
   faThList,
   faTimesCircle,
   faTrash,
+  faUserGraduate,
   faUser,
   faUserPlus,
   faUsers,
   faUsersCog,
   faWrench,
+  faCloudSun,
+  faLayerGroup,
+  faBookOpen,
+  faGraduationCap,
+  faFile,
+  faClipboardCheck,
+  faIdCard,
+  faTag,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const loadIcons = () => {
   library.add(
     faArrowLeft,
+    faCalendarAlt,
+    faClock,
     faAsterisk,
     faBan,
     faBell,
@@ -65,10 +78,19 @@ export const loadIcons = () => {
     faThList,
     faTimesCircle,
     faTrash,
+    faUserGraduate,
     faUser,
     faUserPlus,
     faUsers,
     faUsersCog,
     faWrench,
+    faCloudSun,
+    faLayerGroup,
+    faBookOpen,
+    faGraduationCap,
+    faFile,
+    faClipboardCheck,
+    faIdCard,
+    faTag,
   );
 };
