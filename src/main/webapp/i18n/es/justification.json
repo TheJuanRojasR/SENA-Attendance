@@ -18,13 +18,13 @@
         "title": "Justificación"
       },
       "id": "ID",
-      "description": "Description",
-      "startDate": "Start Date",
-      "endDate": "End Date",
-      "evidence": "Evidence",
-      "details": "Details",
-      "justificationType": "Justification Type",
-      "student": "Student"
+      "description": "Descripción",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
+      "evidence": "Evidencia",
+      "details": "Detalles",
+      "justificationType": "Tipo de justificación",
+      "student": "Estudiante"
     }
   }
 }

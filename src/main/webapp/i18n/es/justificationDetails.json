@@ -2,29 +2,29 @@
   "senaAttendanceApp": {
     "justificationDetails": {
       "home": {
-        "title": "Justification Details",
+        "title": "Detalles de Justificación",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Justification Details",
-        "createOrEditLabel": "Crear o editar Justification Details",
-        "notFound": "Ningún Justification Details encontrado"
+        "createLabel": "Crear nuevo detalle de Justificación",
+        "createOrEditLabel": "Crear o editar Detalle de Justificación",
+        "notFound": "Ningún Detalle de Justificación encontrado"
       },
-      "created": "Un nuevo Justification Details ha sido creado con el identificador {{ param }}",
-      "updated": "Un Justification Details ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Justification Details ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Detalle de Justificación ha sido creado con el identificador {{ param }}",
+      "updated": "Un Detalle de Justificación ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Detalle de Justificación ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Justification Details {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Detalle de Justificación {{ id }}?"
       },
       "detail": {
-        "title": "Justification Details"
+        "title": "Detalles de Justificación"
       },
       "id": "ID",
-      "stateJustification": "State Justification",
-      "rejectionReason": "Rejection Reason",
-      "correctionText": "Correction Text",
-      "correctionFileUrl": "Correction File Url",
-      "responseDate": "Response Date",
-      "classSection": "Class Section",
-      "justification": "Justification"
+      "stateJustification": "Estado de la Justificación",
+      "rejectionReason": "Motivo de Rechazo",
+      "correctionText": "Indicaciones para corrección",
+      "correctionFileUrl": "Documento de respuesta",
+      "responseDate": "Fecha de Respuesta",
+      "classSection": "Sección de Clase",
+      "justification": "Justificación"
     }
   }
 }
