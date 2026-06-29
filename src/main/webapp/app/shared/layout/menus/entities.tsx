@@ -7,7 +7,7 @@ import { NavDropdown } from './menu-components';
 
 export const EntitiesMenu = () => (
   <NavDropdown
-    icon="th-list"
+    icon="bars-staggered"
     name={translate('global.menu.entities.main')}
     id="entity-menu"
     data-cy="entity"

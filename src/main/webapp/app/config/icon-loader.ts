@@ -32,6 +32,7 @@ import {
   faTrash,
   faUserGraduate,
   faUser,
+  faCircleUser,
   faUserPlus,
   faUsers,
   faUsersCog,
@@ -44,6 +45,7 @@ import {
   faClipboardCheck,
   faIdCard,
   faTag,
+  faBarsStaggered,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const loadIcons = () => {
@@ -80,6 +82,7 @@ export const loadIcons = () => {
     faTrash,
     faUserGraduate,
     faUser,
+    faCircleUser,
     faUserPlus,
     faUsers,
     faUsersCog,
@@ -92,5 +95,6 @@ export const loadIcons = () => {
     faClipboardCheck,
     faIdCard,
     faTag,
+    faBarsStaggered,
   );
 };
