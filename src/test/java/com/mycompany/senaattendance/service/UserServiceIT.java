@@ -26,10 +26,6 @@ class UserServiceIT {
 
     private static final String DEFAULT_EMAIL = "johndoe_service@localhost";
 
-    private static final String DEFAULT_FIRSTNAME = "john";
-
-    private static final String DEFAULT_LASTNAME = "doe";
-
     private static final String DEFAULT_IMAGEURL = "http://placehold.it/50x50";
 
     private static final String DEFAULT_LANGKEY = "dummy";
@@ -49,8 +45,6 @@ class UserServiceIT {
         user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
         user.setActivated(true);
         user.setEmail(DEFAULT_EMAIL);
-        user.setFirstName(DEFAULT_FIRSTNAME);
-        user.setLastName(DEFAULT_LASTNAME);
         user.setImageUrl(DEFAULT_IMAGEURL);
         user.setLangKey(DEFAULT_LANGKEY);
     }

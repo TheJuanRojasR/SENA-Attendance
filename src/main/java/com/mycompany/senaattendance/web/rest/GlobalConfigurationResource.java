@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GlobalConfigurationService;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.ResponseUtil;
@@ -53,6 +55,7 @@ public class GlobalConfigurationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<GlobalConfigurationDTO> createGlobalConfiguration(
         @Valid @RequestBody GlobalConfigurationDTO globalConfigurationDTO
     ) throws URISyntaxException {
@@ -77,6 +80,7 @@ public class GlobalConfigurationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<GlobalConfigurationDTO> updateGlobalConfiguration(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody GlobalConfigurationDTO globalConfigurationDTO
@@ -111,6 +115,7 @@ public class GlobalConfigurationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<GlobalConfigurationDTO> partialUpdateGlobalConfiguration(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody GlobalConfigurationDTO globalConfigurationDTO
@@ -166,6 +171,7 @@ public class GlobalConfigurationResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<Void> deleteGlobalConfiguration(@PathVariable("id") String id) {
         LOG.debug("REST request to delete GlobalConfiguration : {}", id);
         globalConfigurationService.delete(id);

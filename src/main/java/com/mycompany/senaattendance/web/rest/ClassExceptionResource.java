@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassExceptionService;
 import com.mycompany.senaattendance.service.dto.ClassExceptionDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -55,6 +57,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<ClassExceptionDTO> createClassException(@Valid @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassException : {}", classExceptionDTO);
@@ -78,6 +81,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<ClassExceptionDTO> updateClassException(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody ClassExceptionDTO classExceptionDTO
@@ -112,6 +116,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<ClassExceptionDTO> partialUpdateClassException(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody ClassExceptionDTO classExceptionDTO
@@ -179,6 +184,7 @@ public class ClassExceptionResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<Void> deleteClassException(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassException : {}", id);
         classExceptionService.delete(id);

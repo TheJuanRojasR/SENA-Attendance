@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationTypeService;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.ResponseUtil;
@@ -53,6 +55,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<JustificationTypeDTO> createJustificationType(@Valid @RequestBody JustificationTypeDTO justificationTypeDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save JustificationType : {}", justificationTypeDTO);
@@ -76,6 +79,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<JustificationTypeDTO> updateJustificationType(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody JustificationTypeDTO justificationTypeDTO
@@ -110,6 +114,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<JustificationTypeDTO> partialUpdateJustificationType(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody JustificationTypeDTO justificationTypeDTO
@@ -165,6 +170,7 @@ public class JustificationTypeResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
     public ResponseEntity<Void> deleteJustificationType(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JustificationType : {}", id);
         justificationTypeService.delete(id);

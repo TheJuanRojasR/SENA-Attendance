@@ -94,8 +94,6 @@ public class InitialSetupMigration {
         User userUser = new User();
         userUser.setLogin("user");
         userUser.setPassword("$2a$10$VEjxo0jq2YG9Rbk2HmX9S.k1uZBGYUHdUcid3g/vfiEl7lwWgOH/K");
-        userUser.setFirstName("User");
-        userUser.setLastName("User");
         userUser.setEmail("user@localhost");
         userUser.setActivated(true);
         userUser.setLangKey("es");
@@ -109,8 +107,6 @@ public class InitialSetupMigration {
         User adminUser = new User();
         adminUser.setLogin("admin");
         adminUser.setPassword("$2a$10$gSAhZrxMllrbgj/kkK9UceBPpChGWJA7SYIb1Mqo.n5aNLq1/oRrC");
-        adminUser.setFirstName("admin");
-        adminUser.setLastName("Administrator");
         adminUser.setEmail("admin@localhost");
         adminUser.setActivated(true);
         adminUser.setLangKey("es");
@@ -125,8 +121,6 @@ public class InitialSetupMigration {
         User instructorUser = new User();
         instructorUser.setLogin("instructor");
         instructorUser.setPassword("$2a$10$e8MSV72L8nRxanEtdgt4k.oKWSLiw7Jm4Jnh/FxZ1LsOa5GUbYd2u");
-        instructorUser.setFirstName("instructor");
-        instructorUser.setLastName("Instructor");
         instructorUser.setEmail("instructor@localhost");
         instructorUser.setActivated(true);
         instructorUser.setLangKey("es");
@@ -141,8 +135,6 @@ public class InitialSetupMigration {
         User coordinatorUser = new User();
         coordinatorUser.setLogin("coordinator");
         coordinatorUser.setPassword("$2a$10$qlNJJfrZe4UgUtvg88vf0O7cin4vRz/iBzG9io695hhhqF8.Kf3Hi");
-        coordinatorUser.setFirstName("coordinator");
-        coordinatorUser.setLastName("Coordinator");
         coordinatorUser.setEmail("Coordinator@localhost");
         coordinatorUser.setActivated(true);
         coordinatorUser.setLangKey("es");
@@ -157,8 +149,6 @@ public class InitialSetupMigration {
         User apprenticeUser = new User();
         apprenticeUser.setLogin("apprentice");
         apprenticeUser.setPassword("$2a$10$Eo7PoD20ZiNqRi6uLfRjy.7HNlyYbJ43Hf8FEpNwgHUSsiZRdQv7y");
-        apprenticeUser.setFirstName("apprentice");
-        apprenticeUser.setLastName("Apprentice");
         apprenticeUser.setEmail("Apprentice@localhost");
         apprenticeUser.setActivated(true);
         apprenticeUser.setLangKey("es");

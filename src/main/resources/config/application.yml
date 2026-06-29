@@ -60,7 +60,7 @@ management:
       enabled: true
   health:
     mail:
-      enabled: false # When using the MailService, configure an SMTP server and set this to true
+      enabled: true # When using the MailService, configure an SMTP server and set this to true
   prometheus:
     metrics:
       export:
@@ -115,6 +115,7 @@ spring:
     enabled: false
   messages:
     basename: i18n/messages
+    encoding: UTF-8
   main:
     allow-bean-definition-overriding: true
   mvc:
