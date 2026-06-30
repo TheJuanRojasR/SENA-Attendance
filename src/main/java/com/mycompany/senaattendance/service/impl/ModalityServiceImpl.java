@@ -103,4 +103,14 @@ public class ModalityServiceImpl implements ModalityService {
         LOG.debug("Request to delete Modality : {}", id);
         modalityRepository.deleteById(id);
     }
+
+    @Override
+    public List<ModalityDTO> findActiveModalities() {
+        LOG.debug("Request to get all active Modalities");
+        return modalityRepository
+            .findModalityByIsActive(true)
+            .stream()
+            .map(modalityMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
+    }
 }

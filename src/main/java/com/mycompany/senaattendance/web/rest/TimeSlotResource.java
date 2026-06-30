@@ -174,4 +174,10 @@ public class TimeSlotResource {
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id))
             .build();
     }
+
+    @GetMapping("/active")
+    public List<TimeSlotDTO> getActiveTimeSlots() {
+        LOG.debug("REST request to get all active TimeSlots");
+        return timeSlotService.findByIsActiveTrue();
+    }
 }

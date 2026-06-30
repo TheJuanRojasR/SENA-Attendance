@@ -103,4 +103,10 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         LOG.debug("Request to delete TimeSlot : {}", id);
         timeSlotRepository.deleteById(id);
     }
+
+    @Override
+    public List<TimeSlotDTO> findByIsActiveTrue() {
+        LOG.debug("Request to get all active TimeSlots");
+        return timeSlotRepository.findTimeSlotByIsActive(true).stream().map(timeSlotMapper::toDto).collect(Collectors.toList());
+    }
 }

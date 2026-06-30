@@ -53,4 +53,6 @@ public interface TimeSlotService {
      * @param id the id of the entity.
      */
     void delete(String id);
+
+    List<TimeSlotDTO> findByIsActiveTrue();
 }

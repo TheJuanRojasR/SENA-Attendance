@@ -37,6 +37,8 @@ public class Program extends AbstractAuditingEntity implements Serializable {
 
     @NotNull
     @Field("trimesters")
+    @Min(value = 1)
+    @Max(value = 9)
     private Integer trimesters;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here

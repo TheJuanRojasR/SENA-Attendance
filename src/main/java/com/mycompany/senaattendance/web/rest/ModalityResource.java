@@ -174,4 +174,10 @@ public class ModalityResource {
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id))
             .build();
     }
+
+    @GetMapping("/active")
+    public List<ModalityDTO> getActiveModalities() {
+        LOG.debug("REST request to get all active Modalities");
+        return modalityService.findActiveModalities();
+    }
 }

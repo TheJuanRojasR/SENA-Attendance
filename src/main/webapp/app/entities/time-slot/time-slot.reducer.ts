@@ -28,6 +28,15 @@ export const getEntities = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const getActiveEntities = createAsyncThunk(
+  'timeSlot/fetch_active_entity_list',
+  async ({ sort }: IQueryParams) => {
+    const requestUrl = `${apiUrl}/active?${sort ? `sort=${sort}&` : ''}cacheBuster=${Date.now()}`;
+    return axios.get<ITimeSlot[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
 export const getEntity = createAsyncThunk(
   'timeSlot/fetch_entity',
   async (id: string | number) => {
@@ -94,7 +103,7 @@ export const TimeSlotSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = {};
       })
-      .addMatcher(isFulfilled(getEntities), (state, action) => {
+      .addMatcher(isFulfilled(getEntities, getActiveEntities), (state, action) => {
         const { data } = action.payload;
 
         return {
@@ -115,7 +124,7 @@ export const TimeSlotSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = action.payload.data;
       })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addMatcher(isPending(getEntities, getEntity, getActiveEntities), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;

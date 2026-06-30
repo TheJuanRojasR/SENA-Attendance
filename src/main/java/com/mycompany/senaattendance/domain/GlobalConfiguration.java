@@ -22,22 +22,32 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
 
     @NotNull
     @Field("student_justification_days")
+    @Min(value = 1)
+    @Max(value = 30)
     private Integer studentJustificationDays;
 
     @NotNull
     @Field("instructor_response_days")
+    @Min(value = 1)
+    @Max(value = 30)
     private Integer instructorResponseDays;
 
     @NotNull
     @Field("late_arrivals_to_fail")
+    @Min(value = 1)
+    @Max(value = 30)
     private Integer lateArrivalsToFail;
 
     @NotNull
     @Field("max_postponement_justifications")
+    @Min(value = 1)
+    @Max(value = 30)
     private Integer maxPostponementJustifications;
 
     @NotNull
     @Field("standard_trimester_months")
+    @Min(value = 1)
+    @Max(value = 6)
     private Integer standardTrimesterMonths;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here

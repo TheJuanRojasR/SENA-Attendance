@@ -6,9 +6,9 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
-import { getEntities as getModalities } from 'app/entities/modality/modality.reducer';
+import { getActiveEntities as getActiveModalities } from 'app/entities/modality/modality.reducer';
 import { getEntities as getPrograms } from 'app/entities/program/program.reducer';
-import { getEntities as getTimeSlots } from 'app/entities/time-slot/time-slot.reducer';
+import { getActiveEntities as getActiveTimeSlots } from 'app/entities/time-slot/time-slot.reducer';
 import { StateGrade } from 'app/shared/model/enumerations/state-grade.model';
 
 import { createEntity, getEntity, reset, updateEntity } from './grade.reducer';
@@ -42,8 +42,8 @@ export const GradeUpdate = () => {
     }
 
     dispatch(getPrograms({}));
-    dispatch(getModalities({}));
-    dispatch(getTimeSlots({}));
+    dispatch(getActiveModalities({}));
+    dispatch(getActiveTimeSlots({}));
   }, []);
 
   useEffect(() => {
