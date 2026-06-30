@@ -171,6 +171,18 @@ public class UserProfileResource {
     }
 
     /**
+     * {@code GET  /user-profiles/instructors} : get all the User Profiles with INSTRUCTOR role.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of User Profiles in body.
+     */
+    @GetMapping("/instructors")
+    public ResponseEntity<List<UserProfileDTO>> getAllInstructors() {
+        LOG.debug("REST request to get all UserProfiles with INSTRUCTOR role");
+        List<UserProfileDTO> instructors = userProfileService.findAllInstructors();
+        return ResponseEntity.ok().body(instructors);
+    }
+
+    /**
      * {@code GET  /user-profiles/:id} : get the "id" userProfile.
      *
      * @param id the id of the userProfileDTO to retrieve.

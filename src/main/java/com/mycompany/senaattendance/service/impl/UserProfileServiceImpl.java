@@ -138,4 +138,31 @@ public class UserProfileServiceImpl implements UserProfileService {
             .map(userProfileMapper::toDto)
             .collect(Collectors.toCollection(LinkedList::new));
     }
+
+    @Override
+    public List<UserProfileDTO> findAllInstructors() {
+        LOG.debug("Request to get all UserProfiles with INSTRUCTOR role");
+
+        // 1. Trae todos los userProfiles
+        List<UserProfile> allProfiles = userProfileRepository.findAllWithEagerRelationships();
+
+        // 2. Filtra los userProfiles que tienen rol 'INSTRUCTOR'
+        return allProfiles
+            .stream()
+            .filter(userProfile -> {
+                User user = userProfile.getUser();
+
+                if (user == null) {
+                    return false;
+                }
+
+                return user
+                    .getAuthorities()
+                    .stream()
+                    .anyMatch(authority -> authority.getName().equals(AuthoritiesConstants.INSTRUCTOR));
+            })
+            // 3. Convierte a DTO y colecta en una lista
+            .map(userProfileMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
+    }
 }

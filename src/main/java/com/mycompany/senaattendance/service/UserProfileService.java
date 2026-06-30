@@ -73,4 +73,11 @@ public interface UserProfileService {
      * @return the list of apprentice user profiles.
      */
     List<UserProfileDTO> findAllApprentices();
+
+    /*
+     * Get all the instructors.
+     *
+     * @return the list of instructor user profiles.
+     */
+    List<UserProfileDTO> findAllInstructors();
 }
