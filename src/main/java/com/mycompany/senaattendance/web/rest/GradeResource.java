@@ -165,6 +165,19 @@ public class GradeResource {
     }
 
     /**
+     * {@code GET  /grades/active} : get all the active Grades.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of active Grades in body.
+     */
+    @GetMapping("/active")
+    //@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    public ResponseEntity<List<GradeDTO>> getActiveGrades() {
+        LOG.debug("REST request to get all active Grades");
+        List<GradeDTO> activeGrades = gradeService.findActiveGrades();
+        return ResponseEntity.ok().body(activeGrades);
+    }
+
+    /**
      * {@code GET  /grades/:id} : get the "id" grade.
      *
      * @param id the id of the gradeDTO to retrieve.

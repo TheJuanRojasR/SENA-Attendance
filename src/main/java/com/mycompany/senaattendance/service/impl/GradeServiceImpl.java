@@ -1,13 +1,17 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import java.time.Instant;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -105,5 +109,22 @@ public class GradeServiceImpl implements GradeService {
     public void delete(String id) {
         LOG.debug("Request to delete Grade : {}", id);
         gradeRepository.deleteById(id);
+    }
+
+    // --------------------------- New methods ---------------------------
+
+    @Override
+    public List<GradeDTO> findActiveGrades() {
+        LOG.debug("Request to get all active Grades");
+
+        // 1. Traer todos los grades
+        List<Grade> allGrades = gradeRepository.findAllWithEagerRelationships();
+
+        // 2. Filtrar por estado ACTIVA
+        return allGrades
+            .stream()
+            .filter(grade -> grade.getState() != null && grade.getState().equals(StateGrade.ACTIVA))
+            .map(gradeMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
     }
 }
