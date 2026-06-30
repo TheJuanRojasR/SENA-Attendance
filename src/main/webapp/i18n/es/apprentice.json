@@ -2,20 +2,20 @@
   "senaAttendanceApp": {
     "apprentice": {
       "home": {
-        "title": "Matrículas",
+        "title": "Estado Académico del Aprendiz",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nueva Matrícula",
-        "createOrEditLabel": "Crear o editar Matrícula",
-        "notFound": "Ninguna Matrícula encontrada"
+        "createLabel": "Crear nuevo estado académico",
+        "createOrEditLabel": "Crear o editar Estado Académico",
+        "notFound": "Ningún Estado Académico encontrado"
       },
-      "created": "Una nueva Matrícula ha sido creada con el identificador {{ param }}",
-      "updated": "Una Matrícula ha sido actualizada con el identificador {{ param }}",
-      "deleted": "Una Matrícula ha sido eliminada con el identificador {{ param }}",
+      "created": "Un nuevo Estado Académico ha sido creado con el identificador {{ param }}",
+      "updated": "Un Estado Académico ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Estado Académico ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Matrícula {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Estado Académico {{ id }}?"
       },
       "detail": {
-        "title": "Matrícula"
+        "title": "Estado Académico del Aprendiz"
       },
       "id": "ID",
       "stateAcademic": "Estado académico",
