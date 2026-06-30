@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -63,4 +64,13 @@ public interface UserProfileService {
      * @param id the id of the entity.
      */
     void delete(String id);
+
+    // --------------------------- New methods ---------------------------
+
+    /**
+     * Get all the apprentices.
+     *
+     * @return the list of apprentice user profiles.
+     */
+    List<UserProfileDTO> findAllApprentices();
 }

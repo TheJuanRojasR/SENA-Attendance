@@ -159,6 +159,18 @@ public class UserProfileResource {
     }
 
     /**
+     * {@code GET  /user-profiles/apprentices} : get all the User Profiles with APPRENTICE role.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of User Profiles in body.
+     */
+    @GetMapping("/apprentices")
+    public ResponseEntity<List<UserProfileDTO>> getAllApprentices() {
+        LOG.debug("REST request to get all UserProfiles with APPRENTICE role");
+        List<UserProfileDTO> apprentices = userProfileService.findAllApprentices();
+        return ResponseEntity.ok().body(apprentices);
+    }
+
+    /**
      * {@code GET  /user-profiles/:id} : get the "id" userProfile.
      *
      * @param id the id of the userProfileDTO to retrieve.

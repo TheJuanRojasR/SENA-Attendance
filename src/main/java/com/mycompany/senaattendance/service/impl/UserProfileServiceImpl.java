@@ -1,13 +1,18 @@
 package com.mycompany.senaattendance.service.impl;
 
+import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.UserProfileService;
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.service.mapper.UserProfileMapper;
 import java.time.Instant;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -103,5 +108,34 @@ public class UserProfileServiceImpl implements UserProfileService {
     public void delete(String id) {
         LOG.debug("Request to delete UserProfile : {}", id);
         userProfileRepository.deleteById(id);
+    }
+
+    // --------------------------- New methods ---------------------------
+
+    @Override
+    public List<UserProfileDTO> findAllApprentices() {
+        LOG.debug("Request to get all UserProfiles with APPRENTICE role");
+
+        // 1. Trae todos los userProfiles
+        List<UserProfile> allProfiles = userProfileRepository.findAllWithEagerRelationships();
+
+        // 2. Filtra los userProfiles que tienen rol 'APPRENTICE'
+        return allProfiles
+            .stream()
+            .filter(userProfile -> {
+                User user = userProfile.getUser();
+
+                if (user == null) {
+                    return false;
+                }
+
+                return user
+                    .getAuthorities()
+                    .stream()
+                    .anyMatch(authority -> authority.getName().equals(AuthoritiesConstants.APPRENTICE));
+            })
+            // 3. Convierte a DTO y colecta en una lista
+            .map(userProfileMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
     }
 }
