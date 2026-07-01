@@ -32,6 +32,7 @@ export const App = () => {
   const currentLocale = useAppSelector(state => state.locale.currentLocale);
   const isAuthenticated = useAppSelector(state => state.authentication.isAuthenticated);
   const isAdmin = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.ADMIN]));
+  const isCoordinator = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.COORDINATOR]));
   const isInstructor = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.INSTRUCTOR]));
   const isAprentice = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.APPRENTICE]));
   const ribbonEnv = useAppSelector(state => state.applicationProfile.ribbonEnv);
@@ -58,7 +59,13 @@ export const App = () => {
           <div className="container-fluid view-container" id="app-view-container">
             <Card className="jh-card">
               <ErrorBoundary>
-                <AppRoutes isAuthenticated={isAuthenticated} isAdmin={isAdmin} isInstructor={isInstructor} isAprentice={isAprentice} />
+                <AppRoutes
+                  isAuthenticated={isAuthenticated}
+                  isAdmin={isAdmin}
+                  isCoordinator={isCoordinator}
+                  isInstructor={isInstructor}
+                  isAprentice={isAprentice}
+                />
               </ErrorBoundary>
             </Card>
             <Footer />
