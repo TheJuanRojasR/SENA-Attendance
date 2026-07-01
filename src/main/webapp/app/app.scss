@@ -26,10 +26,18 @@ a {
 }
 
 .app-container {
+  height: 100vh;
   box-sizing: border-box;
+  .app-sidebar-wrapper {
+    width: auto;
+    height: 100vh;
+    z-index: 1040;
+  }
   .app-main-content {
     display: flex;
+    flex-direction: column;
     flex: 1;
+    overflow: hidden;
     width: 100%;
     position: relative;
   }
