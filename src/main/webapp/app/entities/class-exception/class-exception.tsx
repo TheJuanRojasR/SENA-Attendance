@@ -197,7 +197,7 @@ export const ClassException = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.classException.home.notFound">No Class Exceptions found</Translate>
             </div>
           )

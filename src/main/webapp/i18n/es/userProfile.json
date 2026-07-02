@@ -2,30 +2,30 @@
   "senaAttendanceApp": {
     "userProfile": {
       "home": {
-        "title": "User Profiles",
+        "title": "Perfiles de Usuarios",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo User Profile",
-        "createOrEditLabel": "Crear o editar User Profile",
-        "notFound": "Ningún User Profiles encontrado"
+        "createLabel": "Crear nuevo Perfil de Usuario",
+        "createOrEditLabel": "Crear o editar Perfil de Usuario",
+        "notFound": "Ningún Perfil de Usuario encontrado"
       },
-      "created": "Un nuevo User Profile ha sido creado con el identificador {{ param }}",
-      "updated": "Un User Profile ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un User Profile ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Perfil de Usuario ha sido creado con el identificador {{ param }}",
+      "updated": "Un Perfil de Usuario ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Perfil de Usuario ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar User Profile {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Perfil de Usuario {{ id }}?"
       },
       "detail": {
-        "title": "User Profile"
+        "title": "Perfil de Usuario"
       },
       "id": "ID",
-      "firstName": "First Name",
-      "middleName": "Middle Name",
-      "firstLastName": "First Last Name",
-      "secondLastName": "Second Last Name",
-      "documentNumber": "Document Number",
-      "phoneNumber": "Phone Number",
-      "user": "User",
-      "documentType": "Document Type"
+      "firstName": "Primer Nombre",
+      "middleName": "Segundo Nombre",
+      "firstLastName": "Primer Apellido",
+      "secondLastName": "Segundo Apellido",
+      "documentNumber": "Número de Documento",
+      "phoneNumber": "Número de Teléfono",
+      "user": "Usuario",
+      "documentType": "Tipo de Documento"
     }
   }
 }

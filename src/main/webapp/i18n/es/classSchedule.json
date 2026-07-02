@@ -2,27 +2,27 @@
   "senaAttendanceApp": {
     "classSchedule": {
       "home": {
-        "title": "Class Schedules",
+        "title": "Horarios de Clase",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Class Schedule",
-        "createOrEditLabel": "Crear o editar Class Schedule",
-        "notFound": "Ningún Class Schedules encontrado"
+        "createLabel": "Crear nuevo Horario de Clase",
+        "createOrEditLabel": "Crear o editar Horario de Clase",
+        "notFound": "Ningún Horarios de Clase encontrado"
       },
-      "created": "Un nuevo Class Schedule ha sido creado con el identificador {{ param }}",
-      "updated": "Un Class Schedule ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Class Schedule ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Horario de Clase ha sido creado con el identificador {{ param }}",
+      "updated": "Un Horario de Clase ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Horario de Clase ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Class Schedule {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Horario de Clase {{ id }}?"
       },
       "detail": {
-        "title": "Class Schedule"
+        "title": "Horario de Clase"
       },
       "id": "ID",
-      "dayOfWeek": "Day Of Week",
-      "startTime": "Start Time",
-      "endTime": "End Time",
-      "trimester": "Trimester",
-      "classSection": "Class Section"
+      "dayOfWeek": "Día de la Semana",
+      "startTime": "Hora de Inicio",
+      "endTime": "Hora de Fin",
+      "trimester": "Trimestre",
+      "classSection": "Sección de Clase"
     }
   }
 }

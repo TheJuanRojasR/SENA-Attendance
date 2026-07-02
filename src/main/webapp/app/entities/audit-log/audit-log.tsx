@@ -201,7 +201,7 @@ export const AuditLog = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.auditLog.home.notFound">No Audit Logs found</Translate>
             </div>
           )

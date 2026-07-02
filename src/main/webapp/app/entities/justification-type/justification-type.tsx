@@ -167,7 +167,7 @@ export const JustificationType = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.justificationType.home.notFound">No Justification Types found</Translate>
             </div>
           )

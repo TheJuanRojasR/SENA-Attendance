@@ -316,3 +316,17 @@ http://stackoverflow.com/questions/23436430/bootstrap-3-input-group-100-width */
 }
 
 /* jhipster-needle-scss-add-main JHipster will add new css style */
+
+/* Estilo global para todos los campos de formulario */
+.form-control {
+  background-color: #f1f1f1;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: #555;
+}
+
+.form-control:focus {
+  background-color: #f1f1f1;
+  border-color: #16c829;
+  box-shadow: 0 0 0 0.2rem rgba(22, 200, 41, 0.15);
+}

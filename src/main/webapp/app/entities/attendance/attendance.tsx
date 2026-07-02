@@ -212,7 +212,7 @@ export const Attendance = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.attendance.home.notFound">No Attendances found</Translate>
             </div>
           )

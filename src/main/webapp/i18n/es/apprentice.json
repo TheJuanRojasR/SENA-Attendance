@@ -2,25 +2,25 @@
   "senaAttendanceApp": {
     "apprentice": {
       "home": {
-        "title": "Apprentices",
+        "title": "Estado Académico del Aprendiz",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Apprentice",
-        "createOrEditLabel": "Crear o editar Apprentice",
-        "notFound": "Ningún Apprentices encontrado"
+        "createLabel": "Crear nuevo estado académico",
+        "createOrEditLabel": "Crear o editar Estado Académico",
+        "notFound": "Ningún Estado Académico encontrado"
       },
-      "created": "Un nuevo Apprentice ha sido creado con el identificador {{ param }}",
-      "updated": "Un Apprentice ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Apprentice ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Estado Académico ha sido creado con el identificador {{ param }}",
+      "updated": "Un Estado Académico ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Estado Académico ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Apprentice {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Estado Académico {{ id }}?"
       },
       "detail": {
-        "title": "Apprentice"
+        "title": "Estado Académico del Aprendiz"
       },
       "id": "ID",
-      "stateAcademic": "State Academic",
-      "student": "Student",
-      "grade": "Grade"
+      "stateAcademic": "Estado académico",
+      "student": "Aprendiz",
+      "grade": "Ficha"
     }
   }
 }

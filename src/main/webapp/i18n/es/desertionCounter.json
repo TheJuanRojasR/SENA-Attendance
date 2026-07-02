@@ -2,28 +2,28 @@
   "senaAttendanceApp": {
     "desertionCounter": {
       "home": {
-        "title": "Desertion Counters",
+        "title": "Contadores de Deserción",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Desertion Counter",
-        "createOrEditLabel": "Crear o editar Desertion Counter",
-        "notFound": "Ningún Desertion Counters encontrado"
+        "createLabel": "Crear nuevo Contador de Deserción",
+        "createOrEditLabel": "Crear o editar Contador de Deserción",
+        "notFound": "Ningún Contador de Deserción encontrado"
       },
-      "created": "Un nuevo Desertion Counter ha sido creado con el identificador {{ param }}",
-      "updated": "Un Desertion Counter ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Desertion Counter ha sido eliminado con el identificador {{ param }}",
+      "created": "Un nuevo Contador de Deserción ha sido creado con el identificador {{ param }}",
+      "updated": "Un Contador de Deserción ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Un Contador de Deserción ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Desertion Counter {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Contador de Deserción {{ id }}?"
       },
       "detail": {
-        "title": "Desertion Counter"
+        "title": "Contador de Deserción"
       },
       "id": "ID",
-      "totalGlobalAbsences": "Total Global Absences",
-      "accumulatedLateArrivals": "Accumulated Late Arrivals",
-      "workJustificationsUsed": "Work Justifications Used",
-      "alertsSent": "Alerts Sent",
-      "student": "Student",
-      "trimester": "Trimester"
+      "totalGlobalAbsences": "Total de faltas globales",
+      "accumulatedLateArrivals": "Llegadas tardías acumuladas",
+      "workJustificationsUsed": "Justificaciones laborales utilizadas",
+      "alertsSent": "Alertas enviadas",
+      "student": "Aprendiz",
+      "trimester": "Trimestre"
     }
   }
 }

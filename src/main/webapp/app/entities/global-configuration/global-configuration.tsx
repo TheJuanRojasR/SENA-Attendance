@@ -181,7 +181,7 @@ export const GlobalConfiguration = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.globalConfiguration.home.notFound">No Global Configurations found</Translate>
             </div>
           )

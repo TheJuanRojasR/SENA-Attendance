@@ -109,7 +109,7 @@ export const RegisterPage = () => {
             </Button>
           </ValidatedForm>
           <p>&nbsp;</p>
-          <Alert variant="warning">
+          <Alert variant="success">
             <span>
               <Translate contentKey="global.messages.info.authenticated.prefix">If you want to</Translate>{' '}
             </span>

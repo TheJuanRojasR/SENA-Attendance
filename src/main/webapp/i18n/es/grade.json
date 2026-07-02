@@ -2,29 +2,29 @@
   "senaAttendanceApp": {
     "grade": {
       "home": {
-        "title": "Grades",
+        "title": "Fichas",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Grade",
-        "createOrEditLabel": "Crear o editar Grade",
-        "notFound": "Ningún Grades encontrado"
+        "createLabel": "Crear nueva Ficha",
+        "createOrEditLabel": "Crear o editar Ficha",
+        "notFound": "Ninguna Ficha encontrada"
       },
-      "created": "Un nuevo Grade ha sido creado con el identificador {{ param }}",
-      "updated": "Un Grade ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Grade ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Ficha ha sido creada con el identificador {{ param }}",
+      "updated": "Una Ficha ha sido actualizada con el identificador {{ param }}",
+      "deleted": "Una Ficha ha sido eliminada con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Grade {{ id }}?"
+        "question": "¿Seguro que quiere eliminar Ficha {{ id }}?"
       },
       "detail": {
-        "title": "Grade"
+        "title": "Ficha"
       },
       "id": "ID",
-      "code": "Code",
-      "state": "State",
-      "startDate": "Start Date",
-      "endDate": "End Date",
-      "program": "Program",
-      "modality": "Modality",
-      "timeSlot": "Time Slot"
+      "code": "Código",
+      "state": "Estado",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Finalización",
+      "program": "Programa",
+      "modality": "Modalidad",
+      "timeSlot": "Jornada"
     }
   }
 }

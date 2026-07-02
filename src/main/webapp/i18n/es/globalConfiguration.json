@@ -2,27 +2,27 @@
   "senaAttendanceApp": {
     "globalConfiguration": {
       "home": {
-        "title": "Global Configurations",
+        "title": "Configuraciones globales",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo Global Configuration",
-        "createOrEditLabel": "Crear o editar Global Configuration",
-        "notFound": "Ningún Global Configurations encontrado"
+        "createLabel": "Crear nueva Configuración Global",
+        "createOrEditLabel": "Crear o editar Configuración Global",
+        "notFound": "Ninguna Configuración global encontrada"
       },
-      "created": "Un nuevo Global Configuration ha sido creado con el identificador {{ param }}",
-      "updated": "Un Global Configuration ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Global Configuration ha sido eliminado con el identificador {{ param }}",
+      "created": "Una nueva Configuración Global ha sido creado con el identificador {{ param }}",
+      "updated": "Una Configuración Global ha sido actualizado con el identificador {{ param }}",
+      "deleted": "Una Configuración Global ha sido eliminado con el identificador {{ param }}",
       "delete": {
-        "question": "¿Seguro que quiere eliminar Global Configuration {{ id }}?"
+        "question": "¿Seguro que quiere eliminar la Configuración Global {{ id }}?"
       },
       "detail": {
-        "title": "Global Configuration"
+        "title": "Configuración Global"
       },
       "id": "ID",
-      "studentJustificationDays": "Student Justification Days",
-      "instructorResponseDays": "Instructor Response Days",
-      "lateArrivalsToFail": "Late Arrivals To Fail",
-      "maxPostponementJustifications": "Max Postponement Justifications",
-      "standardTrimesterMonths": "Standard Trimester Months"
+      "studentJustificationDays": "Días para justificar (aprendiz)",
+      "instructorResponseDays": "Días para responder (instructor)",
+      "lateArrivalsToFail": "Llegadas tarde para reprobar",
+      "maxPostponementJustifications": "Máximo de justificaciones para el aplazamiento",
+      "standardTrimesterMonths": "Meses por trimestre"
     }
   }
 }

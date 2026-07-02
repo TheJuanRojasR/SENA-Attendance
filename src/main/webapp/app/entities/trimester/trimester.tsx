@@ -192,7 +192,7 @@ export const Trimester = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.trimester.home.notFound">No Trimesters found</Translate>
             </div>
           )

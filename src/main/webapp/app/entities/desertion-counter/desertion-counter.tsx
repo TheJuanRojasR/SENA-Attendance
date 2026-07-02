@@ -213,7 +213,7 @@ export const DesertionCounter = () => {
           </Table>
         ) : (
           !loading && (
-            <div className="alert alert-warning">
+            <div className="alert alert-success">
               <Translate contentKey="senaAttendanceApp.desertionCounter.home.notFound">No Desertion Counters found</Translate>
             </div>
           )
