@@ -178,6 +178,27 @@ public class ClassSectionResource {
     }
 
     /**
+     * {@code GET  /class-sections/mine} : get all the Class Sections for the current instructor.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Sections in body.
+     */
+    @GetMapping("/mine")
+    @PreAuthorize(
+        "hasAuthority('" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "') or hasAuthority('" +
+            AuthoritiesConstants.COORDINATOR +
+            "') or hasAuthority('" +
+            AuthoritiesConstants.ADMIN +
+            "')"
+    )
+    public ResponseEntity<List<ClassSectionDTO>> getMyClassSections() {
+        LOG.debug("REST request to get ClassSections for the current instructor");
+        List<ClassSectionDTO> classSections = classSectionService.findAllForCurrentInstructor();
+        return ResponseEntity.ok().body(classSections);
+    }
+
+    /**
      * {@code DELETE  /class-sections/:id} : delete the "id" classSection.
      *
      * @param id the id of the classSectionDTO to delete.

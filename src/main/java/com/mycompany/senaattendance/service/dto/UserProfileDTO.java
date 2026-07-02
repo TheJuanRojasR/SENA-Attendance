@@ -34,7 +34,7 @@ public class UserProfileDTO implements Serializable {
     @Size(max = 20)
     private String phoneNumber;
 
-    @NotNull
+    // Se elimina el @NotNull para que soporte perfiles sin user
     private UserDTO user;
 
     @NotNull

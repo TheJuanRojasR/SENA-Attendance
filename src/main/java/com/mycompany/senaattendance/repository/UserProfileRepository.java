@@ -22,4 +22,8 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
 
     @Query("{'id': ?0}")
     Optional<UserProfile> findOneWithEagerRelationships(String id);
+
+    // Busca un UserProfile por el ID del usuario asociado
+    @Query("{'user._id': ?0}")
+    Optional<UserProfile> findOneByUserId(String userId);
 }
