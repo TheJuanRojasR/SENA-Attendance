@@ -15,6 +15,7 @@ import ErrorBoundary from 'app/shared/error/error-boundary';
 import { Authority } from 'app/shared/jhipster/constants';
 import Footer from 'app/shared/layout/footer/footer';
 import Header from 'app/shared/layout/header/header';
+import Sidebar from 'app/shared/layout/sidebar/sidebar';
 import { getProfile } from 'app/shared/reducers/application-profile';
 import { getSession } from 'app/shared/reducers/authentication';
 
@@ -31,32 +32,46 @@ export const App = () => {
   const currentLocale = useAppSelector(state => state.locale.currentLocale);
   const isAuthenticated = useAppSelector(state => state.authentication.isAuthenticated);
   const isAdmin = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.ADMIN]));
+  const isCoordinator = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.COORDINATOR]));
+  const isInstructor = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.INSTRUCTOR]));
+  const isAprentice = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.APPRENTICE]));
   const ribbonEnv = useAppSelector(state => state.applicationProfile.ribbonEnv);
   const isInProduction = useAppSelector(state => state.applicationProfile.inProduction);
   const isOpenAPIEnabled = useAppSelector(state => state.applicationProfile.isOpenAPIEnabled);
 
-  const paddingTop = '60px';
+  // const paddingTop = '60px';
   return (
     <BrowserRouter basename={baseHref}>
-      <div className="app-container" style={{ paddingTop }}>
+      <div className="app-container d-flex">
         <ToastContainer position="top-left" className="toastify-container" toastClassName="toastify-toast" />
-        <ErrorBoundary>
-          <Header
-            isAuthenticated={isAuthenticated}
-            isAdmin={isAdmin}
-            currentLocale={currentLocale}
-            ribbonEnv={ribbonEnv}
-            isInProduction={isInProduction}
-            isOpenAPIEnabled={isOpenAPIEnabled}
-          />
-        </ErrorBoundary>
-        <div className="container-fluid view-container" id="app-view-container">
-          <Card className="jh-card">
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </Card>
-          <Footer />
+        <div className="app-sidebar-wrapper d-none d-md-block">
+          <Sidebar isAuthenticated={isAuthenticated} isAdmin={isAdmin} isOpenAPIEnabled={isOpenAPIEnabled} />
+        </div>
+        <div className="app-main-content flex-grow-1">
+          <ErrorBoundary>
+            <Header
+              isAuthenticated={isAuthenticated}
+              isAdmin={isAdmin}
+              currentLocale={currentLocale}
+              ribbonEnv={ribbonEnv}
+              isInProduction={isInProduction}
+              isOpenAPIEnabled={isOpenAPIEnabled}
+            />
+          </ErrorBoundary>
+          <div className="container-fluid view-container flex-grow-1" id="app-view-container">
+            <Card className="jh-card">
+              <ErrorBoundary>
+                <AppRoutes
+                  isAuthenticated={isAuthenticated}
+                  isAdmin={isAdmin}
+                  isCoordinator={isCoordinator}
+                  isInstructor={isInstructor}
+                  isAprentice={isAprentice}
+                />
+              </ErrorBoundary>
+            </Card>
+            <Footer />
+          </div>
         </div>
       </div>
     </BrowserRouter>

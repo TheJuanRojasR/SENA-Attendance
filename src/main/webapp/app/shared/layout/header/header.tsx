@@ -47,12 +47,21 @@ const Header = (props: IHeaderProps) => {
   return (
     <div id="app-header">
       <LoadingBar ref={loadingBarRef} className="loading-bar" color="#009cd8" />
-      <Navbar data-cy="navbar" data-bs-theme="light" expand="md" fixed="top" style={{ backgroundColor: '#f1faf2' }} collapseOnSelect>
+      <Navbar data-cy="navbar" data-bs-theme="light" expand="md" className="navbar" collapseOnSelect>
         <Navbar.Toggle aria-controls="header-tabs" aria-label="Menu" />
-        <Brand />
+        {/* CONTROL DE LOGO RESPONSIVO */}
+        {props.isAuthenticated ? (
+          /* Si está autenticado: Solo se muestra en móviles (se oculta de 'md' en adelante) */
+          <div className="d-block d-md-none">
+            <Brand isAuthenticated={props.isAuthenticated} />
+          </div>
+        ) : (
+          /* Si NO está autenticado (Landing): Se muestra siempre en cualquier pantalla */
+          <Brand isAuthenticated={props.isAuthenticated} />
+        )}
         <Navbar.Collapse id="header-tabs">
           <Nav className="ms-auto">
-            <Home />
+            <Home isAuthenticated={props.isAuthenticated} />
             {props.isAuthenticated && <EntitiesMenu />}
             {props.isAuthenticated && props.isAdmin && <AdminMenu showOpenAPI={props.isOpenAPIEnabled} />}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />

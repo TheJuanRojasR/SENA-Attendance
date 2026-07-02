@@ -9,6 +9,7 @@ import Register from 'app/modules/account/register/register';
 import Home from 'app/modules/home/home';
 import Login from 'app/modules/login/login';
 import Logout from 'app/modules/login/logout';
+import Dashboard from 'app/modules/dashboard/dashboard';
 import PrivateRoute from 'app/shared/auth/private-route';
 import ErrorBoundaryRoutes from 'app/shared/error/error-boundary-routes';
 import PageNotFound from 'app/shared/error/page-not-found';
@@ -19,7 +20,16 @@ const loading = <div>loading ...</div>;
 const Account = React.lazy(() => import(/* webpackChunkName: "account" */ 'app/modules/account'));
 
 const Admin = React.lazy(() => import(/* webpackChunkName: "administration" */ 'app/modules/administration'));
-const AppRoutes = () => {
+
+export interface IDashboardProps {
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isInstructor: boolean;
+  isCoordinator: boolean;
+  isAprentice: boolean;
+}
+
+const AppRoutes = (props: IDashboardProps) => {
   return (
     <div className="view-routes">
       <Suspense fallback={loading}>
@@ -56,6 +66,21 @@ const AppRoutes = () => {
             element={
               <PrivateRoute hasAnyAuthorities={[Authority.USER]}>
                 <EntitiesRoutes />
+              </PrivateRoute>
+            }
+          />
+          {/* Ruta del Admin Dashboard Protegida */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.INSTRUCTOR, Authority.COORDINATOR, Authority.APPRENTICE]}>
+                <Dashboard
+                  isAuthenticated={props.isAuthenticated}
+                  isAdmin={props.isAdmin}
+                  isCoordinator={props.isCoordinator}
+                  isInstructor={props.isInstructor}
+                  isAprentice={props.isAprentice}
+                />
               </PrivateRoute>
             }
           />
