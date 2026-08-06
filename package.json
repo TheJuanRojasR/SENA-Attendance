@@ -31,7 +31,7 @@
     "cleanup": "rimraf target/",
     "docker:db:down": "docker compose -f src/main/docker/mongodb.yml down -v",
     "docker:db:up": "docker compose -f src/main/docker/mongodb.yml up --wait",
-    "java:docker": "./mvnw -ntp verify -DskipTests -Pprod jib:dockerBuild",
+    "java:docker": "./mvnw -ntp verify -DskipTests -Pdev -Dmodernizer.skip=true jib:dockerBuild",
     "java:docker:arm64": "npm run java:docker -- -Djib-maven-plugin.architecture=arm64",
     "java:docker:dev": "npm run java:docker -- -Pdev,webapp",
     "java:docker:prod": "npm run java:docker -- -Pprod",
