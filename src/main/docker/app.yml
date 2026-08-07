@@ -37,6 +37,7 @@ services:
 
 volumes:
   mongodb_data:
+  mongodb_config:
 
 networks:
   mongo_network:

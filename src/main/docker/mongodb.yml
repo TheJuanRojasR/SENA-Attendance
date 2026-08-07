@@ -16,12 +16,14 @@ services:
 
     volumes:
       - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
 
     networks:
       - mongo_network
 
 volumes:
   mongodb_data:
+  mongodb_config:
 
 networks:
   mongo_network:
