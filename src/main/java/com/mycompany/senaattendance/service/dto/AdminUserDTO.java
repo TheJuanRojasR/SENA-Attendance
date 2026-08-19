@@ -20,7 +20,7 @@ public class AdminUserDTO implements Serializable {
 
     private String id;
 
-    @NotBlank
+    // @NotBlank
     @Pattern(regexp = Constants.LOGIN_REGEX)
     @Size(min = 1, max = 50)
     private String login;

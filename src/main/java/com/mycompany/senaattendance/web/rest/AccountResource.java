@@ -60,8 +60,12 @@ public class AccountResource {
         if (isPasswordLengthInvalid(managedUserVM.getPassword())) {
             throw new InvalidPasswordException();
         }
-        User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
-        mailService.sendActivationEmail(user);
+        try {
+            User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
+            // mailService.sendActivationEmail(user);
+        } catch (DocumentTypeNotFoundException e) {
+            throw new BadRequestAlertException(e.getMessage(), "userProfile", "documentTypeNotFound");
+        }
     }
 
     /**

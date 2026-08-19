@@ -26,4 +26,7 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // Busca un UserProfile por el ID del usuario asociado
     @Query("{'user._id': ?0}")
     Optional<UserProfile> findOneByUserId(String userId);
+
+    // ------- SEARCH USER PROFILE BY DOCUMENT NUMBER -------
+    Optional<UserProfile> findByDocumentNumber(String documentNumber);
 }

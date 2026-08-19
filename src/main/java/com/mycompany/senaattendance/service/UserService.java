@@ -2,13 +2,20 @@ package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.config.Constants;
 import com.mycompany.senaattendance.domain.Authority;
+import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
+import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.UserDTO;
+import com.mycompany.senaattendance.web.rest.errors.DocumentNumberAlreadyUsedException;
+import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNotFoundException;
+import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -36,10 +43,22 @@ public class UserService {
 
     private final AuthorityRepository authorityRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, AuthorityRepository authorityRepository) {
+    private final UserProfileRepository userProfileRepository;
+
+    private final DocumentTypeRepository documentTypeRepository;
+
+    public UserService(
+        UserRepository userRepository,
+        PasswordEncoder passwordEncoder,
+        AuthorityRepository authorityRepository,
+        UserProfileRepository userProfileRepository,
+        DocumentTypeRepository documentTypeRepository
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authorityRepository = authorityRepository;
+        this.userProfileRepository = userProfileRepository;
+        this.documentTypeRepository = documentTypeRepository;
     }
 
     public Optional<User> activateRegistration(String key) {
@@ -80,37 +99,88 @@ public class UserService {
             });
     }
 
-    public User registerUser(AdminUserDTO userDTO, String password) {
-        userRepository.findOneByLogin(userDTO.getLogin().toLowerCase()).ifPresent(existingUser -> {
+    public User registerUser(ManagedUserVM userVM, String password) {
+        String login = userVM.getDocumentNumber().toLowerCase().trim();
+
+        if (login.isEmpty()) {
+            throw new IllegalArgumentException("Document number cannot be null or empty");
+        }
+
+        userRepository.findOneByLogin(login).ifPresent(existingUser -> {
             boolean removed = removeNonActivatedUser(existingUser);
             if (!removed) {
                 throw new UsernameAlreadyUsedException();
             }
         });
-        userRepository.findOneByEmailIgnoreCase(userDTO.getEmail()).ifPresent(existingUser -> {
+
+        userRepository.findOneByEmailIgnoreCase(userVM.getEmail()).ifPresent(existingUser -> {
             boolean removed = removeNonActivatedUser(existingUser);
             if (!removed) {
                 throw new EmailAlreadyUsedException();
             }
         });
+
         User newUser = new User();
+
+        String passwordRegex = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,20}$";
+
+        if (!password.matches(passwordRegex)) {
+            throw new InvalidPasswordException();
+        }
+
         String encryptedPassword = passwordEncoder.encode(password);
-        newUser.setLogin(userDTO.getLogin().toLowerCase());
+        newUser.setLogin(login);
         // new user gets initially a generated password
         newUser.setPassword(encryptedPassword);
-        if (userDTO.getEmail() != null) {
-            newUser.setEmail(userDTO.getEmail().toLowerCase());
+        if (userVM.getEmail() != null) {
+            newUser.setEmail(userVM.getEmail().toLowerCase());
         }
-        newUser.setImageUrl(userDTO.getImageUrl());
-        newUser.setLangKey(userDTO.getLangKey());
+        newUser.setImageUrl(userVM.getImageUrl());
+
+        if (userVM.getLangKey() != null) {
+            newUser.setLangKey(Constants.DEFAULT_LANGUAGE);
+        } else {
+            newUser.setLangKey(userVM.getLangKey());
+        }
+
         // new user is not active
-        newUser.setActivated(false);
+        newUser.setActivated(true);
         // new user gets registration key
-        newUser.setActivationKey(RandomUtil.generateActivationKey());
+        // newUser.setActivationKey(RandomUtil.generateActivationKey());
         Set<Authority> authorities = new HashSet<>();
         authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
+        authorityRepository.findById(AuthoritiesConstants.APPRENTICE).ifPresent(authorities::add);
         newUser.setAuthorities(authorities);
         userRepository.save(newUser);
+
+        // ------- SEARCH DOCUMENT TYPE -------
+        DocumentType documentType = documentTypeRepository
+            .findById(userVM.getDocumentTypeId())
+            .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
+
+        if (documentType == null) {
+            throw new DocumentTypeNotFoundException("Document type not found");
+        }
+
+        // ------- CREATE USER PROFILE -------
+        UserProfile userProfile = new UserProfile();
+
+        if (userProfileRepository.findByDocumentNumber(userVM.getDocumentNumber()).isPresent()) {
+            throw new DocumentNumberAlreadyUsedException("Document number is already in use");
+        }
+
+        userProfile.setFirstName(userVM.getFirstName());
+        userProfile.setMiddleName(userVM.getMiddleName());
+        userProfile.setFirstLastName(userVM.getFirstLastName());
+        userProfile.setSecondLastName(userVM.getSecondLastName());
+        userProfile.setDocumentNumber(userVM.getDocumentNumber());
+        userProfile.setPhoneNumber(userVM.getPhoneNumber());
+
+        userProfile.setUser(newUser);
+        userProfile.setDocumentType(documentType);
+
+        userProfileRepository.save(userProfile);
+
         LOG.debug("Created Information for User: {}", newUser);
         return newUser;
     }
