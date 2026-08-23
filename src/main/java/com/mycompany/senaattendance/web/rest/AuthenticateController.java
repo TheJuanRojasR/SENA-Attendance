@@ -82,7 +82,10 @@ public class AuthenticateController {
 
     @PostMapping("/authenticate")
     public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
-        var profileOpt = userProfileRepository.findByDocumentTypeAndDocumentNumber(loginVM.getDocumentType(), loginVM.getDocumentNumber());
+        var profileOpt = userProfileRepository.findByDocumentTypeAndDocumentNumber(
+            loginVM.getDocumentTypeId(),
+            loginVM.getDocumentNumber()
+        );
 
         if (profileOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();

@@ -10,7 +10,7 @@ public class LoginVM {
 
     @NotNull
     @Size(min = 1, max = 254)
-    private String documentType;
+    private String documentTypeId;
 
     @NotNull
     @Size(min = 1, max = 254)
@@ -22,12 +22,12 @@ public class LoginVM {
 
     private boolean rememberMe;
 
-    public String getDocumentType() {
-        return documentType;
+    public String getDocumentTypeId() {
+        return documentTypeId;
     }
 
-    public void setDocumentType(String documentType) {
-        this.documentType = documentType;
+    public void setDocumentTypeId(String documentTypeId) {
+        this.documentTypeId = documentTypeId;
     }
 
     public String getDocumentNumber() {
@@ -58,7 +58,7 @@ public class LoginVM {
     @Override
     public String toString() {
         return "LoginVM{" +
-            "documentType='" + documentType + '\'' +
+            "documentTypeId='" + documentTypeId + '\'' +
             ", documentNumber='" + documentNumber + '\'' +
             ", rememberMe=" + rememberMe +
             '}';
