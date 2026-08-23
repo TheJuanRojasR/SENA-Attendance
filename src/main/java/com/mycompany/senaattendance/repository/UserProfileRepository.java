@@ -31,5 +31,5 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     Optional<UserProfile> findByDocumentNumber(String documentNumber);
 
     // ------- SEARCH USER PROFILE BY DOCUMENT TYPE AND DOCUMENT NUMBER -------
-    Optional<UserProfile> findByDocumentTypeAndDocumentNumber(String docuentType, String documentNumber);
+    Optional<UserProfile> findByDocumentTypeAndDocumentNumber(String documentTypeId, String documentNumber);
 }

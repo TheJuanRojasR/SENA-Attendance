@@ -87,9 +87,10 @@ public class UserService {
             });
     }
 
-    public Optional<User> requestPasswordReset(String mail) {
-        return userRepository
-            .findOneByEmailIgnoreCase(mail)
+    public Optional<User> requestPasswordReset(String documentTypeId, String documentNumber) {
+        return userProfileRepository
+            .findByDocumentTypeAndDocumentNumber(documentTypeId, documentNumber)
+            .map(UserProfile::getUser)
             .filter(User::isActivated)
             .map(user -> {
                 user.setResetKey(RandomUtil.generateResetKey());

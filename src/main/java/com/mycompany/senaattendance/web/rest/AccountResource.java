@@ -1,6 +1,8 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.MailService;
@@ -10,6 +12,7 @@ import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
+import com.mycompany.senaattendance.web.rest.vm.PasswordResetRequestVM;
 import jakarta.validation.Valid;
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
@@ -136,11 +139,11 @@ public class AccountResource {
     /**
      * {@code POST   /account/reset-password/init} : Send an email to reset the password of the user.
      *
-     * @param mail the mail of the user.
+     * @param requestVM the document type and document number of the user.
      */
     @PostMapping(path = "/account/reset-password/init")
-    public void requestPasswordReset(@RequestBody String mail) {
-        Optional<User> user = userService.requestPasswordReset(mail);
+    public void requestPasswordReset(@Valid @RequestBody PasswordResetRequestVM requestVM) {
+        Optional<User> user = userService.requestPasswordReset(requestVM.getDocumentTypeId(), requestVM.getDocumentNumber());
         if (user.isPresent()) {
             mailService.sendPasswordResetMail(user.orElseThrow());
         } else {
