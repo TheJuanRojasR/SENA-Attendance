@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -22,4 +23,10 @@ public interface GradeRepository extends MongoRepository<Grade, String> {
 
     @Query("{'id': ?0}")
     Optional<Grade> findOneWithEagerRelationships(String id);
+
+    // ------- SEARCH GRADES BY STATE -------
+    long countByState(StateGrade state);
+
+    // ------- SEARCH LATEST 5 GRADES -------
+    List<Grade> findTop5ByOrderByCreatedDateDesc();
 }

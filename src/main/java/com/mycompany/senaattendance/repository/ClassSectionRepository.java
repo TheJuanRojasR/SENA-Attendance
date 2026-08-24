@@ -26,4 +26,8 @@ public interface ClassSectionRepository extends MongoRepository<ClassSection, St
     // Busca un ClassSection por el ID del instructor asociado
     @Query("{'instructor._id': ?0}")
     List<ClassSection> findByInstructorId(String instructorId);
+
+    // ------- SEARCH BY GRADE ID -------
+    @Query("{'grade._id' :  ?0}")
+    List<ClassSection> findByGradeId(String gradeId);
 }
