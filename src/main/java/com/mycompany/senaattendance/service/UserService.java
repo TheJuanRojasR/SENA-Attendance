@@ -13,13 +13,17 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.UserDTO;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentNumberAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNotFoundException;
+import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -36,6 +40,8 @@ import tech.jhipster.security.RandomUtil;
 public class UserService {
 
     private static final Logger LOG = LoggerFactory.getLogger(UserService.class);
+
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,20}$");
 
     private final UserRepository userRepository;
 
@@ -123,9 +129,7 @@ public class UserService {
 
         User newUser = new User();
 
-        String passwordRegex = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,20}$";
-
-        if (!password.matches(passwordRegex)) {
+        if (!password.matches(PASSWORD_PATTERN.pattern())) {
             throw new InvalidPasswordException();
         }
 
@@ -340,5 +344,80 @@ public class UserService {
      */
     public List<String> getAuthorities() {
         return authorityRepository.findAll().stream().map(Authority::getName).toList();
+    }
+
+    // ----- USER ACCOUNT UPDATE -----
+
+    /**
+     * Updates the current user's own account information:
+     * email, langKey, imageUrl and the associated UserProfile names/phone.
+     * Optionally changes the password when newPassword is provided.
+     */
+    public void updateOwnAccount(AccountUpdateVM accountUpdateVM) {
+        LOG.debug("Updating current user's account information");
+
+        User user = SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .orElseThrow(() -> new BadRequestAlertException("Current user not found", "user", "notfound"));
+
+        if (accountUpdateVM.getEmail() != null) {
+            userRepository.findOneByEmailIgnoreCase(accountUpdateVM.getEmail()).ifPresent(existing -> {
+                if (!existing.getLogin().equalsIgnoreCase(user.getLogin())) {
+                    throw new EmailAlreadyUsedException();
+                }
+            });
+
+            user.setEmail(accountUpdateVM.getEmail().toLowerCase().trim());
+        }
+
+        if (accountUpdateVM.getLangKey() != null) {
+            user.setLangKey(accountUpdateVM.getLangKey());
+        }
+
+        if (accountUpdateVM.getImageUrl() != null) {
+            user.setImageUrl(accountUpdateVM.getImageUrl());
+        }
+
+        if (StringUtils.isNotBlank(accountUpdateVM.getNewPassword())) {
+            if (
+                StringUtils.isBlank(accountUpdateVM.getCurrentPassword()) ||
+                !passwordEncoder.matches(accountUpdateVM.getCurrentPassword(), user.getPassword())
+            ) {
+                throw new InvalidPasswordException();
+            }
+
+            if (!PASSWORD_PATTERN.matcher(accountUpdateVM.getNewPassword()).matches()) {
+                throw new InvalidPasswordException();
+            }
+
+            user.setPassword(passwordEncoder.encode(accountUpdateVM.getNewPassword()));
+        }
+
+        UserProfile userProfile = userProfileRepository
+            .findOneByUserId(user.getId())
+            .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
+
+        if (accountUpdateVM.getFirstName() != null) {
+            userProfile.setFirstName(accountUpdateVM.getFirstName().trim());
+        }
+
+        if (accountUpdateVM.getFirstLastName() != null) {
+            userProfile.setFirstLastName(accountUpdateVM.getFirstLastName().trim());
+        }
+
+        if (accountUpdateVM.getPhoneNumber() != null) {
+            userProfile.setPhoneNumber(accountUpdateVM.getPhoneNumber().trim());
+        }
+
+        if (accountUpdateVM.getMiddleName() != null) {
+            userProfile.setMiddleName(accountUpdateVM.getMiddleName().trim());
+        }
+
+        if (accountUpdateVM.getSecondLastName() != null) {
+            userProfile.setSecondLastName(accountUpdateVM.getSecondLastName().trim());
+        }
+
+        userRepository.save(user);
+        userProfileRepository.save(userProfile);
     }
 }

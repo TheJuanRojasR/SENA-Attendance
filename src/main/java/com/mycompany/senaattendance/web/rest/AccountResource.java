@@ -1,15 +1,13 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.domain.User;
-import com.mycompany.senaattendance.domain.UserProfile;
-import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
-import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
+import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import com.mycompany.senaattendance.web.rest.vm.PasswordResetRequestVM;
@@ -37,14 +35,11 @@ public class AccountResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountResource.class);
 
-    private final UserRepository userRepository;
-
     private final UserService userService;
 
     private final MailService mailService;
 
-    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService) {
-        this.userRepository = userRepository;
+    public AccountResource(UserService userService, MailService mailService) {
         this.userService = userService;
         this.mailService = mailService;
     }
@@ -100,26 +95,11 @@ public class AccountResource {
     }
 
     /**
-     * {@code POST  /account} : update the current user information.
-     *
-     * @param userDTO the current user information.
-     * @throws EmailAlreadyUsedException {@code 400 (Bad Request)} if the email is already used.
-     * @throws RuntimeException {@code 500 (Internal Server Error)} if the user login wasn't found.
+     * {@code PATCH  /account} : update the current user information.
      */
-    @PostMapping("/account")
-    public void saveAccount(@Valid @RequestBody AdminUserDTO userDTO) {
-        String userLogin = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
-            new AccountResourceException("Current user login not found")
-        );
-        Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
-        if (existingUser.isPresent() && (!existingUser.orElseThrow().getLogin().equalsIgnoreCase(userLogin))) {
-            throw new EmailAlreadyUsedException();
-        }
-        Optional<User> user = userRepository.findOneByLogin(userLogin);
-        if (!user.isPresent()) {
-            throw new AccountResourceException("User could not be found");
-        }
-        userService.updateUser(userDTO.getEmail(), userDTO.getLangKey(), userDTO.getImageUrl());
+    @PatchMapping("/account")
+    public void saveAccount(@Valid @RequestBody AccountUpdateVM accountUpdateVM) {
+        userService.updateOwnAccount(accountUpdateVM);
     }
 
     /**
