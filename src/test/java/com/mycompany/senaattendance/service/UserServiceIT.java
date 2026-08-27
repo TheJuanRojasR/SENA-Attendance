@@ -3,7 +3,11 @@ package com.mycompany.senaattendance.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -24,7 +28,7 @@ class UserServiceIT {
 
     private static final String DEFAULT_LOGIN = "johndoe_service";
 
-    private static final String DEFAULT_EMAIL = "johndoe_service@localhost";
+    private static final String DEFAULT_EMAIL = "johndoe_service@example.com";
 
     private static final String DEFAULT_IMAGEURL = "http://placehold.it/50x50";
 
@@ -32,6 +36,12 @@ class UserServiceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private DocumentTypeRepository documentTypeRepository;
 
     @Autowired
     private UserService userService;
@@ -51,30 +61,71 @@ class UserServiceIT {
 
     @AfterEach
     void cleanupAndCheck() {
+        userProfileRepository.deleteAll();
         userRepository.deleteAll();
     }
 
     @Test
-    void assertThatUserMustExistToResetPassword() {
-        userRepository.save(user);
-        Optional<User> maybeUser = userService.requestPasswordReset("invalid.login@localhost");
+    void assertThatUserAndProfileMustExistToResetPassword() {
+        String documentTypeId = seededDocumentTypeId();
+
+        // Build an activated user and link it to a UserProfile against a real seeded DocumentType
+        User matchingUser = new User();
+        matchingUser.setLogin("reset-activated-login");
+        matchingUser.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        matchingUser.setActivated(true);
+        matchingUser.setEmail("reset-activated@example.com");
+        matchingUser.setImageUrl(DEFAULT_IMAGEURL);
+        matchingUser.setLangKey(DEFAULT_LANGKEY);
+        userRepository.save(matchingUser);
+
+        UserProfile profile = new UserProfile()
+            .firstName("Reset")
+            .firstLastName("User")
+            .documentNumber("RESET-DOC-0001")
+            .phoneNumber("3000000001")
+            .user(matchingUser)
+            .documentType(documentTypeRepository.findById(documentTypeId).orElseThrow());
+        userProfileRepository.save(profile);
+
+        // Case A: no profile matches the document number -> empty
+        Optional<User> maybeUser = userService.requestPasswordReset(documentTypeId, "NONEXISTENT-DOC-NUMBER");
         assertThat(maybeUser).isNotPresent();
 
-        maybeUser = userService.requestPasswordReset(user.getEmail());
+        // Case B: valid activated profile matches -> reset key and date are set
+        maybeUser = userService.requestPasswordReset(documentTypeId, profile.getDocumentNumber());
         assertThat(maybeUser).isPresent();
-        assertThat(maybeUser.orElse(null).getEmail()).isEqualTo(user.getEmail());
+        assertThat(maybeUser.orElse(null).getEmail()).isEqualTo(matchingUser.getEmail());
         assertThat(maybeUser.orElse(null).getResetDate()).isNotNull();
         assertThat(maybeUser.orElse(null).getResetKey()).isNotNull();
     }
 
     @Test
     void assertThatOnlyActivatedUserCanRequestPasswordReset() {
-        user.setActivated(false);
-        userRepository.save(user);
+        String documentTypeId = seededDocumentTypeId();
 
-        Optional<User> maybeUser = userService.requestPasswordReset(user.getLogin());
+        // Build a NON-activated user and link it to a UserProfile against a real seeded DocumentType
+        User inactiveUser = new User();
+        inactiveUser.setLogin("reset-inactive-login");
+        inactiveUser.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        inactiveUser.setActivated(false);
+        inactiveUser.setEmail("reset-inactive@example.com");
+        inactiveUser.setImageUrl(DEFAULT_IMAGEURL);
+        inactiveUser.setLangKey(DEFAULT_LANGKEY);
+        userRepository.save(inactiveUser);
+
+        UserProfile profile = new UserProfile()
+            .firstName("Inactive")
+            .firstLastName("User")
+            .documentNumber("RESET-DOC-0002")
+            .phoneNumber("3000000002")
+            .user(inactiveUser)
+            .documentType(documentTypeRepository.findById(documentTypeId).orElseThrow());
+        userProfileRepository.save(profile);
+
+        // The linked user is not activated -> the reset must not be granted
+        Optional<User> maybeUser = userService.requestPasswordReset(documentTypeId, profile.getDocumentNumber());
         assertThat(maybeUser).isNotPresent();
-        userRepository.delete(user);
     }
 
     @Test
@@ -152,5 +203,12 @@ class UserServiceIT {
         userService.removeNotActivatedUsers();
         Optional<User> maybeDbUser = userRepository.findById(dbUser.getId());
         assertThat(maybeDbUser).contains(dbUser);
+    }
+
+    /**
+     * Resolves a real seeded {@link DocumentType} id (CC/TI/CE/PA are loaded at startup).
+     */
+    private String seededDocumentTypeId() {
+        return documentTypeRepository.findAll().iterator().next().getId();
     }
 }
