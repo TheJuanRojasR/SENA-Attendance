@@ -1,11 +1,10 @@
 {
   "home": {
-    "title": "¡Bienvenido a SENA Attendance!",
-    "subtitle": "Sistema de control y registro de asistencia para aprendices.",
-    "logged": {
-      "message": "Está conectado como \"{{username}}\"."
-    },
-    "question": "Si tiene preguntas sobre JHipster:",
+    "title": "Optimización de la Gestión Académica y Asistencia",
+    "subtitle": "Una plataforma institucional diseñada para facilitar el control y seguimiento. Herramientas precisas para instructores, aprendices y personal administrativo que garantizan transparencia y eficiencia en los procesos del SENA.",
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "button": "Acceder a la plataforma",
     "link": {
       "homepage": "Página de inicio de JHipster",
       "stackoverflow": "JHipster en Stack Overflow",
