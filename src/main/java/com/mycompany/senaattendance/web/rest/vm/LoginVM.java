@@ -13,11 +13,11 @@ public class LoginVM {
     private String documentTypeId;
 
     @NotNull
-    @Size(min = 1, max = 254)
+    @Size(min = 1, max = 20)
     private String documentNumber;
 
     @NotNull
-    @Size(min = 4, max = 100)
+    @Size(min = 4, max = 20)
     private String password;
 
     private boolean rememberMe;

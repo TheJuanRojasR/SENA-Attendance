@@ -16,7 +16,9 @@ import com.mycompany.senaattendance.service.dto.UserDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentNumberAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNotFoundException;
+import com.mycompany.senaattendance.web.rest.errors.LoginAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
+import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -31,6 +33,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.security.RandomUtil;
 
 /**
@@ -135,7 +138,7 @@ public class UserService {
 
         String encryptedPassword = passwordEncoder.encode(password);
         newUser.setLogin(login);
-        // new user gets initially a generated password
+
         newUser.setPassword(encryptedPassword);
         if (userVM.getEmail() != null) {
             newUser.setEmail(userVM.getEmail().toLowerCase());
@@ -148,10 +151,7 @@ public class UserService {
             newUser.setLangKey(userVM.getLangKey());
         }
 
-        // new user is not active
         newUser.setActivated(true);
-        // new user gets registration key
-        // newUser.setActivationKey(RandomUtil.generateActivationKey());
         Set<Authority> authorities = new HashSet<>();
         authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
         authorityRepository.findById(AuthoritiesConstants.APPRENTICE).ifPresent(authorities::add);
@@ -198,36 +198,67 @@ public class UserService {
         return true;
     }
 
-    public User createUser(AdminUserDTO userDTO) {
+    @Transactional
+    public User createUser(AdminCreateUserVM userVM) {
+        String login = userVM.getDocumentNumber().toLowerCase().trim();
+
+        userRepository.findOneByLogin(login).ifPresent(existing -> {
+            throw new LoginAlreadyUsedException();
+        });
+
+        userRepository.findOneByEmailIgnoreCase(userVM.getEmail()).ifPresent(existing -> {
+            throw new EmailAlreadyUsedException();
+        });
+
+        userProfileRepository.findByDocumentNumber((userVM.getDocumentNumber())).ifPresent(existing -> {
+            throw new DocumentNumberAlreadyUsedException("Document number already in use");
+        });
+
+        if (!userVM.getPassword().matches(PASSWORD_PATTERN.pattern())) {
+            throw new InvalidPasswordException();
+        }
+
+        // ------- CREATE USER -------
         User user = new User();
-        user.setLogin(userDTO.getLogin().toLowerCase());
-        if (userDTO.getEmail() != null) {
-            user.setEmail(userDTO.getEmail().toLowerCase());
-        }
-        user.setImageUrl(userDTO.getImageUrl());
-        if (userDTO.getLangKey() == null) {
-            user.setLangKey(Constants.DEFAULT_LANGUAGE); // default language
-        } else {
-            user.setLangKey(userDTO.getLangKey());
-        }
-        String encryptedPassword = passwordEncoder.encode(RandomUtil.generatePassword());
-        user.setPassword(encryptedPassword);
-        user.setResetKey(RandomUtil.generateResetKey());
-        user.setResetDate(Instant.now());
+        user.setLogin(login);
+        user.setPassword(passwordEncoder.encode(userVM.getPassword()));
+        user.setEmail(userVM.getEmail().toLowerCase().trim());
+        user.setImageUrl(null);
+        user.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
         user.setActivated(true);
-        if (userDTO.getAuthorities() != null) {
-            Set<Authority> authorities = userDTO
-                .getAuthorities()
-                .stream()
-                .map(authorityRepository::findById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toSet());
-            user.setAuthorities(authorities);
+
+        Set<Authority> authorities = new HashSet<>();
+
+        authorityRepository.findById(userVM.getRole()).ifPresent(authorities::add);
+
+        if (authorities.isEmpty()) {
+            throw new BadRequestAlertException("Role not found", "userManagement", "rolenotfound");
         }
+
+        user.setAuthorities(authorities);
+
         userRepository.save(user);
+
+        // ------- CREATE USER PROFILE -------
+        UserProfile userProfile = new UserProfile();
+        userProfile.setFirstName(userVM.getFirstName().trim());
+        userProfile.setMiddleName(userVM.getMiddleName().trim());
+        userProfile.setFirstLastName(userVM.getFirstLastName().trim());
+        userProfile.setSecondLastName(userVM.getSecondLastName().trim());
+        userProfile.setDocumentNumber(userVM.getDocumentNumber().trim());
+        userProfile.setPhoneNumber(userVM.getPhoneNumber().trim());
+        userProfile.setUser(user);
+        userProfile.setDocumentType(resolveDocumentType(userVM.getDocumentTypeId()));
+
+        userProfileRepository.save(userProfile);
         LOG.debug("Created Information for User: {}", user);
         return user;
+    }
+
+    private DocumentType resolveDocumentType(String documentTypeId) {
+        return documentTypeRepository
+            .findById(documentTypeId)
+            .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
     }
 
     /**

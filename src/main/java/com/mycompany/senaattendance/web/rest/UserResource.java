@@ -7,14 +7,14 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
-import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
-import com.mycompany.senaattendance.web.rest.errors.EmailAlreadyUsedException;
-import com.mycompany.senaattendance.web.rest.errors.LoginAlreadyUsedException;
+import com.mycompany.senaattendance.web.rest.errors.*;
+import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -95,29 +95,30 @@ public class UserResource {
      * mail with an activation link.
      * The user needs to be activated on creation.
      *
-     * @param userDTO the user to create.
+     * @param userVM the user to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new user, or with status {@code 400 (Bad Request)} if the login or email is already in use.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      * @throws BadRequestAlertException {@code 400 (Bad Request)} if the login or email is already in use.
      */
     @PostMapping("/users")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<User> createUser(@Valid @RequestBody AdminUserDTO userDTO) throws URISyntaxException {
-        LOG.debug("REST request to save User : {}", userDTO);
+    public ResponseEntity<User> createUser(@Valid @RequestBody AdminCreateUserVM userVM) throws URISyntaxException {
+        LOG.debug("REST request to save User : {}", userVM);
 
-        if (userDTO.getId() != null) {
+        if (userVM.getId() != null) {
             throw new BadRequestAlertException("A new user cannot already have an ID", "userManagement", "idexists");
-            // Lowercase the user login before comparing with database
-        } else if (userRepository.findOneByLogin(userDTO.getLogin().toLowerCase()).isPresent()) {
-            throw new LoginAlreadyUsedException();
-        } else if (userRepository.findOneByEmailIgnoreCase(userDTO.getEmail()).isPresent()) {
-            throw new EmailAlreadyUsedException();
+        } else if (isPasswordLengthInvalid(userVM.getPassword())) {
+            throw new InvalidPasswordException();
         } else {
-            User newUser = userService.createUser(userDTO);
-            mailService.sendCreationEmail(newUser);
-            return ResponseEntity.created(new URI("/api/admin/users/" + newUser.getLogin()))
-                .headers(HeaderUtil.createAlert(applicationName, "userManagement.created", newUser.getLogin()))
-                .body(newUser);
+            try {
+                User newUser = userService.createUser(userVM);
+                mailService.sendCreationEmail(newUser);
+                return ResponseEntity.created(new URI("/api/admin/users/" + newUser.getLogin()))
+                    .headers(HeaderUtil.createAlert(applicationName, "userManagement.created", newUser.getLogin()))
+                    .body(newUser);
+            } catch (DocumentTypeNotFoundException e) {
+                throw new BadRequestAlertException(e.getMessage(), "userProfile", "documentTypeNotFound");
+            }
         }
     }
 
@@ -202,5 +203,13 @@ public class UserResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createAlert(applicationName, "userManagement.deleted", login))
             .build();
+    }
+
+    private static boolean isPasswordLengthInvalid(String password) {
+        return (
+            StringUtils.isEmpty(password) ||
+            password.length() < AdminCreateUserVM.PASSWORD_MIN_LENGTH ||
+            password.length() > AdminCreateUserVM.PASSWORD_MAX_LENGTH
+        );
     }
 }
