@@ -1,16 +1,30 @@
-# This configuration is intended for development purpose, it's **your** responsibility to harden it for production
-name: senaattendance
 services:
   mongodb:
     image: mongo:8.2.9
-    # If you want to expose these ports outside your dev PC,
-    # remove the "127.0.0.1:" prefix
+    container_name: mongodb
+    restart: unless-stopped
+
     ports:
       - 127.0.0.1:27017:27017
-    # volumes:
-    #   - ~/volumes/jhipster/senaAttendance/mongodb/:/data/db/
+
     healthcheck:
-      test: ['CMD', 'echo', '''db.runCommand("ping").ok''', '|', 'mongo', 'localhost:27017/test', '--quiet']
+      # Corregido: usa mongosh y eval directo sin tuberías de bash
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.runCommand("ping").ok', 'localhost:27017/test']
       interval: 5s
       timeout: 5s
       retries: 10
+
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+
+    networks:
+      - mongo_network
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+
+networks:
+  mongo_network:
+    driver: bridge

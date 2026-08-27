@@ -20,12 +20,13 @@ public class AdminUserDTO implements Serializable {
 
     private String id;
 
-    @NotBlank
+    // @NotBlank
     @Pattern(regexp = Constants.LOGIN_REGEX)
     @Size(min = 1, max = 50)
     private String login;
 
     @Email
+    @Pattern(regexp = Constants.EMAIL_REGEX)
     @Size(min = 5, max = 254)
     private String email;
 

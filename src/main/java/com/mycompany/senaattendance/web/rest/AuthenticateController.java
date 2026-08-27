@@ -5,6 +5,10 @@ import static com.mycompany.senaattendance.security.SecurityUtils.JWT_ALGORITHM;
 import static com.mycompany.senaattendance.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.DomainUserDetailsService;
 import com.mycompany.senaattendance.security.DomainUserDetailsService.UserWithId;
 import com.mycompany.senaattendance.web.rest.vm.LoginVM;
 import jakarta.validation.Valid;
@@ -23,6 +27,7 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -39,6 +44,7 @@ public class AuthenticateController {
     private static final Logger LOG = LoggerFactory.getLogger(AuthenticateController.class);
 
     private final JwtEncoder jwtEncoder;
+    private final UserProfileRepository userProfileRepository;
 
     @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds:0}")
     private long tokenValidityInSeconds;
@@ -48,20 +54,69 @@ public class AuthenticateController {
 
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
-    public AuthenticateController(JwtEncoder jwtEncoder, AuthenticationManagerBuilder authenticationManagerBuilder) {
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthenticateController(
+        JwtEncoder jwtEncoder,
+        AuthenticationManagerBuilder authenticationManagerBuilder,
+        UserProfileRepository userProfileRepository,
+        PasswordEncoder passwordEncoder
+    ) {
         this.jwtEncoder = jwtEncoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
+        this.userProfileRepository = userProfileRepository;
+        this.passwordEncoder = passwordEncoder;
     }
+
+    //    @PostMapping("/authenticate")
+    //    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
+    //        var authenticationToken = new UsernamePasswordAuthenticationToken(loginVM.getDocumentNumber(), loginVM.getPassword());
+    //
+    //        var authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+    //        SecurityContextHolder.getContext().setAuthentication(authentication);
+    //        String jwt = this.createToken(authentication, loginVM.isRememberMe());
+    //        var httpHeaders = new HttpHeaders();
+    //        httpHeaders.setBearerAuth(jwt);
+    //        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+    //    }
 
     @PostMapping("/authenticate")
     public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
-        var authenticationToken = new UsernamePasswordAuthenticationToken(loginVM.getUsername(), loginVM.getPassword());
+        var profileOpt = userProfileRepository.findByDocumentTypeAndDocumentNumber(
+            loginVM.getDocumentTypeId(),
+            loginVM.getDocumentNumber()
+        );
 
-        var authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+        if (profileOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UserProfile profile = profileOpt.get();
+        User user = profile.getUser();
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        boolean passwordMatches = passwordEncoder.matches(loginVM.getPassword(), user.getPassword());
+        if (!passwordMatches) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        if (!user.isActivated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        var userDetails = DomainUserDetailsService.UserWithId.fromUser(user);
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
         String jwt = this.createToken(authentication, loginVM.isRememberMe());
         var httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(jwt);
+
         return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
     }
 

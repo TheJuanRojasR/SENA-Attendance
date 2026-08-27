@@ -10,7 +10,11 @@ public class LoginVM {
 
     @NotNull
     @Size(min = 1, max = 254)
-    private String username;
+    private String documentTypeId;
+
+    @NotNull
+    @Size(min = 1, max = 254)
+    private String documentNumber;
 
     @NotNull
     @Size(min = 4, max = 100)
@@ -18,12 +22,20 @@ public class LoginVM {
 
     private boolean rememberMe;
 
-    public String getUsername() {
-        return username;
+    public String getDocumentTypeId() {
+        return documentTypeId;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setDocumentTypeId(String documentTypeId) {
+        this.documentTypeId = documentTypeId;
+    }
+
+    public String getDocumentNumber() {
+        return documentNumber;
+    }
+
+    public void setDocumentNumber(String documentNumber) {
+        this.documentNumber = documentNumber;
     }
 
     public String getPassword() {
@@ -46,7 +58,8 @@ public class LoginVM {
     @Override
     public String toString() {
         return "LoginVM{" +
-            "username='" + username + '\'' +
+            "documentTypeId='" + documentTypeId + '\'' +
+            ", documentNumber='" + documentNumber + '\'' +
             ", rememberMe=" + rememberMe +
             '}';
     }

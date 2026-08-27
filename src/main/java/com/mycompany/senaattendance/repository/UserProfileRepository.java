@@ -26,4 +26,22 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // Busca un UserProfile por el ID del usuario asociado
     @Query("{'user._id': ?0}")
     Optional<UserProfile> findOneByUserId(String userId);
+
+    // ------- SEARCH USER PROFILE BY DOCUMENT NUMBER -------
+    Optional<UserProfile> findByDocumentNumber(String documentNumber);
+
+    // ------- SEARCH USER PROFILE BY DOCUMENT TYPE AND DOCUMENT NUMBER -------
+    Optional<UserProfile> findByDocumentTypeAndDocumentNumber(String documentTypeId, String documentNumber);
+
+    // ------- SEARCH USERPROFILE BY DOCUMENT NUMBER -------
+    @Query("{ 'documentNumber': {$regex: ?0, $options: 'i' } }")
+    Page<UserProfile> findByDocumentNumberContaining(String documentNumber, Pageable pageable);
+
+    // ------- SEARCH USERPROFILE BY FIRST NAME OR LAST NAME -------
+    @Query("{ $or: [ { 'firstName': { $regex: ?0, $options: 'i' } }, { 'firstLastName': { $regex: ?0, $options: 'i' } }] }")
+    Page<UserProfile> findByFirstNameContainingOrFirstLastNameContaining(String searchTerm, Pageable pageable);
+
+    // ------- SEARCH USERPROFILE BY ID -------
+    @Query("{ 'user._id': { $in: ?0 } }")
+    Page<UserProfile> findByUserIdIn(List<String> userIds, Pageable pageable);
 }

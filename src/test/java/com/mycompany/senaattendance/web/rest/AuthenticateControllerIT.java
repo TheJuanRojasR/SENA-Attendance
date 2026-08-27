@@ -51,7 +51,7 @@ class AuthenticateControllerIT {
         userRepository.save(user);
 
         LoginVM login = new LoginVM();
-        login.setUsername("user-jwt-controller");
+        //        login.setUsername("user-jwt-controller");
         login.setPassword("test");
         mockMvc
             .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(login)))
@@ -73,7 +73,7 @@ class AuthenticateControllerIT {
         userRepository.save(user);
 
         LoginVM login = new LoginVM();
-        login.setUsername("user-jwt-controller-remember-me");
+        //        login.setUsername("user-jwt-controller-remember-me");
         login.setPassword("test");
         login.setRememberMe(true);
         mockMvc
@@ -88,7 +88,7 @@ class AuthenticateControllerIT {
     @Test
     void testAuthorizeFails() throws Exception {
         LoginVM login = new LoginVM();
-        login.setUsername("wrong-user");
+        //        login.setUsername("wrong-user");
         login.setPassword("wrong password");
         mockMvc
             .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(login)))

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -42,6 +43,7 @@ public class UserProfile extends AbstractAuditingEntity implements Serializable 
     @NotNull
     @Size(max = 15)
     @Field("document_number")
+    @Indexed(unique = true)
     private String documentNumber;
 
     @NotNull

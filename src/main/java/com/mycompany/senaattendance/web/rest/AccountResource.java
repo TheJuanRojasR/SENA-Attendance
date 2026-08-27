@@ -2,14 +2,15 @@ package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.repository.UserRepository;
-import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
+import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
+import com.mycompany.senaattendance.web.rest.vm.PasswordResetRequestVM;
 import jakarta.validation.Valid;
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
@@ -34,14 +35,11 @@ public class AccountResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountResource.class);
 
-    private final UserRepository userRepository;
-
     private final UserService userService;
 
     private final MailService mailService;
 
-    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService) {
-        this.userRepository = userRepository;
+    public AccountResource(UserService userService, MailService mailService) {
         this.userService = userService;
         this.mailService = mailService;
     }
@@ -60,8 +58,12 @@ public class AccountResource {
         if (isPasswordLengthInvalid(managedUserVM.getPassword())) {
             throw new InvalidPasswordException();
         }
-        User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
-        mailService.sendActivationEmail(user);
+        try {
+            User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
+            // mailService.sendActivationEmail(user);
+        } catch (DocumentTypeNotFoundException e) {
+            throw new BadRequestAlertException(e.getMessage(), "userProfile", "documentTypeNotFound");
+        }
     }
 
     /**
@@ -93,26 +95,11 @@ public class AccountResource {
     }
 
     /**
-     * {@code POST  /account} : update the current user information.
-     *
-     * @param userDTO the current user information.
-     * @throws EmailAlreadyUsedException {@code 400 (Bad Request)} if the email is already used.
-     * @throws RuntimeException {@code 500 (Internal Server Error)} if the user login wasn't found.
+     * {@code PATCH  /account} : update the current user information.
      */
-    @PostMapping("/account")
-    public void saveAccount(@Valid @RequestBody AdminUserDTO userDTO) {
-        String userLogin = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
-            new AccountResourceException("Current user login not found")
-        );
-        Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
-        if (existingUser.isPresent() && (!existingUser.orElseThrow().getLogin().equalsIgnoreCase(userLogin))) {
-            throw new EmailAlreadyUsedException();
-        }
-        Optional<User> user = userRepository.findOneByLogin(userLogin);
-        if (!user.isPresent()) {
-            throw new AccountResourceException("User could not be found");
-        }
-        userService.updateUser(userDTO.getEmail(), userDTO.getLangKey(), userDTO.getImageUrl());
+    @PatchMapping("/account")
+    public void saveAccount(@Valid @RequestBody AccountUpdateVM accountUpdateVM) {
+        userService.updateOwnAccount(accountUpdateVM);
     }
 
     /**
@@ -132,11 +119,11 @@ public class AccountResource {
     /**
      * {@code POST   /account/reset-password/init} : Send an email to reset the password of the user.
      *
-     * @param mail the mail of the user.
+     * @param requestVM the document type and document number of the user.
      */
     @PostMapping(path = "/account/reset-password/init")
-    public void requestPasswordReset(@RequestBody String mail) {
-        Optional<User> user = userService.requestPasswordReset(mail);
+    public void requestPasswordReset(@Valid @RequestBody PasswordResetRequestVM requestVM) {
+        Optional<User> user = userService.requestPasswordReset(requestVM.getDocumentTypeId(), requestVM.getDocumentNumber());
         if (user.isPresent()) {
             mailService.sendPasswordResetMail(user.orElseThrow());
         } else {
