@@ -1,14 +1,19 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.config.Constants;
+import com.mycompany.senaattendance.domain.Notificacion;
 import com.mycompany.senaattendance.domain.User;
-import com.mycompany.senaattendance.repository.UserRepository;
+import com.mycompany.senaattendance.domain.enumeration.NotificacionEstado;
+import com.mycompany.senaattendance.domain.enumeration.NotificacionTipo;
+import com.mycompany.senaattendance.repository.NotificacionRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
+import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
+import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.net.URI;
@@ -78,14 +83,14 @@ public class UserResource {
 
     private final UserService userService;
 
-    private final UserRepository userRepository;
-
     private final MailService mailService;
 
-    public UserResource(UserService userService, UserRepository userRepository, MailService mailService) {
+    private final NotificacionRepository notificacionRepository;
+
+    public UserResource(UserService userService, MailService mailService, NotificacionRepository notificacionRepository) {
         this.userService = userService;
-        this.userRepository = userRepository;
         this.mailService = mailService;
+        this.notificacionRepository = notificacionRepository;
     }
 
     /**
@@ -112,7 +117,12 @@ public class UserResource {
         } else {
             try {
                 User newUser = userService.createUser(userVM);
-                mailService.sendCreationEmail(newUser);
+                try {
+                    mailService.sendCreationEmailSync(newUser);
+                } catch (MessagingException | RuntimeException e) {
+                    LOG.warn("Could not send creation email to user '{}', saving pending notification", newUser.getLogin(), e);
+                    saveNotificacion(newUser, e.getMessage());
+                }
                 return ResponseEntity.created(new URI("/api/admin/users/" + newUser.getLogin()))
                     .headers(HeaderUtil.createAlert(applicationName, "userManagement.created", newUser.getLogin()))
                     .body(newUser);
@@ -125,32 +135,44 @@ public class UserResource {
     /**
      * {@code PUT /admin/users} : Updates an existing User.
      *
+     * @param login the user login (ignored; identity is resolved from {@code userDTO.getId()}).
      * @param userDTO the user to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated user.
-     * @throws EmailAlreadyUsedException {@code 400 (Bad Request)} if the email is already in use.
-     * @throws LoginAlreadyUsedException {@code 400 (Bad Request)} if the login is already in use.
+     * @throws BadRequestAlertException {@code 400 (Bad Request)} if the id is missing.
      */
     @PutMapping({ "/users", "/users/{login}" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<AdminUserDTO> updateUser(
-        @PathVariable(name = "login", required = false) @Pattern(regexp = Constants.LOGIN_REGEX) String login,
-        @Valid @RequestBody AdminUserDTO userDTO
+        @PathVariable(name = "login", required = false) String login,
+        @Valid @RequestBody AdminUpdateUserVM userDTO
     ) {
         LOG.debug("REST request to update User : {}", userDTO);
-        Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
-        if (existingUser.isPresent() && (!existingUser.orElseThrow().getId().equals(userDTO.getId()))) {
-            throw new EmailAlreadyUsedException();
+        if (userDTO.getId() == null) {
+            throw new BadRequestAlertException("A update user must have an ID", "userManagement", "idmissing");
         }
-        existingUser = userRepository.findOneByLogin(userDTO.getLogin().toLowerCase());
-        if (existingUser.isPresent() && (!existingUser.orElseThrow().getId().equals(userDTO.getId()))) {
-            throw new LoginAlreadyUsedException();
+        Optional<AdminUserDTO> updatedUser;
+        try {
+            updatedUser = userService.updateUser(userDTO);
+        } catch (DocumentTypeNotFoundException e) {
+            throw new BadRequestAlertException(e.getMessage(), "userProfile", "documentTypeNotFound");
         }
-        Optional<AdminUserDTO> updatedUser = userService.updateUser(userDTO);
-
         return ResponseUtil.wrapOrNotFound(
             updatedUser,
-            HeaderUtil.createAlert(applicationName, "userManagement.updated", userDTO.getLogin())
+            HeaderUtil.createAlert(applicationName, "userManagement.updated", updatedUser.map(AdminUserDTO::getLogin).orElse(""))
         );
+    }
+
+    /**
+     * Saves a pending {@link Notificacion} for the user so the admin can resend the
+     * credentials email manually. Does NOT throw.
+     */
+    private void saveNotificacion(User user, String mensaje) {
+        Notificacion notificacion = new Notificacion();
+        notificacion.setUser(user);
+        notificacion.setTipo(NotificacionTipo.CREDENTIALS);
+        notificacion.setEstado(NotificacionEstado.PENDIENTE);
+        notificacion.setMensaje(mensaje);
+        notificacionRepository.save(notificacion);
     }
 
     /**

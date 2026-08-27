@@ -19,6 +19,7 @@ import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNotFoundExceptio
 import com.mycompany.senaattendance.web.rest.errors.LoginAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
+import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -227,15 +228,7 @@ public class UserService {
         user.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
         user.setActivated(true);
 
-        Set<Authority> authorities = new HashSet<>();
-
-        authorityRepository.findById(userVM.getRole()).ifPresent(authorities::add);
-
-        if (authorities.isEmpty()) {
-            throw new BadRequestAlertException("Role not found", "userManagement", "rolenotfound");
-        }
-
-        user.setAuthorities(authorities);
+        user.setAuthorities(buildAuthorities(userVM.getRole()));
 
         userRepository.save(user);
 
@@ -262,37 +255,99 @@ public class UserService {
     }
 
     /**
-     * Update all information for a specific user, and return the modified user.
+     * Builds the authority set for a user: always {@code ROLE_USER} plus exactly one
+     * extra role. Throws {@link BadRequestAlertException} when a role cannot be resolved.
      *
-     * @param userDTO user to update.
-     * @return updated user.
+     * @param role the extra role (e.g. ADMIN / INSTRUCTOR / APPRENTICE).
+     * @return the immutable result set {@code {ROLE_USER, role}}.
      */
-    public Optional<AdminUserDTO> updateUser(AdminUserDTO userDTO) {
-        return Optional.of(userRepository.findById(userDTO.getId()))
+    private Set<Authority> buildAuthorities(String role) {
+        Set<Authority> authorities = new HashSet<>();
+        authorities.add(
+            authorityRepository
+                .findById(AuthoritiesConstants.USER)
+                .orElseThrow(() -> new BadRequestAlertException("Role not found", "userManagement", "rolenotfound"))
+        );
+        authorities.add(
+            authorityRepository
+                .findById(role)
+                .orElseThrow(() -> new BadRequestAlertException("Role not found", "userManagement", "rolenotfound"))
+        );
+        return authorities;
+    }
+
+    /**
+     * Update all information for a specific user (User + UserProfile), and return the
+     * modified user. Login is re-derived from {@link AdminUpdateUserVM#getDocumentNumber()};
+     * {@code activated} and client authorities are IGNORED.
+     *
+     * @param vm the update view model.
+     * @return the updated user, or {@link Optional#empty()} when the user does not exist.
+     */
+    @Transactional
+    public Optional<AdminUserDTO> updateUser(AdminUpdateUserVM vm) {
+        return Optional.of(userRepository.findById(vm.getId()))
             .filter(Optional::isPresent)
             .map(Optional::get)
             .map(user -> {
-                user.setLogin(userDTO.getLogin().toLowerCase());
-                if (userDTO.getEmail() != null) {
-                    user.setEmail(userDTO.getEmail().toLowerCase());
+                String documentNumber = vm.getDocumentNumber().trim();
+                String newLogin = documentNumber.toLowerCase();
+
+                // uniqueness excluding self
+                userRepository.findOneByLogin(newLogin).ifPresent(existing -> {
+                    if (!existing.getId().equals(vm.getId())) {
+                        throw new LoginAlreadyUsedException();
+                    }
+                });
+
+                userProfileRepository.findByDocumentNumber(documentNumber).ifPresent(existing -> {
+                    if (!existing.getUser().getId().equals(vm.getId())) {
+                        throw new DocumentNumberAlreadyUsedException("Document number is already in use");
+                    }
+                });
+
+                if (vm.getEmail() != null) {
+                    userRepository.findOneByEmailIgnoreCase(vm.getEmail()).ifPresent(existing -> {
+                        if (!existing.getId().equals(vm.getId())) {
+                            throw new EmailAlreadyUsedException();
+                        }
+                    });
                 }
-                user.setImageUrl(userDTO.getImageUrl());
-                user.setActivated(userDTO.isActivated());
-                user.setLangKey(userDTO.getLangKey());
-                Set<Authority> managedAuthorities = user.getAuthorities();
-                managedAuthorities.clear();
-                userDTO
-                    .getAuthorities()
-                    .stream()
-                    .map(authorityRepository::findById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .forEach(managedAuthorities::add);
+
+                DocumentType documentType = resolveDocumentType(vm.getDocumentTypeId());
+                Set<Authority> authorities = buildAuthorities(vm.getRole());
+
+                // ----- USER (activated NOT touched, client authorities ignored) -----
+                user.setLogin(newLogin);
+                if (vm.getEmail() != null) {
+                    user.setEmail(vm.getEmail().toLowerCase().trim());
+                }
+                user.setImageUrl(vm.getImageUrl());
+                user.setLangKey(vm.getLangKey());
+                user.setAuthorities(authorities);
+
+                // ----- USER PROFILE -----
+                UserProfile userProfile = userProfileRepository
+                    .findOneByUserId(user.getId())
+                    .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
+                userProfile.setFirstName(vm.getFirstName().trim());
+                userProfile.setFirstLastName(vm.getFirstLastName().trim());
+                userProfile.setDocumentNumber(documentNumber);
+                userProfile.setPhoneNumber(vm.getPhoneNumber().trim());
+                userProfile.setDocumentType(documentType);
+                userProfile.setUser(user);
+                if (vm.getMiddleName() != null) {
+                    userProfile.setMiddleName(vm.getMiddleName().trim());
+                }
+                if (vm.getSecondLastName() != null) {
+                    userProfile.setSecondLastName(vm.getSecondLastName().trim());
+                }
+
                 userRepository.save(user);
+                userProfileRepository.save(userProfile);
                 LOG.debug("Changed Information for User: {}", user);
-                return user;
-            })
-            .map(AdminUserDTO::new);
+                return new AdminUserDTO(user);
+            });
     }
 
     public void deleteUser(String login) {

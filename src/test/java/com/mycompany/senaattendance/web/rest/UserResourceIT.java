@@ -1,19 +1,25 @@
 package com.mycompany.senaattendance.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Authority;
 import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
+import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
+import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
 import java.util.*;
 import java.util.function.Consumer;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -24,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -35,8 +42,6 @@ import org.springframework.test.web.servlet.MockMvc;
 class UserResourceIT {
 
     private static final String DEFAULT_LOGIN = "johndoe";
-    private static final String UPDATED_LOGIN = "jhipster";
-
     private static final String DEFAULT_ID = "id1";
 
     private static final String DEFAULT_EMAIL = "johndoe@example.com";
@@ -48,6 +53,12 @@ class UserResourceIT {
     private static final String DEFAULT_LANGKEY = "en";
     private static final String UPDATED_LANGKEY = "fr";
 
+    private static final String DEFAULT_DOCUMENT = "JDOC0001";
+    private static final String UPDATED_DOCUMENT = "JDOC0002";
+
+    private static final String DEFAULT_PHONE = "3001234567";
+    private static final String UPDATED_PHONE = "3007654321";
+
     @Autowired
     private ObjectMapper om;
 
@@ -58,7 +69,13 @@ class UserResourceIT {
     private UserProfileRepository userProfileRepository;
 
     @Autowired
+    private AuthorityRepository authorityRepository;
+
+    @Autowired
     private DocumentTypeRepository documentTypeRepository;
+
+    @MockitoBean
+    private MailService mailService;
 
     @Autowired
     private MockMvc restUserMockMvc;
@@ -67,9 +84,6 @@ class UserResourceIT {
 
     /**
      * Create a User.
-     *
-     * This is a static method, as tests for other entities might also need it,
-     * if they test an entity which has a required relationship to the User entity.
      */
     public static User createEntity() {
         User persistUser = new User();
@@ -86,8 +100,7 @@ class UserResourceIT {
      * Setups the database with one user.
      */
     public static User initTestUser() {
-        User persistUser = createEntity();
-        return persistUser;
+        return createEntity();
     }
 
     @BeforeEach
@@ -101,13 +114,64 @@ class UserResourceIT {
         userRepository.deleteAll();
     }
 
+    private String seededDocumentTypeId() {
+        return documentTypeRepository.findAll().iterator().next().getId();
+    }
+
+    private User persistedUser(String login, String email) {
+        User u = new User();
+        u.setLogin(login);
+        u.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        u.setActivated(true);
+        u.setEmail(email);
+        u.setImageUrl(DEFAULT_IMAGEURL);
+        u.setLangKey(DEFAULT_LANGKEY);
+        return userRepository.save(u);
+    }
+
+    private UserProfile persistedProfile(User user, String documentNumber) {
+        return userProfileRepository.save(
+            new UserProfile()
+                .firstName("John")
+                .middleName("M")
+                .firstLastName("Doe")
+                .secondLastName("S")
+                .documentNumber(documentNumber)
+                .phoneNumber(DEFAULT_PHONE)
+                .user(user)
+                .documentType(documentTypeRepository.findById(seededDocumentTypeId()).orElseThrow())
+        );
+    }
+
+    private User persistedUserWithProfile(String documentNumber, String email) {
+        User u = persistedUser(documentNumber.toLowerCase(), email);
+        persistedProfile(u, documentNumber);
+        return u;
+    }
+
+    private AdminUpdateUserVM buildUpdateVM(String id, String documentNumber, String email, String role, String langKey, String imageUrl) {
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(id);
+        vm.setEmail(email);
+        vm.setFirstName("Ana");
+        vm.setMiddleName("Maria");
+        vm.setFirstLastName("Gomez");
+        vm.setSecondLastName("Rodriguez");
+        vm.setDocumentNumber(documentNumber);
+        vm.setPhoneNumber(UPDATED_PHONE);
+        vm.setDocumentTypeId(seededDocumentTypeId());
+        vm.setRole(role);
+        vm.setLangKey(langKey);
+        vm.setImageUrl(imageUrl);
+        return vm;
+    }
+
     @Test
     void createUser() throws Exception {
-        // Create the User
         String documentNumber = "JDOC0001";
         String expectedLogin = documentNumber.toLowerCase().trim();
         AdminCreateUserVM userVM = new AdminCreateUserVM();
-        userVM.setLogin(expectedLogin);
+        userVM.setLogin("ignored.create.login");
         userVM.setEmail(DEFAULT_EMAIL);
         userVM.setPassword("Passw0rd!");
         userVM.setFirstName("John");
@@ -117,23 +181,27 @@ class UserResourceIT {
         userVM.setDocumentNumber(documentNumber);
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
-        userVM.setRole(AuthoritiesConstants.USER);
+        userVM.setRole(AuthoritiesConstants.INSTRUCTOR);
         userVM.setActivated(true);
         userVM.setLangKey(DEFAULT_LANGKEY);
-        userVM.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        // client authorities are ignored: the role field drives the authority set
+        userVM.setAuthorities(Set.of(AuthoritiesConstants.ADMIN));
 
-        // Create the User
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
             .andExpect(status().isCreated());
 
-        // Validate the persisted User (login is derived from the document number, imageUrl is forced null)
         User createdUser = userRepository.findOneByLogin(expectedLogin).orElseThrow();
         assertThat(createdUser.getLogin()).isEqualTo(expectedLogin);
         assertThat(createdUser.getEmail()).isEqualTo(DEFAULT_EMAIL);
         assertThat(createdUser.getImageUrl()).isNull();
         assertThat(createdUser.getLangKey()).isEqualTo(DEFAULT_LANGKEY);
         assertThat(createdUser.isActivated()).isTrue();
+        // role field produces {ROLE_USER, ROLE_INSTRUCTOR}
+        assertThat(createdUser.getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
+            AuthoritiesConstants.USER,
+            AuthoritiesConstants.INSTRUCTOR
+        );
     }
 
     @Test
@@ -152,23 +220,20 @@ class UserResourceIT {
         userVM.setDocumentNumber("JDOC0002");
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
-        userVM.setRole(AuthoritiesConstants.USER);
+        userVM.setRole(AuthoritiesConstants.INSTRUCTOR);
         userVM.setActivated(true);
         userVM.setLangKey(DEFAULT_LANGKEY);
-        userVM.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        userVM.setAuthorities(Set.of(AuthoritiesConstants.INSTRUCTOR));
 
-        // An entity with an existing ID cannot be created, so this API call must fail
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
             .andExpect(status().isBadRequest());
 
-        // Validate the User in the database
         assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeCreate));
     }
 
     @Test
     void createUserWithExistingLogin() throws Exception {
-        // Initialize the database
         userRepository.save(user);
         int databaseSizeBeforeCreate = userRepository.findAll().size();
 
@@ -180,32 +245,29 @@ class UserResourceIT {
         userVM.setMiddleName("M");
         userVM.setFirstLastName("Doe");
         userVM.setSecondLastName("S");
-        userVM.setDocumentNumber(DEFAULT_LOGIN); // this derived login (johndoe) should already be used
+        userVM.setDocumentNumber(DEFAULT_LOGIN); // derived login (johndoe) already used
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
-        userVM.setRole(AuthoritiesConstants.USER);
+        userVM.setRole(AuthoritiesConstants.INSTRUCTOR);
         userVM.setActivated(true);
         userVM.setLangKey(DEFAULT_LANGKEY);
-        userVM.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        userVM.setAuthorities(Set.of(AuthoritiesConstants.INSTRUCTOR));
 
-        // Create the User
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
             .andExpect(status().isBadRequest());
 
-        // Validate the User in the database
         assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeCreate));
     }
 
     @Test
     void createUserWithExistingEmail() throws Exception {
-        // Initialize the database
         userRepository.save(user);
         int databaseSizeBeforeCreate = userRepository.findAll().size();
 
         AdminCreateUserVM userVM = new AdminCreateUserVM();
         userVM.setLogin("jdoc0003");
-        userVM.setEmail(DEFAULT_EMAIL); // this email should already be used
+        userVM.setEmail(DEFAULT_EMAIL); // already used
         userVM.setPassword("Passw0rd!");
         userVM.setFirstName("John");
         userVM.setMiddleName("M");
@@ -214,26 +276,22 @@ class UserResourceIT {
         userVM.setDocumentNumber("JDOC0003");
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
-        userVM.setRole(AuthoritiesConstants.USER);
+        userVM.setRole(AuthoritiesConstants.INSTRUCTOR);
         userVM.setActivated(true);
         userVM.setLangKey(DEFAULT_LANGKEY);
-        userVM.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        userVM.setAuthorities(Set.of(AuthoritiesConstants.INSTRUCTOR));
 
-        // Create the User
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
             .andExpect(status().isBadRequest());
 
-        // Validate the User in the database
         assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeCreate));
     }
 
     @Test
     void getAllUsers() throws Exception {
-        // Initialize the database
         userRepository.save(user);
 
-        // Get all the users
         restUserMockMvc
             .perform(get("/api/admin/users").accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
@@ -246,10 +304,8 @@ class UserResourceIT {
 
     @Test
     void getUser() throws Exception {
-        // Initialize the database
         userRepository.save(user);
 
-        // Get the user
         restUserMockMvc
             .perform(get("/api/admin/users/{login}", user.getLogin()))
             .andExpect(status().isOk())
@@ -267,173 +323,262 @@ class UserResourceIT {
 
     @Test
     void updateUser() throws Exception {
-        // Initialize the database
-        userRepository.save(user);
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
         int databaseSizeBeforeUpdate = userRepository.findAll().size();
 
-        // Update the user
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setId(updatedUser.getId());
-        userDTO.setLogin(updatedUser.getLogin());
-        userDTO.setEmail(UPDATED_EMAIL);
-        userDTO.setActivated(updatedUser.isActivated());
-        userDTO.setImageUrl(UPDATED_IMAGEURL);
-        userDTO.setLangKey(UPDATED_LANGKEY);
-        userDTO.setCreatedBy(updatedUser.getCreatedBy());
-        userDTO.setCreatedDate(updatedUser.getCreatedDate());
-        userDTO.setLastModifiedBy(updatedUser.getLastModifiedBy());
-        userDTO.setLastModifiedDate(updatedUser.getLastModifiedDate());
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        AdminUpdateUserVM vm = buildUpdateVM(
+            user.getId(),
+            DEFAULT_DOCUMENT,
+            UPDATED_EMAIL,
+            AuthoritiesConstants.INSTRUCTOR,
+            UPDATED_LANGKEY,
+            UPDATED_IMAGEURL
+        );
+        vm.setLogin("ignored.login"); // login is derived from documentNumber
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
-            .andExpect(status().isOk());
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
+            .andExpect(jsonPath("$.email").value(UPDATED_EMAIL))
+            .andExpect(jsonPath("$.langKey").value(UPDATED_LANGKEY))
+            .andExpect(jsonPath("$.activated").value(true))
+            .andExpect(jsonPath("$.authorities").value(containsInAnyOrder(AuthoritiesConstants.USER, AuthoritiesConstants.INSTRUCTOR)));
 
-        // Validate the User in the database
         assertPersistedUsers(users -> {
             assertThat(users).hasSize(databaseSizeBeforeUpdate);
             User testUser = users
                 .stream()
-                .filter(usr -> usr.getId().equals(updatedUser.getId()))
+                .filter(usr -> usr.getId().equals(user.getId()))
                 .findFirst()
                 .orElseThrow();
+            assertThat(testUser.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
             assertThat(testUser.getEmail()).isEqualTo(UPDATED_EMAIL);
             assertThat(testUser.getImageUrl()).isEqualTo(UPDATED_IMAGEURL);
             assertThat(testUser.getLangKey()).isEqualTo(UPDATED_LANGKEY);
+            assertThat(testUser.isActivated()).isTrue();
+            assertThat(testUser.getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
+                AuthoritiesConstants.USER,
+                AuthoritiesConstants.INSTRUCTOR
+            );
         });
+
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getFirstName()).isEqualTo("Ana");
+        assertThat(updatedProfile.getMiddleName()).isEqualTo("Maria");
+        assertThat(updatedProfile.getFirstLastName()).isEqualTo("Gomez");
+        assertThat(updatedProfile.getSecondLastName()).isEqualTo("Rodriguez");
+        assertThat(updatedProfile.getDocumentNumber()).isEqualTo(DEFAULT_DOCUMENT);
+        assertThat(updatedProfile.getPhoneNumber()).isEqualTo(UPDATED_PHONE);
+        assertThat(updatedProfile.getDocumentType().getId()).isEqualTo(seededDocumentTypeId());
     }
 
     @Test
-    void updateUserLogin() throws Exception {
-        // Initialize the database
-        userRepository.save(user);
+    void updateUserRedirectsLogin() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
         int databaseSizeBeforeUpdate = userRepository.findAll().size();
 
-        // Update the user
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setId(updatedUser.getId());
-        userDTO.setLogin(UPDATED_LOGIN);
-        userDTO.setEmail(UPDATED_EMAIL);
-        userDTO.setActivated(updatedUser.isActivated());
-        userDTO.setImageUrl(UPDATED_IMAGEURL);
-        userDTO.setLangKey(UPDATED_LANGKEY);
-        userDTO.setCreatedBy(updatedUser.getCreatedBy());
-        userDTO.setCreatedDate(updatedUser.getCreatedDate());
-        userDTO.setLastModifiedBy(updatedUser.getLastModifiedBy());
-        userDTO.setLastModifiedDate(updatedUser.getLastModifiedDate());
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        AdminUpdateUserVM vm = buildUpdateVM(
+            user.getId(),
+            UPDATED_DOCUMENT,
+            DEFAULT_EMAIL,
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(UPDATED_DOCUMENT.toLowerCase()));
+
+        assertThat(userRepository.findOneByLogin(DEFAULT_DOCUMENT.toLowerCase())).isEmpty();
+        assertThat(userRepository.findOneByLogin(UPDATED_DOCUMENT.toLowerCase())).isPresent();
+
+        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeUpdate));
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getDocumentNumber()).isEqualTo(UPDATED_DOCUMENT);
+    }
+
+    @Test
+    void updateUserRoleChangesAuthorities() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+        user.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.ADMIN).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(user);
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            user.getId(),
+            DEFAULT_DOCUMENT,
+            DEFAULT_EMAIL,
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
+
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isOk());
 
-        // Validate the User in the database
-        assertPersistedUsers(users -> {
-            assertThat(users).hasSize(databaseSizeBeforeUpdate);
-            User testUser = users
-                .stream()
-                .filter(usr -> usr.getId().equals(updatedUser.getId()))
-                .findFirst()
-                .orElseThrow();
-            assertThat(testUser.getLogin()).isEqualTo(UPDATED_LOGIN);
-            assertThat(testUser.getEmail()).isEqualTo(UPDATED_EMAIL);
-            assertThat(testUser.getImageUrl()).isEqualTo(UPDATED_IMAGEURL);
-            assertThat(testUser.getLangKey()).isEqualTo(UPDATED_LANGKEY);
-        });
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
+            AuthoritiesConstants.USER,
+            AuthoritiesConstants.INSTRUCTOR
+        );
     }
 
     @Test
-    void updateUserExistingEmail() throws Exception {
-        // Initialize the database with 2 users
-        userRepository.save(user);
+    void updateUserMissingFirstName() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
 
-        User anotherUser = new User();
-        anotherUser.setLogin("jhipster");
-        anotherUser.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        anotherUser.setActivated(true);
-        anotherUser.setEmail("jhipster@example.com");
-        anotherUser.setImageUrl("");
-        anotherUser.setLangKey("en");
-        userRepository.save(anotherUser);
-
-        // Update the user
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setId(updatedUser.getId());
-        userDTO.setLogin(updatedUser.getLogin());
-        userDTO.setEmail("jhipster@example.com"); // this email should already be used by anotherUser
-        userDTO.setActivated(updatedUser.isActivated());
-        userDTO.setImageUrl(updatedUser.getImageUrl());
-        userDTO.setLangKey(updatedUser.getLangKey());
-        userDTO.setCreatedBy(updatedUser.getCreatedBy());
-        userDTO.setCreatedDate(updatedUser.getCreatedDate());
-        userDTO.setLastModifiedBy(updatedUser.getLastModifiedBy());
-        userDTO.setLastModifiedDate(updatedUser.getLastModifiedDate());
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        AdminUpdateUserVM vm = buildUpdateVM(
+            user.getId(),
+            DEFAULT_DOCUMENT,
+            DEFAULT_EMAIL,
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
+        vm.setFirstName(null); // E1: @NotNull violated
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
-            .andExpect(status().isBadRequest());
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"));
+
+        User unchanged = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(unchanged.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
+        UserProfile profile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(profile.getFirstName()).isEqualTo("John");
     }
 
     @Test
-    void updateUserExistingLogin() throws Exception {
-        // Initialize the database
-        userRepository.save(user);
+    void updateUserDocumentNumberAlreadyUsed() throws Exception {
+        User userA = persistedUserWithProfile("JDOCA", "usera@example.com");
+        // userB has a profile whose documentNumber (JDOCB) is taken by another user (login not doc-derived)
+        persistedUser("some.other.login", "userb@example.com");
+        persistedProfile(userRepository.findOneByLogin("some.other.login").orElseThrow(), "JDOCB");
+        int databaseSizeBeforeUpdate = userRepository.findAll().size();
 
-        User anotherUser = new User();
-        anotherUser.setLogin("jhipster");
-        anotherUser.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        anotherUser.setActivated(true);
-        anotherUser.setEmail("jhipster@example.com");
-        anotherUser.setImageUrl("");
-        anotherUser.setLangKey("en");
-        userRepository.save(anotherUser);
-
-        // Update the user
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setId(updatedUser.getId());
-        userDTO.setLogin("jhipster"); // this login should already be used by anotherUser
-        userDTO.setEmail(updatedUser.getEmail());
-        userDTO.setActivated(updatedUser.isActivated());
-        userDTO.setImageUrl(updatedUser.getImageUrl());
-        userDTO.setLangKey(updatedUser.getLangKey());
-        userDTO.setCreatedBy(updatedUser.getCreatedBy());
-        userDTO.setCreatedDate(updatedUser.getCreatedDate());
-        userDTO.setLastModifiedBy(updatedUser.getLastModifiedBy());
-        userDTO.setLastModifiedDate(updatedUser.getLastModifiedDate());
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.USER));
+        AdminUpdateUserVM vm = buildUpdateVM(
+            userA.getId(),
+            "JDOCB",
+            "usera@example.com",
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
-            .andExpect(status().isBadRequest());
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentnumberexists"));
+
+        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeUpdate));
+        assertThat(userProfileRepository.findByDocumentNumber("JDOCA")).isPresent();
+    }
+
+    @Test
+    void updateUserDocumentTypeNotFound() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            user.getId(),
+            DEFAULT_DOCUMENT,
+            DEFAULT_EMAIL,
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
+        vm.setDocumentTypeId("000000000000000000000000"); // not found
+
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeNotFound"));
+    }
+
+    @Test
+    void updateUserRoleNotFound() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            user.getId(),
+            DEFAULT_DOCUMENT,
+            DEFAULT_EMAIL,
+            "ROLE_NONEXISTENT",
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
+
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.rolenotfound"));
+    }
+
+    @Test
+    void updateUserEmailAlreadyUsed() throws Exception {
+        User userA = persistedUserWithProfile("JDOCA", "usera@example.com");
+        persistedUser("userb.login", "userb@example.com");
+        persistedProfile(userRepository.findOneByLogin("userb.login").orElseThrow(), "JDOCB");
+        int databaseSizeBeforeUpdate = userRepository.findAll().size();
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            userA.getId(),
+            "JDOCA",
+            "userb@example.com", // used by another user
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
+
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.emailexists"));
+
+        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeUpdate));
+        assertThat(userRepository.findById(userA.getId()).orElseThrow().getEmail()).isEqualTo("usera@example.com");
+    }
+
+    @Test
+    void updateUserNotFound() throws Exception {
+        AdminUpdateUserVM vm = buildUpdateVM(
+            "nonexistent-id",
+            DEFAULT_DOCUMENT,
+            DEFAULT_EMAIL,
+            AuthoritiesConstants.INSTRUCTOR,
+            DEFAULT_LANGKEY,
+            DEFAULT_IMAGEURL
+        );
+
+        restUserMockMvc
+            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isNotFound());
     }
 
     @Test
     void deleteUser() throws Exception {
-        // Initialize the database
         userRepository.save(user);
         int databaseSizeBeforeDelete = userRepository.findAll().size();
 
-        // Delete the user
         restUserMockMvc
             .perform(delete("/api/admin/users/{login}", user.getLogin()).accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isNoContent());
 
-        // Validate the database is empty
         assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeDelete - 1));
     }
 
     @Test
     void testUserEquals() throws Exception {
-        TestUtil.equalsVerifier(User.class);
+        com.mycompany.senaattendance.web.rest.TestUtil.equalsVerifier(User.class);
         User user1 = new User();
         user1.setId(DEFAULT_ID);
         User user2 = new User();
@@ -443,10 +588,6 @@ class UserResourceIT {
         assertThat(user1).isNotEqualTo(user2);
         user1.setId(null);
         assertThat(user1).isNotEqualTo(user2);
-    }
-
-    private String seededDocumentTypeId() {
-        return documentTypeRepository.findAll().iterator().next().getId();
     }
 
     private void assertPersistedUsers(Consumer<List<User>> userAssertion) {
