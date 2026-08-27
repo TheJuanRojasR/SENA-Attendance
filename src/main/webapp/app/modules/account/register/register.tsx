@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 import { toast } from 'react-toastify';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
+import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
 import PasswordStrengthBar from 'app/shared/layout/password/password-strength-bar';
 
 import { handleRegister, reset } from './register.reducer';
@@ -14,17 +15,21 @@ export const RegisterPage = () => {
   const [password, setPassword] = useState('');
   const dispatch = useAppDispatch();
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    dispatch(getDocumentTypes({}));
+    return () => {
       dispatch(reset());
-    },
-    [],
-  );
+    };
+  }, []);
 
   const currentLocale = useAppSelector(state => state.locale.currentLocale);
+  const documentTypes = useAppSelector(state => state.documentType.entities);
 
   const handleValidSubmit = ({ username, email, firstPassword }: Record<string, any>) => {
     dispatch(handleRegister({ login: username, email, password: firstPassword, langKey: currentLocale }));
+  };
+  const defaultRegisterValues = {
+    documentType: '',
   };
 
   const updatePassword = event => setPassword(event.target.value);
@@ -48,7 +53,7 @@ export const RegisterPage = () => {
       </Row>
       <Row className="justify-content-center">
         <Col md="8">
-          <ValidatedForm id="register-form" onSubmit={handleValidSubmit}>
+          <ValidatedForm id="register-form" onSubmit={handleValidSubmit} defaultValues={defaultRegisterValues}>
             <ValidatedField
               name="username"
               label={translate('global.form.username.label')}
@@ -64,6 +69,25 @@ export const RegisterPage = () => {
               }}
               data-cy="username"
             />
+            <ValidatedField
+              id="user-profile-documentType"
+              name="documentType"
+              data-cy="documentType"
+              label="Tipo de Documento"
+              type="select"
+              required
+            >
+              <option value="" key="0">
+                Selecciona una opcion
+              </option>
+              {documentTypes
+                ? documentTypes.map(otherEntity => (
+                    <option value={otherEntity.id} key={otherEntity.id}>
+                      {otherEntity.name}
+                    </option>
+                  ))
+                : null}
+            </ValidatedField>
             <ValidatedField
               name="email"
               label={translate('global.form.email.label')}
