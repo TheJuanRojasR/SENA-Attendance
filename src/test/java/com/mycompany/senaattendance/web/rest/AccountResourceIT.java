@@ -16,8 +16,8 @@ import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.UserService;
-import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
+import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
@@ -317,6 +317,30 @@ class AccountResourceIT {
             .documentType(documentType);
     }
 
+    private User persistedAccountUser(String login) {
+        User user = new User();
+        user.setLogin(login);
+        user.setEmail(login + "@example.com");
+        user.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        user.setActivated(true);
+        user.setLangKey("es");
+        return userRepository.save(user);
+    }
+
+    private UserProfile persistedAccountProfile(User user, String documentNumber) {
+        return userProfileRepository.save(
+            new UserProfile()
+                .firstName("Juan")
+                .middleName("Carlos")
+                .firstLastName("Perez")
+                .secondLastName("Gomez")
+                .documentNumber(documentNumber)
+                .phoneNumber("3001234567")
+                .user(user)
+                .documentType(seededDocumentType())
+        );
+    }
+
     @Test
     void testActivateAccount() throws Exception {
         final String activationKey = "some activation key";
@@ -343,129 +367,137 @@ class AccountResourceIT {
     }
 
     @Test
-    @WithMockUser("save-account")
+    @WithMockUser("save-account-user")
     void testSaveAccount() throws Exception {
-        User user = new User();
-        user.setLogin("save-account");
-        user.setEmail("save-account@example.com");
-        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        user.setActivated(true);
-        userRepository.save(user);
+        User user = persistedAccountUser("save-account-user");
+        persistedAccountProfile(user, "SAVEDAC1");
 
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setLogin("not-used");
-        userDTO.setEmail("save-account@example.com");
-        userDTO.setActivated(false);
-        userDTO.setImageUrl("http://placehold.it/50x50");
-        userDTO.setLangKey(Constants.DEFAULT_LANGUAGE);
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.ADMIN));
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setEmail("NEW-SAVE-ACCOUNT@example.com");
+        updateVM.setFirstName("UpdatedFirst");
+        updateVM.setPhoneNumber("3105551234");
+        updateVM.setLangKey("en");
 
         restAccountMockMvc
-            .perform(post("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
             .andExpect(status().isOk());
 
-        User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
-        assertThat(updatedUser.getEmail()).isEqualTo(userDTO.getEmail());
-        assertThat(updatedUser.getLangKey()).isEqualTo(userDTO.getLangKey());
+        User updatedUser = userRepository.findOneByLogin("save-account-user").orElseThrow();
+        // email is trimmed + lowercased by the service, so an uppercase input becomes lowercase
+        assertThat(updatedUser.getEmail()).isEqualTo("new-save-account@example.com");
+        assertThat(updatedUser.getLangKey()).isEqualTo("en");
+        // no newPassword sent -> password must be unchanged
         assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
-        assertThat(updatedUser.getImageUrl()).isEqualTo(userDTO.getImageUrl());
-        assertThat(updatedUser.isActivated()).isTrue();
-        assertThat(updatedUser.getAuthorities()).isEmpty();
 
-        userService.deleteUser("save-account");
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getFirstName()).isEqualTo("UpdatedFirst");
+        assertThat(updatedProfile.getPhoneNumber()).isEqualTo("3105551234");
+
+        userService.deleteUser("save-account-user");
     }
 
     @Test
-    @WithMockUser("save-invalid-email")
+    @WithMockUser("save-invalid-email-user")
     void testSaveInvalidEmail() throws Exception {
-        User user = new User();
-        user.setLogin("save-invalid-email");
-        user.setEmail("save-invalid-email@example.com");
-        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        user.setActivated(true);
+        User user = persistedAccountUser("save-invalid-email-user");
+        persistedAccountProfile(user, "SAVEDIC1");
 
-        userRepository.save(user);
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setEmail("invalid email");
 
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setLogin("not-used");
-        userDTO.setEmail("invalid email");
-        userDTO.setActivated(false);
-        userDTO.setImageUrl("http://placehold.it/50x50");
-        userDTO.setLangKey(Constants.DEFAULT_LANGUAGE);
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.ADMIN));
-
+        // @Email / @Pattern on AccountUpdateVM.email reject it before updateOwnAccount runs
         restAccountMockMvc
-            .perform(post("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
             .andExpect(status().isBadRequest());
 
         assertThat(userRepository.findOneByEmailIgnoreCase("invalid email")).isNotPresent();
 
-        userService.deleteUser("save-invalid-email");
+        userService.deleteUser("save-invalid-email-user");
     }
 
     @Test
-    @WithMockUser("save-existing-email")
+    @WithMockUser("save-existing-email-a")
     void testSaveExistingEmail() throws Exception {
-        User user = new User();
-        user.setLogin("save-existing-email");
-        user.setEmail("save-existing-email@example.com");
-        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        user.setActivated(true);
-        userRepository.save(user);
+        User userA = persistedAccountUser("save-existing-email-a");
+        persistedAccountProfile(userA, "SAVEDEA1");
+        User userB = persistedAccountUser("save-existing-email-b");
+        persistedAccountProfile(userB, "SAVEDEB1");
 
-        User anotherUser = new User();
-        anotherUser.setLogin("save-existing-email2");
-        anotherUser.setEmail("save-existing-email2@example.com");
-        anotherUser.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        anotherUser.setActivated(true);
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setEmail("save-existing-email-b@example.com");
 
-        userRepository.save(anotherUser);
-
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setLogin("not-used");
-        userDTO.setEmail("save-existing-email2@example.com");
-        userDTO.setActivated(false);
-        userDTO.setImageUrl("http://placehold.it/50x50");
-        userDTO.setLangKey(Constants.DEFAULT_LANGUAGE);
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.ADMIN));
-
+        // the email belongs to userB (different login) -> EmailAlreadyUsedException (400)
         restAccountMockMvc
-            .perform(post("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
             .andExpect(status().isBadRequest());
 
-        User updatedUser = userRepository.findOneByLogin("save-existing-email").orElseThrow();
-        assertThat(updatedUser.getEmail()).isEqualTo("save-existing-email@example.com");
+        User updatedUser = userRepository.findOneByLogin("save-existing-email-a").orElseThrow();
+        assertThat(updatedUser.getEmail()).isEqualTo("save-existing-email-a@example.com");
 
-        userService.deleteUser("save-existing-email");
-        userService.deleteUser("save-existing-email2");
+        userService.deleteUser("save-existing-email-a");
+        userService.deleteUser("save-existing-email-b");
     }
 
     @Test
     @WithMockUser("save-existing-email-and-login")
     void testSaveExistingEmailAndLogin() throws Exception {
-        User user = new User();
-        user.setLogin("save-existing-email-and-login");
-        user.setEmail("save-existing-email-and-login@example.com");
-        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        user.setActivated(true);
-        userRepository.save(user);
+        User user = persistedAccountUser("save-existing-email-and-login");
+        persistedAccountProfile(user, "SAVEDEL1");
 
-        AdminUserDTO userDTO = new AdminUserDTO();
-        userDTO.setLogin("not-used");
-        userDTO.setEmail("save-existing-email-and-login@example.com");
-        userDTO.setActivated(false);
-        userDTO.setImageUrl("http://placehold.it/50x50");
-        userDTO.setLangKey(Constants.DEFAULT_LANGUAGE);
-        userDTO.setAuthorities(Set.of(AuthoritiesConstants.ADMIN));
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setEmail("save-existing-email-and-login@example.com");
 
+        // re-setting the same email is allowed (the code only rejects emails of OTHER users)
         restAccountMockMvc
-            .perform(post("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
             .andExpect(status().isOk());
 
-        User updatedUser = userRepository.findOneByLogin("save-existing-email-and-login").orElse(null);
+        User updatedUser = userRepository.findOneByLogin("save-existing-email-and-login").orElseThrow();
         assertThat(updatedUser.getEmail()).isEqualTo("save-existing-email-and-login@example.com");
 
         userService.deleteUser("save-existing-email-and-login");
+    }
+
+    @Test
+    @WithMockUser("save-account-change-password")
+    void testSaveAccountChangePassword() throws Exception {
+        User user = persistedAccountUser("save-account-change-password");
+        persistedAccountProfile(user, "SAVEPW1");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword(VALID_PASSWORD);
+        updateVM.setNewPassword("NewPassw0rd!");
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isOk());
+
+        User updatedUser = userRepository.findOneByLogin("save-account-change-password").orElseThrow();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-change-password");
+    }
+
+    @Test
+    @WithMockUser("save-account-change-password-wrong")
+    void testSaveAccountChangePasswordWrongCurrent() throws Exception {
+        User user = persistedAccountUser("save-account-change-password-wrong");
+        persistedAccountProfile(user, "SAVEPW2");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword("WrongPassw0rd!");
+        updateVM.setNewPassword("NewPassw0rd!");
+
+        // wrong currentPassword -> InvalidPasswordException (400), password must not change
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest());
+
+        User updatedUser = userRepository.findOneByLogin("save-account-change-password-wrong").orElseThrow();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-change-password-wrong");
     }
 
     @Test
