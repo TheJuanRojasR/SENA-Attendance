@@ -8,7 +8,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.config.Constants;
 import com.mycompany.senaattendance.domain.Authority;
+import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -19,6 +21,7 @@ import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
+import com.mycompany.senaattendance.web.rest.vm.PasswordResetRequestVM;
 import java.time.Instant;
 import java.util.*;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -286,6 +289,32 @@ class AccountResourceIT {
 
     private String validDocumentTypeId() {
         return documentTypeRepository.findAll().iterator().next().getId();
+    }
+
+    private DocumentType seededDocumentType() {
+        return documentTypeRepository.findAll().iterator().next();
+    }
+
+    private User persistedResetUser(String login) {
+        User user = new User();
+        user.setLogin(login);
+        user.setEmail(login + "@example.com");
+        user.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        user.setActivated(true);
+        user.setLangKey("es");
+        return userRepository.save(user);
+    }
+
+    private UserProfile persistedResetProfile(User user, DocumentType documentType, String documentNumber) {
+        return new UserProfile()
+            .firstName("Juan")
+            .middleName("Carlos")
+            .firstLastName("Perez")
+            .secondLastName("Gomez")
+            .documentNumber(documentNumber)
+            .phoneNumber("3001234567")
+            .user(user)
+            .documentType(documentType);
     }
 
     @Test
@@ -566,43 +595,66 @@ class AccountResourceIT {
 
     @Test
     void testRequestPasswordReset() throws Exception {
-        User user = new User();
-        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        user.setActivated(true);
-        user.setLogin("password-reset");
-        user.setEmail("password-reset@example.com");
-        user.setLangKey("en");
-        userRepository.save(user);
+        String login = "reset-user";
+        String documentNumber = "1010101010";
+        User user = persistedResetUser(login);
+        DocumentType documentType = seededDocumentType();
+        userProfileRepository.save(persistedResetProfile(user, documentType, documentNumber));
+
+        PasswordResetRequestVM request = new PasswordResetRequestVM();
+        request.setDocumentTypeId(documentType.getId());
+        request.setDocumentNumber(documentNumber);
 
         restAccountMockMvc
-            .perform(post("/api/account/reset-password/init").content("password-reset@example.com"))
+            .perform(
+                post("/api/account/reset-password/init").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(request))
+            )
             .andExpect(status().isOk());
 
-        userService.deleteUser("password-reset");
+        User updatedUser = userRepository.findOneByLogin(login).orElseThrow();
+        assertThat(updatedUser.getResetKey()).isNotBlank();
+        assertThat(updatedUser.getResetDate()).isNotNull();
+
+        userService.deleteUser(login);
     }
 
     @Test
-    void testRequestPasswordResetUpperCaseEmail() throws Exception {
-        User user = new User();
-        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
-        user.setActivated(true);
-        user.setLogin("password-reset-upper-case");
-        user.setEmail("password-reset-upper-case@example.com");
-        user.setLangKey("en");
-        userRepository.save(user);
+    void testRequestPasswordResetUnknownDocument() throws Exception {
+        String login = "reset-unknown";
+        String existingDocumentNumber = "1022222222";
+        // A real activated user + profile exists, but it does NOT match the requested document number.
+        User user = persistedResetUser(login);
+        DocumentType documentType = seededDocumentType();
+        userProfileRepository.save(persistedResetProfile(user, documentType, existingDocumentNumber));
+
+        PasswordResetRequestVM request = new PasswordResetRequestVM();
+        request.setDocumentTypeId(documentType.getId());
+        request.setDocumentNumber("999999999999");
 
         restAccountMockMvc
-            .perform(post("/api/account/reset-password/init").content("password-reset-upper-case@EXAMPLE.COM"))
+            .perform(
+                post("/api/account/reset-password/init").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(request))
+            )
             .andExpect(status().isOk());
 
-        userService.deleteUser("password-reset-upper-case");
+        User unchangedUser = userRepository.findOneByLogin(login).orElseThrow();
+        assertThat(unchangedUser.getResetKey()).isNull();
+        assertThat(unchangedUser.getResetDate()).isNull();
+
+        userService.deleteUser(login);
     }
 
     @Test
-    void testRequestPasswordResetWrongEmail() throws Exception {
+    void testRequestPasswordResetMissingRequiredFields() throws Exception {
+        PasswordResetRequestVM request = new PasswordResetRequestVM();
+        // documentTypeId left null on purpose -> @Valid must reject.
+        request.setDocumentNumber("1000000000");
+
         restAccountMockMvc
-            .perform(post("/api/account/reset-password/init").content("password-reset-wrong-email@example.com"))
-            .andExpect(status().isOk());
+            .perform(
+                post("/api/account/reset-password/init").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(request))
+            )
+            .andExpect(status().isBadRequest());
     }
 
     @Test
