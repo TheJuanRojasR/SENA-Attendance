@@ -133,14 +133,15 @@ public class UserResource {
     }
 
     /**
-     * {@code PUT /admin/users} : Updates an existing User.
+     * {@code PATCH /admin/users} : Updates an existing User. All fields are optional;
+     * only the fields present in the request body are updated.
      *
      * @param login the user login (ignored; identity is resolved from {@code userDTO.getId()}).
      * @param userDTO the user to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated user.
      * @throws BadRequestAlertException {@code 400 (Bad Request)} if the id is missing.
      */
-    @PutMapping({ "/users", "/users/{login}" })
+    @PatchMapping({ "/users", "/users/{login}" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<AdminUserDTO> updateUser(
         @PathVariable(name = "login", required = false) String login,

@@ -290,58 +290,82 @@ public class UserService {
             .filter(Optional::isPresent)
             .map(Optional::get)
             .map(user -> {
-                String documentNumber = vm.getDocumentNumber().trim();
-                String newLogin = documentNumber.toLowerCase();
+                String documentNumber = null;
+                String newLogin = null;
 
-                // uniqueness excluding self
-                userRepository.findOneByLogin(newLogin).ifPresent(existing -> {
-                    if (!existing.getId().equals(vm.getId())) {
-                        throw new LoginAlreadyUsedException();
+                // ----- CONDITIONAL documentNumber / login re-derivation -----
+                if (vm.getDocumentNumber() != null) {
+                    documentNumber = vm.getDocumentNumber().trim();
+                    newLogin = documentNumber.toLowerCase();
+
+                    if (!newLogin.equals(user.getLogin())) {
+                        // uniqueness excluding self
+                        userRepository.findOneByLogin(newLogin).ifPresent(existing -> {
+                            if (!existing.getId().equals(vm.getId())) {
+                                throw new LoginAlreadyUsedException();
+                            }
+                        });
                     }
-                });
 
-                userProfileRepository.findByDocumentNumber(documentNumber).ifPresent(existing -> {
-                    if (!existing.getUser().getId().equals(vm.getId())) {
-                        throw new DocumentNumberAlreadyUsedException("Document number is already in use");
-                    }
-                });
+                    userProfileRepository.findByDocumentNumber(documentNumber).ifPresent(existing -> {
+                        if (!existing.getUser().getId().equals(vm.getId())) {
+                            throw new DocumentNumberAlreadyUsedException("Document number is already in use");
+                        }
+                    });
 
+                    user.setLogin(newLogin);
+                }
+
+                // ----- CONDITIONAL email -----
                 if (vm.getEmail() != null) {
                     userRepository.findOneByEmailIgnoreCase(vm.getEmail()).ifPresent(existing -> {
                         if (!existing.getId().equals(vm.getId())) {
                             throw new EmailAlreadyUsedException();
                         }
                     });
-                }
-
-                DocumentType documentType = resolveDocumentType(vm.getDocumentTypeId());
-                Set<Authority> authorities = buildAuthorities(vm.getRole());
-
-                // ----- USER (activated NOT touched, client authorities ignored) -----
-                user.setLogin(newLogin);
-                if (vm.getEmail() != null) {
                     user.setEmail(vm.getEmail().toLowerCase().trim());
                 }
-                user.setImageUrl(vm.getImageUrl());
-                user.setLangKey(vm.getLangKey());
-                user.setAuthorities(authorities);
 
-                // ----- USER PROFILE -----
+                // ----- CONDITIONAL imageUrl / langKey -----
+                if (vm.getImageUrl() != null) {
+                    user.setImageUrl(vm.getImageUrl());
+                }
+                if (vm.getLangKey() != null) {
+                    user.setLangKey(vm.getLangKey());
+                }
+
+                // ----- CONDITIONAL role (authorities only rebuilt when provided) -----
+                if (vm.getRole() != null) {
+                    user.setAuthorities(buildAuthorities(vm.getRole()));
+                }
+
+                // ----- USER PROFILE (only provided fields are touched) -----
                 UserProfile userProfile = userProfileRepository
                     .findOneByUserId(user.getId())
                     .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
-                userProfile.setFirstName(vm.getFirstName().trim());
-                userProfile.setFirstLastName(vm.getFirstLastName().trim());
-                userProfile.setDocumentNumber(documentNumber);
-                userProfile.setPhoneNumber(vm.getPhoneNumber().trim());
-                userProfile.setDocumentType(documentType);
-                userProfile.setUser(user);
+
+                if (vm.getFirstName() != null) {
+                    userProfile.setFirstName(vm.getFirstName().trim());
+                }
                 if (vm.getMiddleName() != null) {
                     userProfile.setMiddleName(vm.getMiddleName().trim());
+                }
+                if (vm.getFirstLastName() != null) {
+                    userProfile.setFirstLastName(vm.getFirstLastName().trim());
                 }
                 if (vm.getSecondLastName() != null) {
                     userProfile.setSecondLastName(vm.getSecondLastName().trim());
                 }
+                if (vm.getPhoneNumber() != null) {
+                    userProfile.setPhoneNumber(vm.getPhoneNumber().trim());
+                }
+                if (vm.getDocumentNumber() != null) {
+                    userProfile.setDocumentNumber(documentNumber);
+                }
+                if (vm.getDocumentTypeId() != null) {
+                    userProfile.setDocumentType(resolveDocumentType(vm.getDocumentTypeId()));
+                }
+                userProfile.setUser(user);
 
                 userRepository.save(user);
                 userProfileRepository.save(userProfile);

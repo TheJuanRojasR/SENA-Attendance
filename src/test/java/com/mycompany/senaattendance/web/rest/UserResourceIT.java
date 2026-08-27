@@ -337,7 +337,7 @@ class UserResourceIT {
         vm.setLogin("ignored.login"); // login is derived from documentNumber
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
             .andExpect(jsonPath("$.email").value(UPDATED_EMAIL))
@@ -388,7 +388,7 @@ class UserResourceIT {
         );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.login").value(UPDATED_DOCUMENT.toLowerCase()));
 
@@ -423,7 +423,7 @@ class UserResourceIT {
         );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isOk());
 
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -434,28 +434,109 @@ class UserResourceIT {
     }
 
     @Test
-    void updateUserMissingFirstName() throws Exception {
+    void updateUserPartialFirstName() throws Exception {
         User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
 
-        AdminUpdateUserVM vm = buildUpdateVM(
-            user.getId(),
-            DEFAULT_DOCUMENT,
-            DEFAULT_EMAIL,
-            AuthoritiesConstants.INSTRUCTOR,
-            DEFAULT_LANGKEY,
-            DEFAULT_IMAGEURL
-        );
-        vm.setFirstName(null); // E1: @NotNull violated
+        // firstName is now optional: a PATCH that only carries firstName updates just that field
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(user.getId());
+        vm.setFirstName("Ana");
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("error.validation"));
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()));
 
+        UserProfile profile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(profile.getFirstName()).isEqualTo("Ana");
+        // untouched profile fields remain
+        assertThat(profile.getFirstLastName()).isEqualTo("Doe");
+        assertThat(profile.getDocumentNumber()).isEqualTo(DEFAULT_DOCUMENT);
+        assertThat(profile.getPhoneNumber()).isEqualTo(DEFAULT_PHONE);
         User unchanged = userRepository.findById(user.getId()).orElseThrow();
         assertThat(unchanged.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
+        assertThat(unchanged.getEmail()).isEqualTo(DEFAULT_EMAIL);
+    }
+
+    @Test
+    void updateUserPartialEmail() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        // PATCH carrying ONLY email: login and every other field stay untouched
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(user.getId());
+        vm.setEmail(UPDATED_EMAIL);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
+            .andExpect(jsonPath("$.email").value(UPDATED_EMAIL));
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updated.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
+        assertThat(updated.getEmail()).isEqualTo(UPDATED_EMAIL);
+        // untouched fields preserved
+        assertThat(updated.getImageUrl()).isEqualTo(DEFAULT_IMAGEURL);
+        assertThat(updated.getLangKey()).isEqualTo(DEFAULT_LANGKEY);
+        assertThat(updated.isActivated()).isTrue();
+        UserProfile profile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(profile.getDocumentNumber()).isEqualTo(DEFAULT_DOCUMENT);
+        assertThat(profile.getFirstName()).isEqualTo("John");
+    }
+
+    @Test
+    void updateUserPartialRole() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+        user.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.ADMIN).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(user);
+
+        // PATCH carrying ONLY role: authorities must change, login stays
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(user.getId());
+        vm.setRole(AuthoritiesConstants.INSTRUCTOR);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updated.getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
+            AuthoritiesConstants.USER,
+            AuthoritiesConstants.INSTRUCTOR
+        );
+        assertThat(updated.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
+    }
+
+    @Test
+    void updateUserEmptyPatch() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        // an empty PATCH (only id) is a no-op that still returns the user with 200
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(user.getId());
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
+            .andExpect(jsonPath("$.email").value(DEFAULT_EMAIL));
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updated.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
+        assertThat(updated.getEmail()).isEqualTo(DEFAULT_EMAIL);
+        assertThat(updated.getImageUrl()).isEqualTo(DEFAULT_IMAGEURL);
+        assertThat(updated.getLangKey()).isEqualTo(DEFAULT_LANGKEY);
         UserProfile profile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
         assertThat(profile.getFirstName()).isEqualTo("John");
+        assertThat(profile.getDocumentNumber()).isEqualTo(DEFAULT_DOCUMENT);
     }
 
     @Test
@@ -476,7 +557,7 @@ class UserResourceIT {
         );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.documentnumberexists"));
 
@@ -499,7 +580,7 @@ class UserResourceIT {
         vm.setDocumentTypeId("000000000000000000000000"); // not found
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.documentTypeNotFound"));
     }
@@ -518,7 +599,7 @@ class UserResourceIT {
         );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.rolenotfound"));
     }
@@ -540,7 +621,7 @@ class UserResourceIT {
         );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.emailexists"));
 
@@ -560,7 +641,7 @@ class UserResourceIT {
         );
 
         restUserMockMvc
-            .perform(put("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isNotFound());
     }
 

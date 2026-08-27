@@ -1,46 +1,40 @@
 package com.mycompany.senaattendance.web.rest.vm;
 
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
  * View Model used by the ADMIN to update an existing user
  * (User + UserProfile). Carries the profile fields, the derived login
- * source (documentNumber) and a single role. The inherited {@code login},
- * {@code activated} and {@code authorities} fields are IGNORED server-side.
+ * source (documentNumber) and a single role. All fields are OPTIONAL so the
+ * client can send a partial {@code PATCH} payload: only the fields actually
+ * present are updated. The inherited {@code login}, {@code activated} and
+ * {@code authorities} fields are IGNORED server-side.
  * No password is accepted on edit.
  */
 public class AdminUpdateUserVM extends AdminUserDTO {
 
-    @NotNull
     @Size(min = 1, max = 30)
     private String firstName;
 
     @Size(min = 1, max = 30)
     private String middleName;
 
-    @NotNull
     @Size(min = 1, max = 30)
     private String firstLastName;
 
     @Size(min = 1, max = 30)
     private String secondLastName;
 
-    @NotNull
     @Size(min = 1, max = 15)
     private String documentNumber;
 
-    @NotNull
     @Size(min = 1, max = 20)
     private String phoneNumber;
 
-    @NotNull
     @Size(min = 1)
     private String documentTypeId;
 
-    @NotBlank
     @Size(min = 1, max = 50)
     private String role;
 
