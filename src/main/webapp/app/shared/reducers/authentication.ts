@@ -41,9 +41,9 @@ export const getAccount = createAsyncThunk('authentication/get_account', async (
 });
 
 interface IAuthParams {
-  username: string;
-  password: string;
-  rememberMe?: boolean;
+  documentTypeId?: string;
+  documentNumber?: string;
+  password?: string;
 }
 
 export const authenticate = createAsyncThunk(
@@ -54,19 +54,14 @@ export const authenticate = createAsyncThunk(
   },
 );
 
-export const login: (username: string, password: string, rememberMe?: boolean) => AppThunk =
-  (username, password, rememberMe = false) =>
-  async dispatch => {
-    const result = await dispatch(authenticate({ username, password, rememberMe }));
+export const login: (documentTypeId: string, documentNumber: string, password: string) => AppThunk =
+  (documentTypeId, documentNumber, password) => async dispatch => {
+    const result = await dispatch(authenticate({ documentTypeId, documentNumber, password }));
     const response = result.payload as AxiosResponse;
     const bearerToken = response?.headers?.authorization;
     if (bearerToken?.startsWith('Bearer ')) {
       const jwt = bearerToken.slice(7, bearerToken.length);
-      if (rememberMe) {
-        Storage.local.set(AUTHENTICATION_TOKEN_KEY, jwt);
-      } else {
-        Storage.session.set(AUTHENTICATION_TOKEN_KEY, jwt);
-      }
+      Storage.session.set(AUTHENTICATION_TOKEN_KEY, jwt);
     }
     dispatch(getSession());
   };

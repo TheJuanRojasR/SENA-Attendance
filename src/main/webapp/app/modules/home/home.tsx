@@ -1,14 +1,15 @@
 import './home.scss';
 
 import React from 'react';
-import { Button, Card, Col, Row } from 'react-bootstrap';
+import { Card, Col, Row } from 'react-bootstrap';
 import { Translate } from 'react-jhipster';
-import { Link } from 'react-router';
 
 import { faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { faChartLine } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
+import LinkButton from 'app/shared/components/link-button';
 
 export const Home = () => {
   return (
@@ -23,9 +24,9 @@ export const Home = () => {
             administrative staff that ensure transparency and efficiency in SENA's processes.
           </Translate>
         </p>
-        <Button as={Link as any} to="/login" size="lg" color="primary" className="button-generic">
-          <Translate contentKey="home.button">Access the platform</Translate>
-        </Button>
+        <LinkButton to="/login" size="lg" variant="primary" className="button-generic" translationKey="home.button">
+          Access the platform
+        </LinkButton>
       </Col>
       <Col md="5" className="pad">
         <span className="hipster rounded" />

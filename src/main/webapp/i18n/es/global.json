@@ -51,8 +51,9 @@
       "language": "Idioma"
     },
     "form": {
-      "username.label": "Usuario",
-      "username.placeholder": "Nombre de usuario",
+      "documentType.label": "Tipo de documento",
+      "documentNumber.label": "Documento",
+      "documentNumber.placeholder": "Numero de documento",
       "currentpassword.label": "Contraseña actual",
       "currentpassword.placeholder": "Contraseña actual",
       "newpassword.label": "Nueva contraseña",
