@@ -235,9 +235,13 @@ public class UserService {
         // ------- CREATE USER PROFILE -------
         UserProfile userProfile = new UserProfile();
         userProfile.setFirstName(userVM.getFirstName().trim());
-        userProfile.setMiddleName(userVM.getMiddleName().trim());
+        if (userVM.getMiddleName() != null) {
+            userProfile.setMiddleName(userVM.getMiddleName().trim());
+        }
         userProfile.setFirstLastName(userVM.getFirstLastName().trim());
-        userProfile.setSecondLastName(userVM.getSecondLastName().trim());
+        if (userVM.getSecondLastName() != null) {
+            userProfile.setSecondLastName(userVM.getSecondLastName().trim());
+        }
         userProfile.setDocumentNumber(userVM.getDocumentNumber().trim());
         userProfile.setPhoneNumber(userVM.getPhoneNumber().trim());
         userProfile.setUser(user);

@@ -25,6 +25,7 @@ public class JustificationDTO implements Serializable {
 
     private byte[] evidence;
 
+    @NotNull
     private String evidenceContentType;
 
     @NotNull

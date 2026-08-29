@@ -222,6 +222,22 @@ class JustificationResourceIT {
     }
 
     @Test
+    void checkEvidenceContentTypeIsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field null
+        justification.setEvidenceContentType(null);
+
+        // Create the Justification, which fails.
+        JustificationDTO justificationDTO = justificationMapper.toDto(justification);
+
+        restJustificationMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationDTO)))
+            .andExpect(status().isBadRequest());
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkEndDateIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
