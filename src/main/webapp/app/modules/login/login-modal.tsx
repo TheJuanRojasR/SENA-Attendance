@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from 'app/config/store';
 export interface ILoginModalProps {
   showModal: boolean;
   loginError: boolean;
-  handleLogin: (username: string, password: string, rememberMe: boolean) => void;
+  handleLogin: (documentTypeId: string, documentNumber: string, password: string) => void;
   handleClose: () => void;
 }
 

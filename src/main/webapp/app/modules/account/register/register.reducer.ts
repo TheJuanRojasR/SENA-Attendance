@@ -7,6 +7,7 @@ const initialState = {
   loading: false,
   registrationSuccess: false,
   registrationFailure: false,
+  showModalRegister: false,
   errorMessage: null as string | null,
   successMessage: null as string | null,
 };
@@ -17,7 +18,18 @@ export type RegisterState = Readonly<typeof initialState>;
 
 export const handleRegister = createAsyncThunk(
   'register/create_account',
-  async (data: { login: string; email: string; password: string; langKey?: string }) => axios.post<any>('api/register', data),
+  async (data: {
+    email: string;
+    password: string;
+    langKey?: string;
+    firstName: string;
+    middleName?: string;
+    firstLastName: string;
+    secondLastName?: string;
+    documentNumber: string;
+    phoneNumber: string;
+    documentTypeId: string;
+  }) => axios.post<any>('api/register', data),
   { serializeError: serializeAxiosError },
 );
 

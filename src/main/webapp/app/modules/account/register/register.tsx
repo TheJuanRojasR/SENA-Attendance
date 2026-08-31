@@ -1,157 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Button, Col, Row } from 'react-bootstrap';
-import { Translate, ValidatedField, ValidatedForm, isEmail, translate } from 'react-jhipster';
-import { Link } from 'react-router';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 
-import { toast } from 'react-toastify';
+import { useAppSelector } from 'app/config/store';
 
-import { useAppDispatch, useAppSelector } from 'app/config/store';
-import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
-import PasswordStrengthBar from 'app/shared/layout/password/password-strength-bar';
+import RegisterModal from './register-modal';
 
-import { handleRegister, reset } from './register.reducer';
-
-export const RegisterPage = () => {
-  const [password, setPassword] = useState('');
-  const dispatch = useAppDispatch();
+const Register = () => {
+  const showModalRegister = useAppSelector(state => state.register.showModalRegister);
+  const [showModal, setShowModal] = useState(showModalRegister);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    dispatch(getDocumentTypes({}));
-    return () => {
-      dispatch(reset());
-    };
+    setShowModal(true);
   }, []);
 
-  const currentLocale = useAppSelector(state => state.locale.currentLocale);
-  const documentTypes = useAppSelector(state => state.documentType.entities);
-
-  const handleValidSubmit = ({ username, email, firstPassword }: Record<string, any>) => {
-    dispatch(handleRegister({ login: username, email, password: firstPassword, langKey: currentLocale }));
-  };
-  const defaultRegisterValues = {
-    documentType: '',
+  const handleClose = () => {
+    setShowModal(false);
+    navigate('/');
   };
 
-  const updatePassword = event => setPassword(event.target.value);
-
-  const successMessage = useAppSelector(state => state.register.successMessage);
-
-  useEffect(() => {
-    if (successMessage) {
-      toast.success(translate(successMessage));
-    }
-  }, [successMessage]);
-
-  return (
-    <div>
-      <Row className="justify-content-center">
-        <Col md="8">
-          <h1 id="register-title" data-cy="registerTitle">
-            <Translate contentKey="register.title">Registration</Translate>
-          </h1>
-        </Col>
-      </Row>
-      <Row className="justify-content-center">
-        <Col md="8">
-          <ValidatedForm id="register-form" onSubmit={handleValidSubmit} defaultValues={defaultRegisterValues}>
-            <ValidatedField
-              name="username"
-              label={translate('global.form.username.label')}
-              placeholder={translate('global.form.username.placeholder')}
-              validate={{
-                required: { value: true, message: translate('register.messages.validate.login.required') },
-                pattern: {
-                  value: /^[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$|^[_.@A-Za-z0-9-]+$/,
-                  message: translate('register.messages.validate.login.pattern'),
-                },
-                minLength: { value: 1, message: translate('register.messages.validate.login.minlength') },
-                maxLength: { value: 50, message: translate('register.messages.validate.login.maxlength') },
-              }}
-              data-cy="username"
-            />
-            <ValidatedField
-              id="user-profile-documentType"
-              name="documentType"
-              data-cy="documentType"
-              label="Tipo de Documento"
-              type="select"
-              required
-            >
-              <option value="" key="0">
-                Selecciona una opcion
-              </option>
-              {documentTypes
-                ? documentTypes.map(otherEntity => (
-                    <option value={otherEntity.id} key={otherEntity.id}>
-                      {otherEntity.name}
-                    </option>
-                  ))
-                : null}
-            </ValidatedField>
-            <ValidatedField
-              name="email"
-              label={translate('global.form.email.label')}
-              placeholder={translate('global.form.email.placeholder')}
-              type="email"
-              validate={{
-                required: { value: true, message: translate('global.messages.validate.email.required') },
-                minLength: { value: 5, message: translate('global.messages.validate.email.minlength') },
-                maxLength: { value: 254, message: translate('global.messages.validate.email.maxlength') },
-                validate: v => isEmail(v) || translate('global.messages.validate.email.invalid'),
-              }}
-              data-cy="email"
-            />
-            <ValidatedField
-              name="firstPassword"
-              label={translate('global.form.newpassword.label')}
-              placeholder={translate('global.form.newpassword.placeholder')}
-              type="password"
-              onChange={updatePassword}
-              validate={{
-                required: { value: true, message: translate('global.messages.validate.newpassword.required') },
-                minLength: { value: 4, message: translate('global.messages.validate.newpassword.minlength') },
-                maxLength: { value: 50, message: translate('global.messages.validate.newpassword.maxlength') },
-              }}
-              data-cy="firstPassword"
-            />
-            <PasswordStrengthBar password={password} />
-            <ValidatedField
-              name="secondPassword"
-              label={translate('global.form.confirmpassword.label')}
-              placeholder={translate('global.form.confirmpassword.placeholder')}
-              type="password"
-              validate={{
-                required: { value: true, message: translate('global.messages.validate.confirmpassword.required') },
-                minLength: { value: 4, message: translate('global.messages.validate.confirmpassword.minlength') },
-                maxLength: { value: 50, message: translate('global.messages.validate.confirmpassword.maxlength') },
-                validate: v => v === password || translate('global.messages.error.dontmatch'),
-              }}
-              data-cy="secondPassword"
-            />
-            <Button id="register-submit" color="primary" type="submit" data-cy="submit">
-              <Translate contentKey="register.form.button">Register</Translate>
-            </Button>
-          </ValidatedForm>
-          <p>&nbsp;</p>
-          <Alert variant="success">
-            <span>
-              <Translate contentKey="global.messages.info.authenticated.prefix">If you want to</Translate>{' '}
-            </span>
-            <Link to="/login" className="alert-link">
-              <Translate contentKey="global.messages.info.authenticated.link">sign in</Translate>
-            </Link>
-            <span>
-              <Translate contentKey="global.messages.info.authenticated.suffix">
-                , you can try the default accounts:
-                <br />- Administrator (login=&quot;admin&quot; and password=&quot;admin&quot;)
-                <br />- User (login=&quot;user&quot; and password=&quot;user&quot;).
-              </Translate>
-            </span>
-          </Alert>
-        </Col>
-      </Row>
-    </div>
-  );
+  return <RegisterModal showModal={showModal} handleClose={handleClose} />;
 };
 
-export default RegisterPage;
+export default Register;
