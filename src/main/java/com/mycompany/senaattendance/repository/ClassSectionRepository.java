@@ -27,6 +27,10 @@ public interface ClassSectionRepository extends MongoRepository<ClassSection, St
     @Query("{'instructor._id': ?0}")
     List<ClassSection> findByInstructorId(String instructorId);
 
+    // ------- SEARCH ACTIVE CLASSESCTION BY INSTRUCTOR -------
+    @Query("{'instructor._id': ?0, 'is_active': true}")
+    List<ClassSection> findByInstructorIdAndIsActiveTrue(String instructorId);
+
     // ------- SEARCH BY GRADE ID -------
     @Query("{'grade._id' :  ?0}")
     List<ClassSection> findByGradeId(String gradeId);

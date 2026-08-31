@@ -9,9 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Authority;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -75,6 +77,9 @@ class UserResourceIT {
     @Autowired
     private DocumentTypeRepository documentTypeRepository;
 
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
+
     @MockitoBean
     private MailService mailService;
 
@@ -111,6 +116,7 @@ class UserResourceIT {
 
     @AfterEach
     void cleanupAndCheck() {
+        classSectionRepository.deleteAll();
         userProfileRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -148,6 +154,42 @@ class UserResourceIT {
         User u = persistedUser(documentNumber.toLowerCase(), email);
         persistedProfile(u, documentNumber);
         return u;
+    }
+
+    private boolean hasAuthority(User u, String authority) {
+        return u.getAuthorities().stream().map(Authority::getName).anyMatch(authority::equals);
+    }
+
+    private Set<Authority> authoritySet(String... names) {
+        Set<Authority> authorities = new HashSet<>();
+        for (String name : names) {
+            authorities.add(authorityRepository.findById(name).orElseThrow());
+        }
+        return authorities;
+    }
+
+    /**
+     * Returns the protected super admin (login "admin"). If the mongock seed is still present we reuse it;
+     * otherwise we create a fresh ADMIN user with that login, so the E3 protected-admin rule is deterministic.
+     */
+    private User protectedAdmin() {
+        return userRepository.findOneByLogin("admin").orElseGet(() -> {
+            User u = persistedUser("admin", "protected.admin@example.com");
+            u.setAuthorities(authoritySet(AuthoritiesConstants.ADMIN, AuthoritiesConstants.USER));
+            return userRepository.save(u);
+        });
+    }
+
+    private User freshAdmin(String login, String email) {
+        User u = persistedUser(login, email);
+        u.setAuthorities(authoritySet(AuthoritiesConstants.ADMIN, AuthoritiesConstants.USER));
+        return userRepository.save(u);
+    }
+
+    private User instructorUser(String login, String email) {
+        User u = persistedUser(login, email);
+        u.setAuthorities(authoritySet(AuthoritiesConstants.INSTRUCTOR, AuthoritiesConstants.USER));
+        return userRepository.save(u);
     }
 
     private AdminUpdateUserVM buildUpdateVM(String id, String documentNumber, String email, String role, String langKey, String imageUrl) {
@@ -711,6 +753,96 @@ class UserResourceIT {
             .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.documentNumberNotFound"));
+    }
+
+    @Test
+    void setUserActivatedProtectedAdminBlocked() throws Exception {
+        // The protected super admin (login "admin") can NEVER be deactivated. We reuse the seed admin if
+        // present, or build it fresh, so the test is deterministic regardless of test ordering.
+        User adminUser = protectedAdmin();
+        persistedProfile(adminUser, "E3PROT01");
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("E3PROT01");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastAdmin"));
+
+        assertThat(userRepository.findById(adminUser.getId()).orElseThrow().isActivated()).isTrue();
+    }
+
+    @Test
+    void setUserActivatedLastAdminBlocked() throws Exception {
+        // Make the target the ONLY active admin by deactivating every other active admin first.
+        User target = freshAdmin("last.admin", "last.admin@example.com");
+        persistedProfile(target, "E3LAST01");
+
+        for (User u : userRepository.findAll()) {
+            if (u.getId().equals(target.getId()) || !u.isActivated()) {
+                continue;
+            }
+            if (hasAuthority(u, AuthoritiesConstants.ADMIN)) {
+                u.setActivated(false);
+                userRepository.save(u);
+            }
+        }
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("E3LAST01");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastAdmin"));
+
+        assertThat(userRepository.findById(target.getId()).orElseThrow().isActivated()).isTrue();
+    }
+
+    @Test
+    void setUserActivatedOnlyInstructorBlocked() throws Exception {
+        User instructor = instructorUser("only.instr", "only.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "E5INSTR01");
+
+        ClassSection activeSection = new ClassSection().subjectName("E5 Ficha Activa").isActive(true).instructor(profile);
+        classSectionRepository.save(activeSection);
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("E5INSTR01");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(userRepository.findById(instructor.getId()).orElseThrow().isActivated()).isTrue();
+    }
+
+    @Test
+    void setUserActivatedInstructorNoActiveSectionsOk() throws Exception {
+        // Instructor has NO active class section (or only inactive ones): deactivation must succeed.
+        User instructor = instructorUser("noact.instr", "noact.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "E5OK01");
+
+        // A single INACTIVE section does not trigger the E5 rule.
+        ClassSection inactiveSection = new ClassSection().subjectName("E5 Ficha Inactiva").isActive(false).instructor(profile);
+        classSectionRepository.save(inactiveSection);
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("E5OK01");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value("noact.instr"))
+            .andExpect(jsonPath("$.activated").value(false));
+
+        assertThat(userRepository.findById(instructor.getId()).orElseThrow().isActivated()).isFalse();
     }
 
     @Test

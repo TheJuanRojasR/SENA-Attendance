@@ -2,10 +2,12 @@ package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.config.Constants;
 import com.mycompany.senaattendance.domain.Authority;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -47,6 +49,11 @@ public class UserService {
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,20}$");
 
+    /**
+     * Login of the protected super admin. This account can NEVER be deactivated (rule E3).
+     */
+    private static final String PROTECTED_ADMIN_LOGIN = "admin";
+
     private final UserRepository userRepository;
 
     private final PasswordEncoder passwordEncoder;
@@ -57,18 +64,22 @@ public class UserService {
 
     private final DocumentTypeRepository documentTypeRepository;
 
+    private final ClassSectionRepository classSectionRepository;
+
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         AuthorityRepository authorityRepository,
         UserProfileRepository userProfileRepository,
-        DocumentTypeRepository documentTypeRepository
+        DocumentTypeRepository documentTypeRepository,
+        ClassSectionRepository classSectionRepository
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authorityRepository = authorityRepository;
         this.userProfileRepository = userProfileRepository;
         this.documentTypeRepository = documentTypeRepository;
+        this.classSectionRepository = classSectionRepository;
     }
 
     public Optional<User> activateRegistration(String key) {
@@ -416,10 +427,89 @@ public class UserService {
             throw new BadRequestAlertException("No user found for document number: " + normalized, "userManagement", "userNotFound");
         }
 
+        if (!activated) {
+            validateLastAdmin(user);
+            validateLastInstructor(profile);
+        }
+
         user.setActivated(activated);
         userRepository.save(user);
         LOG.debug("Set activated={} for User: {}", activated, user.getLogin());
         return new AdminUserDTO(user);
+    }
+
+    /**
+     * A user deactivation must never leave the system without any active
+     * administrator, and the protected super admin (login {@code "admin"}) can never be deactivated.
+     *
+     * @param user the user being deactivated.
+     * @throws BadRequestAlertException with key {@code lastAdmin} when the rule is violated.
+     */
+    private void validateLastAdmin(User user) {
+        if (StringUtils.equals(user.getLogin(), PROTECTED_ADMIN_LOGIN)) {
+            throw new BadRequestAlertException("Debe existir al menos un Administrador activo", "userManagement", "lastAdmin");
+        }
+
+        boolean targetIsActiveAdmin =
+            user.isActivated() &&
+            user
+                .getAuthorities()
+                .stream()
+                .anyMatch(a -> StringUtils.equals(a.getName(), AuthoritiesConstants.ADMIN));
+
+        if (!targetIsActiveAdmin) {
+            return;
+        }
+
+        // Count active admins EXCLUDING the user being deactivated. If none remain, block.
+        long remainingActiveAdmins = userRepository.countByActivatedTrueAndAuthorities_Name(AuthoritiesConstants.ADMIN) - 1;
+        if (remainingActiveAdmins == 0) {
+            throw new BadRequestAlertException("Debe existir al menos un Administrador activo", "userManagement", "lastAdmin");
+        }
+    }
+
+    /**
+     * An instructor who is the ONLY instructor of one or more ACTIVE class
+     * sections cannot be deactivated, since those sections would be left without an instructor.
+     *
+     * @param profile the user profile that identifies the instructor (its linked user carries the role).
+     * @throws BadRequestAlertException with key {@code lastInstructor} when the rule is violated.
+     */
+    private void validateLastInstructor(UserProfile profile) {
+        User user = profile.getUser();
+        if (user == null) {
+            return;
+        }
+        boolean isInstructor = user
+            .getAuthorities()
+            .stream()
+            .anyMatch(a -> StringUtils.equals(a.getName(), AuthoritiesConstants.INSTRUCTOR));
+        if (!isInstructor) {
+            return;
+        }
+
+        List<ClassSection> activeSections = classSectionRepository.findByInstructorIdAndIsActiveTrue(profile.getId());
+        if (activeSections.isEmpty()) {
+            return;
+        }
+
+        List<String> affectedSubjectNames = activeSections
+            .stream()
+            .map(ClassSection::getSubjectName)
+            .filter(subjectName -> subjectName != null && !subjectName.isBlank())
+            .sorted()
+            .toList();
+
+        if (affectedSubjectNames.isEmpty()) {
+            throw new BadRequestAlertException("Debe existir al menos un instructor para la ficha", "userManagement", "lastInstructor");
+        }
+
+        String detail = String.join("; ", affectedSubjectNames);
+        throw new BadRequestAlertException(
+            "Debe existir al menos un instructor: " + detail + " queda sin instructor",
+            "userManagement",
+            "lastInstructor"
+        );
     }
 
     /**

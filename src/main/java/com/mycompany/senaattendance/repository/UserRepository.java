@@ -25,4 +25,8 @@ public interface UserRepository extends MongoRepository<User, String> {
     // ------- SEARCH USER BY EMAIL -------
     @Query("{ 'email': { $regex: ?0, $options: 'i' } }")
     List<User> findByEmailContaining(String email);
+
+    // ------- SEARCH USERS BY AUTHORITY -------
+    @Query(value = "{ 'activated': true, 'authorities.name': ?0 }", count = true)
+    long countByActivatedTrueAndAuthorities_Name(String name);
 }
