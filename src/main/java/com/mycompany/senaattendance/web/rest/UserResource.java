@@ -13,6 +13,7 @@ import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
+import com.mycompany.senaattendance.web.rest.vm.SetUserActivatedVM;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -226,6 +227,33 @@ public class UserResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createAlert(applicationName, "userManagement.deleted", login))
             .build();
+    }
+
+    /**
+     * {@code PATCH /admin/users/activated} : Set the activation status of the user account
+     * identified by the given document number (activate or deactivate).
+     *
+     * @param userActivatedVM the request body carrying the unique document number and the target
+     *                        {@code activated} value.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated user,
+     *         or {@code 400 (Bad Request)} if no profile/user matches the document number.
+     */
+    @PatchMapping("/users/activated")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<AdminUserDTO> setUserActivated(@Valid @RequestBody SetUserActivatedVM userActivatedVM) {
+        String documentNumber = userActivatedVM.getDocumentNumber();
+        boolean activated = userActivatedVM.getActivated();
+        LOG.debug("REST request to set activated={} for User by document number: {}", activated, documentNumber);
+        AdminUserDTO updatedUser = userService.setUserActivated(documentNumber, activated);
+        return ResponseEntity.ok()
+            .headers(
+                HeaderUtil.createAlert(
+                    applicationName,
+                    activated ? "userManagement.activated" : "userManagement.deactivated",
+                    documentNumber
+                )
+            )
+            .body(updatedUser);
     }
 
     private static boolean isPasswordLengthInvalid(String password) {

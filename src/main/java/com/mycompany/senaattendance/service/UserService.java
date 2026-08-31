@@ -386,6 +386,43 @@ public class UserService {
     }
 
     /**
+     * Set the activation status of the user account associated with the given document number.
+     *
+     * Validates that a {@link UserProfile} exists for the document number and that it
+     * points to an existing {@link User}; then sets {@code activated} to the requested value.
+     * Idempotent: setting a value the user already has is a no-op on the resulting state.
+     *
+     * @param documentNumber the unique document number identifying the user profile.
+     * @param activated      the target activation state (true = active, false = inactive).
+     * @return the updated admin user DTO.
+     * @throws BadRequestAlertException if no profile or user is found for the document number.
+     */
+    @Transactional
+    public AdminUserDTO setUserActivated(String documentNumber, boolean activated) {
+        String normalized = StringUtils.trimToEmpty(documentNumber);
+
+        UserProfile profile = userProfileRepository
+            .findByDocumentNumber(normalized)
+            .orElseThrow(() ->
+                new BadRequestAlertException(
+                    "No user profile found for document number: " + normalized,
+                    "userProfile",
+                    "documentNumberNotFound"
+                )
+            );
+
+        User user = profile.getUser();
+        if (user == null) {
+            throw new BadRequestAlertException("No user found for document number: " + normalized, "userManagement", "userNotFound");
+        }
+
+        user.setActivated(activated);
+        userRepository.save(user);
+        LOG.debug("Set activated={} for User: {}", activated, user.getLogin());
+        return new AdminUserDTO(user);
+    }
+
+    /**
      * Update basic information (email, language) for the current user.
      *
      * @param email     email id of user.

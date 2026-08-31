@@ -20,6 +20,7 @@ import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
+import com.mycompany.senaattendance.web.rest.vm.SetUserActivatedVM;
 import java.util.*;
 import java.util.function.Consumer;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -655,6 +656,61 @@ class UserResourceIT {
             .andExpect(status().isNoContent());
 
         assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeDelete - 1));
+    }
+
+    @Test
+    void setUserActivatedDeactivate() throws Exception {
+        persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber(DEFAULT_DOCUMENT);
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
+            .andExpect(jsonPath("$.activated").value(false));
+
+        UserProfile profile = userProfileRepository.findByDocumentNumber(DEFAULT_DOCUMENT).orElseThrow();
+        User deactivated = userRepository.findById(profile.getUser().getId()).orElseThrow();
+        assertThat(deactivated.isActivated()).isFalse();
+        // the rest of the profile stays untouched
+        assertThat(profile.getFirstName()).isEqualTo("John");
+        assertThat(profile.getDocumentNumber()).isEqualTo(DEFAULT_DOCUMENT);
+    }
+
+    @Test
+    void setUserActivatedActivate() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+        user.setActivated(false);
+        userRepository.save(user);
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber(DEFAULT_DOCUMENT);
+        vm.setActivated(true);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
+            .andExpect(jsonPath("$.activated").value(true));
+
+        UserProfile profile = userProfileRepository.findByDocumentNumber(DEFAULT_DOCUMENT).orElseThrow();
+        User activated = userRepository.findById(profile.getUser().getId()).orElseThrow();
+        assertThat(activated.isActivated()).isTrue();
+    }
+
+    @Test
+    void setUserActivatedNonExistingUser() throws Exception {
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("UNKNOWN0001");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentNumberNotFound"));
     }
 
     @Test
