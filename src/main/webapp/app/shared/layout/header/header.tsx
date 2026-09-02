@@ -9,7 +9,7 @@ import LoadingBar, { LoadingBarRef } from 'react-top-loading-bar';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { setLocale } from 'app/shared/reducers/locale';
 import LinkButton from 'app/shared/components/link-button';
-import { AccountMenu, LocaleMenu } from '../menus';
+import { AccountMenu, AdminMenu, EntitiesMenu, LocaleMenu } from '../menus';
 
 import { Brand } from './header-components';
 
@@ -71,6 +71,17 @@ const Header = (props: IHeaderProps) => {
               <LinkButton to="/account/register" translationKey="global.menu.account.register" data-cy="register">
                 Register
               </LinkButton>
+            )}
+            {/* Admin/Entities ya se muestran en el sidebar desde 'md' en adelante; en el header solo hacen falta en móvil. */}
+            {props.isAuthenticated && props.isAdmin && (
+              <div className="d-md-none">
+                <AdminMenu showOpenAPI={props.isOpenAPIEnabled} />
+              </div>
+            )}
+            {props.isAuthenticated && (
+              <div className="d-md-none">
+                <EntitiesMenu />
+              </div>
             )}
             {props.isAuthenticated && <AccountMenu isAuthenticated={props.isAuthenticated} />}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />
