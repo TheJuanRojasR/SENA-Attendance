@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -104,28 +105,25 @@ public class ProgramResource {
     }
 
     /**
-     * {@code PATCH  /programs/:id} : Partial updates given fields of an existing program, field will ignore if it is null
+     * {@code PATCH  /programs} : Partial updates given fields of an existing program. Null, empty,
+     * and whitespace-only fields are ignored.
+     * The program id must be supplied in the request body.
      *
-     * @param id the id of the programDTO to save.
-     * @param programDTO the programDTO to update.
+     * @param programDTO the programDTO to update; its id identifies the program and must be
+     *                    included in the request body.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated programDTO,
      * or with status {@code 400 (Bad Request)} if the programDTO is not valid,
      * or with status {@code 404 (Not Found)} if the programDTO is not found,
      * or with status {@code 500 (Internal Server Error)} if the programDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ProgramDTO> partialUpdateProgram(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ProgramDTO programDTO
-    ) throws URISyntaxException {
+    public ResponseEntity<ProgramDTO> partialUpdateProgram(@NotNull @RequestBody ProgramDTO programDTO) throws URISyntaxException {
+        String id = programDTO.getId();
         LOG.debug("REST request to partial update Program partially : {}, {}", id, programDTO);
-        if (programDTO.getId() == null) {
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, programDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!programRepository.existsById(id)) {
@@ -152,6 +150,33 @@ public class ProgramResource {
         Page<ProgramDTO> page = programService.findAll(pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
+     * {@code GET  /programs/search} : search and filter programs.
+     *
+     * <p>Matches by code or name containing {@code search}, and optionally filters by
+     * {@code status}. Both parameters are independent:
+     * <ul>
+     *     <li>{@code search} may be blank to ignore the text filter.</li>
+     *     <li>{@code status} may be omitted to return programs with any status.</li>
+     * </ul>
+     *
+     * @param search the code/name fragment (optional).
+     * @param status the status to filter by (optional).
+     * @param pageable the pagination information.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Programs in body.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<ProgramDTO>> searchPrograms(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) Boolean status,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+    ) {
+        LOG.debug("REST request to search Programs with term: {}, status: {}", search, status);
+        Page<ProgramDTO> page = programService.search(search, status, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
     }
 
     /**

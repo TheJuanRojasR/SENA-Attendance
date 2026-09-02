@@ -38,8 +38,12 @@ public class Program extends AbstractAuditingEntity implements Serializable {
     @NotNull
     @Field("trimesters")
     @Min(value = 1)
-    @Max(value = 9)
+    @Max(value = 12)
     private Integer trimesters;
+
+    @NotNull
+    @Field("status")
+    private Boolean status;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -108,6 +112,19 @@ public class Program extends AbstractAuditingEntity implements Serializable {
         this.trimesters = trimesters;
     }
 
+    public Boolean getStatus() {
+        return this.status;
+    }
+
+    public Program status(Boolean status) {
+        this.setStatus(status);
+        return this;
+    }
+
+    public void setStatus(Boolean status) {
+        this.status = status;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -136,6 +153,7 @@ public class Program extends AbstractAuditingEntity implements Serializable {
             ", initials='" + getInitials() + "'" +
             ", code='" + getCode() + "'" +
             ", trimesters=" + getTrimesters() +
+            ", status='" + getStatus() + "'" +
             "}";
     }
 }

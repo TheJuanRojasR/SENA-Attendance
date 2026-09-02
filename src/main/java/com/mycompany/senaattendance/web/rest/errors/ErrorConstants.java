@@ -13,6 +13,9 @@ public final class ErrorConstants {
     public static final URI EMAIL_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/email-already-used");
     public static final URI LOGIN_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/login-already-used");
     public static final URI DOCUMENT_NUMBER_ALREADY_USED = URI.create(PROBLEM_BASE_URL + "/document-number-already-used");
+    public static final URI PROGRAM_CODE_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-code-already-used");
+    public static final URI PROGRAM_INITIALS_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-initials-already-used");
+    public static final URI PROGRAM_NAME_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-name-already-used");
 
     private ErrorConstants() {}
 }

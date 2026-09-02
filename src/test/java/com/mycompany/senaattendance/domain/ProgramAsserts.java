@@ -50,7 +50,8 @@ public class ProgramAsserts {
             .satisfies(a -> assertThat(a.getName()).as("check name").isEqualTo(expected.getName()))
             .satisfies(a -> assertThat(a.getInitials()).as("check initials").isEqualTo(expected.getInitials()))
             .satisfies(a -> assertThat(a.getCode()).as("check code").isEqualTo(expected.getCode()))
-            .satisfies(a -> assertThat(a.getTrimesters()).as("check trimesters").isEqualTo(expected.getTrimesters()));
+            .satisfies(a -> assertThat(a.getTrimesters()).as("check trimesters").isEqualTo(expected.getTrimesters()))
+            .satisfies(a -> assertThat(a.getStatus()).as("check status").isEqualTo(expected.getStatus()));
     }
 
     /**

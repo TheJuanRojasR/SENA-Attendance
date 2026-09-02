@@ -42,6 +42,19 @@ public interface ProgramService {
     Page<ProgramDTO> findAll(Pageable pageable);
 
     /**
+     * Search and filter programs.
+     *
+     * <p>Matches programs by code or name containing {@code searchTerm} (ignored when
+     * blank), and optionally filters by {@code status}. Results are combined and paginated.
+     *
+     * @param searchTerm the code/name fragment to search for (may be blank).
+     * @param status the status to filter by (may be null for all).
+     * @param pageable the pagination information.
+     * @return a page of matching programs.
+     */
+    Page<ProgramDTO> search(String searchTerm, Boolean status, Pageable pageable);
+
+    /**
      * Get the "id" program.
      *
      * @param id the id of the entity.

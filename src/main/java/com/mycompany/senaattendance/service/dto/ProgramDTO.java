@@ -25,7 +25,12 @@ public class ProgramDTO implements Serializable {
     private String code;
 
     @NotNull
+    @Min(value = 1)
+    @Max(value = 12)
     private Integer trimesters;
+
+    // Optional: if the client does not send status, the service will default it to true
+    private Boolean status;
 
     public String getId() {
         return id;
@@ -67,6 +72,14 @@ public class ProgramDTO implements Serializable {
         this.trimesters = trimesters;
     }
 
+    public Boolean getStatus() {
+        return status;
+    }
+
+    public void setStatus(Boolean status) {
+        this.status = status;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -97,6 +110,7 @@ public class ProgramDTO implements Serializable {
             ", initials='" + getInitials() + "'" +
             ", code='" + getCode() + "'" +
             ", trimesters=" + getTrimesters() +
+            ", status='" + getStatus() + "'" +
             "}";
     }
 }
