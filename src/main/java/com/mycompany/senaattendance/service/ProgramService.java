@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.service;
 
+import com.mycompany.senaattendance.service.dto.ProgramActivatedResponseDTO;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -32,6 +33,20 @@ public interface ProgramService {
      * @return the persisted entity.
      */
     Optional<ProgramDTO> partialUpdate(ProgramDTO programDTO);
+
+    /**
+     * Set the activation status of a program.
+     *
+     * <p>Idempotent: if the program already has the target {@code status} it is
+     * returned unchanged. When the program is deactivated and still has active
+     * fichas (grades), the response carries a dynamic {@code warning} and the
+     * count of active fichas.
+     *
+     * @param id the program id.
+     * @param status the target status ({@code true} = active, {@code false} = inactive).
+     * @return the updated program together with any deactivation warning.
+     */
+    ProgramActivatedResponseDTO setActivated(String id, Boolean status);
 
     /**
      * Get all the programs.

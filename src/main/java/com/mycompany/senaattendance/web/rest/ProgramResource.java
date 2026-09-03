@@ -3,8 +3,10 @@ package com.mycompany.senaattendance.web.rest;
 import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ProgramService;
+import com.mycompany.senaattendance.service.dto.ProgramActivatedResponseDTO;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.SetProgramActivatedVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -136,6 +138,33 @@ public class ProgramResource {
             result,
             HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, programDTO.getId())
         );
+    }
+
+    /**
+     * {@code PATCH  /programs/activated} : Set the activation status of the program
+     * identified by {@code id}. The body must carry the program {@code id} and the
+     * target {@code status} ({@code true}/{@code false}). If the program already has
+     * the requested status, nothing changes (idempotent). When deactivating a program
+     * that still has active fichas, the deactivation is allowed but the response warns
+     * with the count of active fichas (E2).
+     *
+     * @param setProgramActivatedVM the request body carrying the program id and target status.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated program
+     *         plus the optional warning, or {@code 400 (Bad Request)} if the id/status is invalid
+     *         or no program matches the id.
+     */
+    @PatchMapping("/activated")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    public ResponseEntity<ProgramActivatedResponseDTO> setProgramActivated(
+        @Valid @RequestBody SetProgramActivatedVM setProgramActivatedVM
+    ) {
+        String id = setProgramActivatedVM.getId();
+        boolean status = setProgramActivatedVM.getStatus();
+        LOG.debug("REST request to set activated={} for Program id: {}", status, id);
+        ProgramActivatedResponseDTO updatedProgram = programService.setActivated(id, status);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, status ? "program.activated" : "program.deactivated", id))
+            .body(updatedProgram);
     }
 
     /**

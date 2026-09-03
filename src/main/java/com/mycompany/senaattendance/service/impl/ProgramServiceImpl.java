@@ -1,11 +1,15 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Program;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ProgramService;
+import com.mycompany.senaattendance.service.dto.ProgramActivatedResponseDTO;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import com.mycompany.senaattendance.service.mapper.ProgramMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.ProgramCodeAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.ProgramInitialsAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.ProgramNameAlreadyUsedException;
@@ -16,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service Implementation for managing {@link com.mycompany.senaattendance.domain.Program}.
@@ -25,13 +30,18 @@ public class ProgramServiceImpl implements ProgramService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProgramServiceImpl.class);
 
+    private static final String ENTITY_NAME = "program";
+
     private final ProgramRepository programRepository;
 
     private final ProgramMapper programMapper;
 
-    public ProgramServiceImpl(ProgramRepository programRepository, ProgramMapper programMapper) {
+    private final GradeRepository gradeRepository;
+
+    public ProgramServiceImpl(ProgramRepository programRepository, ProgramMapper programMapper, GradeRepository gradeRepository) {
         this.programRepository = programRepository;
         this.programMapper = programMapper;
+        this.gradeRepository = gradeRepository;
     }
 
     @Override
@@ -104,6 +114,40 @@ public class ProgramServiceImpl implements ProgramService {
             })
             .map(existingProgram -> hasFieldsToUpdate ? programRepository.save(existingProgram) : existingProgram)
             .map(programMapper::toDto);
+    }
+
+    @Override
+    @Transactional
+    public ProgramActivatedResponseDTO setActivated(String id, Boolean status) {
+        LOG.debug("Request to set activated={} for Program id: {}", status, id);
+        Program program = programRepository
+            .findById(id)
+            .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
+
+        Boolean currentStatus = program.getStatus();
+        boolean transitioning = currentStatus == null || !currentStatus.equals(status);
+        if (transitioning) {
+            program.setStatus(status);
+            program = programRepository.save(program);
+        }
+
+        ProgramActivatedResponseDTO response = new ProgramActivatedResponseDTO();
+        response.setProgram(programMapper.toDto(program));
+
+        // E2: when deactivating a program that still has active fichas, keep the
+        // deactivation but surface a warning with the count for the frontend.
+        if (Boolean.FALSE.equals(status)) {
+            long activeFichas = gradeRepository.countByProgram_IdAndState(id, StateGrade.ACTIVA);
+            response.setActiveFichasCount((int) activeFichas);
+            if (transitioning && activeFichas > 0) {
+                response.setWarning(
+                    "Este programa tiene " +
+                        activeFichas +
+                        " fichas activas; no podrán crearse nuevas fichas bajo este programa hasta reactivarlo"
+                );
+            }
+        }
+        return response;
     }
 
     @Override
