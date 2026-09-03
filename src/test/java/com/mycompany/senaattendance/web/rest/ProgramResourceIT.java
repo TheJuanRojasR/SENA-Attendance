@@ -537,13 +537,12 @@ class ProgramResourceIT {
     }
 
     @Test
-    void fullUpdateProgramWithPatch() throws Exception {
+    void fullUpdateProgramWithPatchDoesNotChangeStatus() throws Exception {
         // Initialize the database
         insertedProgram = programRepository.save(program);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
-        // Update the program using partial update
         Program partialUpdatedProgram = new Program();
         partialUpdatedProgram.setId(program.getId());
 
@@ -559,9 +558,37 @@ class ProgramResourceIT {
             .andExpect(status().isOk());
 
         // Validate the Program in the database
-
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertProgramUpdatableFieldsEquals(partialUpdatedProgram, getPersistedProgram(partialUpdatedProgram));
+
+        Program persisted = getPersistedProgram(program);
+        assertThat(persisted.getName()).isEqualTo(UPDATED_NAME);
+        assertThat(persisted.getInitials()).isEqualTo(UPDATED_INITIALS);
+        assertThat(persisted.getCode()).isEqualTo(UPDATED_CODE);
+        assertThat(persisted.getTrimesters()).isEqualTo(UPDATED_TRIMESTERS);
+        assertThat(persisted.getStatus()).isEqualTo(DEFAULT_STATUS);
+    }
+
+    @Test
+    void patchProgramWithStatusOnlyDoesNotChangeStatus() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        ProgramDTO patchDto = new ProgramDTO();
+        patchDto.setId(program.getId());
+        patchDto.setStatus(false);
+
+        ProgramDTO returnedProgram = om.readValue(
+            restProgramMockMvc
+                .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(patchDto)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ProgramDTO.class
+        );
+
+        assertThat(returnedProgram.getStatus()).isEqualTo(DEFAULT_STATUS);
+        // editable fields remain untouched
+        assertProgramUpdatableFieldsEquals(program, getPersistedProgram(program));
     }
 
     @Test

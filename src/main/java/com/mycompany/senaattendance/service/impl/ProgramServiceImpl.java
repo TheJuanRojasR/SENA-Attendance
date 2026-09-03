@@ -84,6 +84,8 @@ public class ProgramServiceImpl implements ProgramService {
     @Override
     public Optional<ProgramDTO> partialUpdate(ProgramDTO programDTO) {
         LOG.debug("Request to partially update Program : {}", programDTO);
+
+        programDTO.setStatus(null);
         sanitizeBlankPatchFields(programDTO);
         boolean hasFieldsToUpdate = hasPatchFields(programDTO);
 
@@ -164,8 +166,7 @@ public class ProgramServiceImpl implements ProgramService {
             programDTO.getName() != null ||
             programDTO.getInitials() != null ||
             programDTO.getCode() != null ||
-            programDTO.getTrimesters() != null ||
-            programDTO.getStatus() != null
+            programDTO.getTrimesters() != null
         );
     }
 
