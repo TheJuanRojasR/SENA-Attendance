@@ -1,3 +1,39 @@
 .footer {
-  height: 50px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  min-height: 30%;
+  background-color: #191c1d;
+  color: #f1f1f1;
+  font-size: 0.9rem;
+}
+
+.footer-branding {
+  width: 30%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.footer-brand-title {
+  font-size: 1.25rem;
+  margin-left: 0.25rem;
+  color: #f1f1f1;
+}
+.brand-icon {
+  height: 40px;
+  width: auto;
+  display: inline-block;
+  img {
+    width: 40px;
+  }
+}
+
+.footer-text {
+  display: flex;
+  flex-direction: column;
+  color: #f1f1f1;
 }

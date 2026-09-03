@@ -3,7 +3,7 @@ import { Translate, translate } from 'react-jhipster';
 
 import MenuItem from 'app/shared/layout/menus/menu-item';
 
-import { NavDropdown } from './menu-components';
+import { AccordionNavItem, NavDropdown } from './menu-components';
 
 const adminMenuItems = () => (
   <>
@@ -32,9 +32,12 @@ const openAPIItem = () => (
   </MenuItem>
 );
 
-export const AdminMenu = ({ showOpenAPI }) => (
-  <NavDropdown icon="users-cog" name={translate('global.menu.admin.main')} id="admin-menu" data-cy="adminMenu">
-    {adminMenuItems()}
-    {showOpenAPI && openAPIItem()}
-  </NavDropdown>
-);
+export const AdminMenu = ({ showOpenAPI, variant = 'dropdown' }: { showOpenAPI: boolean; variant?: 'dropdown' | 'accordion' }) => {
+  const Container = variant === 'accordion' ? AccordionNavItem : NavDropdown;
+  return (
+    <Container icon="users-cog" name={translate('global.menu.admin.main')} id="admin-menu" data-cy="adminMenu">
+      {adminMenuItems()}
+      {showOpenAPI && openAPIItem()}
+    </Container>
+  );
+};

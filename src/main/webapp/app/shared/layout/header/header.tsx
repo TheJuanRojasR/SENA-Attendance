@@ -8,9 +8,10 @@ import LoadingBar, { LoadingBarRef } from 'react-top-loading-bar';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { setLocale } from 'app/shared/reducers/locale';
+import LinkButton from 'app/shared/components/link-button';
 import { AccountMenu, AdminMenu, EntitiesMenu, LocaleMenu } from '../menus';
 
-import { Brand, Home } from './header-components';
+import { Brand } from './header-components';
 
 export interface IHeaderProps {
   isAuthenticated: boolean;
@@ -47,7 +48,7 @@ const Header = (props: IHeaderProps) => {
   return (
     <div id="app-header">
       <LoadingBar ref={loadingBarRef} className="loading-bar" color="#009cd8" />
-      <Navbar data-cy="navbar" data-bs-theme="light" expand="md" className="navbar" collapseOnSelect>
+      <Navbar data-cy="navbar" data-bs-theme="light" expand="md" className="navbar pad" collapseOnSelect>
         <Navbar.Toggle aria-controls="header-tabs" aria-label="Menu" />
         {/* CONTROL DE LOGO RESPONSIVO */}
         {props.isAuthenticated ? (
@@ -60,12 +61,30 @@ const Header = (props: IHeaderProps) => {
           <Brand isAuthenticated={props.isAuthenticated} />
         )}
         <Navbar.Collapse id="header-tabs">
-          <Nav className="ms-auto">
-            <Home isAuthenticated={props.isAuthenticated} />
-            {props.isAuthenticated && <EntitiesMenu />}
-            {props.isAuthenticated && props.isAdmin && <AdminMenu showOpenAPI={props.isOpenAPIEnabled} />}
+          <Nav className="ms-auto gap-3">
+            {!props.isAuthenticated && (
+              <LinkButton to="/login" variant="primary" translationKey="global.menu.account.login" data-cy="login">
+                Sign in
+              </LinkButton>
+            )}
+            {!props.isAuthenticated && (
+              <LinkButton to="/account/register" translationKey="global.menu.account.register" data-cy="register">
+                Register
+              </LinkButton>
+            )}
+            {/* Admin/Entities ya se muestran en el sidebar desde 'md' en adelante; en el header solo hacen falta en móvil. */}
+            {props.isAuthenticated && props.isAdmin && (
+              <div className="d-md-none">
+                <AdminMenu showOpenAPI={props.isOpenAPIEnabled} />
+              </div>
+            )}
+            {props.isAuthenticated && (
+              <div className="d-md-none">
+                <EntitiesMenu />
+              </div>
+            )}
+            {props.isAuthenticated && <AccountMenu isAuthenticated={props.isAuthenticated} />}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />
-            <AccountMenu isAuthenticated={props.isAuthenticated} />
           </Nav>
         </Navbar.Collapse>
       </Navbar>

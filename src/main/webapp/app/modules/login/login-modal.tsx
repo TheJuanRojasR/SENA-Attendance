@@ -1,20 +1,30 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Alert, Button, Col, Form, Modal, ModalBody, ModalFooter, ModalHeader, Row } from 'react-bootstrap';
 import { Translate, ValidatedField, translate } from 'react-jhipster';
 import { Link } from 'react-router';
 
 import { type FieldError, type FieldValues, useForm } from 'react-hook-form';
+import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
+import { useAppDispatch, useAppSelector } from 'app/config/store';
 
 export interface ILoginModalProps {
   showModal: boolean;
   loginError: boolean;
-  handleLogin: (username: string, password: string, rememberMe: boolean) => void;
+  handleLogin: (documentTypeId: string, documentNumber: string, password: string) => void;
   handleClose: () => void;
 }
 
 const LoginModal = (props: ILoginModalProps) => {
-  const login = ({ username, password, rememberMe }: FieldValues) => {
-    props.handleLogin(username, password, rememberMe);
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    dispatch(getDocumentTypes({}));
+  }, []);
+
+  const documentTypes = useAppSelector(state => state.documentType.entities);
+
+  const login = ({ documentTypeId, documentNumber, password }: FieldValues) => {
+    props.handleLogin(documentTypeId, documentNumber, password);
   };
 
   const {
@@ -50,16 +60,38 @@ const LoginModal = (props: ILoginModalProps) => {
             </Col>
             <Col md="12">
               <ValidatedField
-                name="username"
-                label={translate('global.form.username.label')}
-                placeholder={translate('global.form.username.placeholder')}
+                name="documentTypeId"
+                label={translate('global.form.documentType.label')}
+                type="select"
                 required
                 autoFocus
-                data-cy="username"
-                validate={{ required: 'Username cannot be empty!' }}
+                data-cy="documentTypeId"
+                validate={{ required: 'Selecciona un tipo de documento!' }}
                 register={register}
-                error={errors.username as FieldError}
-                isTouched={touchedFields.username}
+                error={errors.documentTypeId as FieldError}
+                isTouched={touchedFields.documentTypeId}
+              >
+                <option value="" key="0">
+                  Selecciona una opcion
+                </option>
+                {documentTypes
+                  ? documentTypes.map(otherEntity => (
+                      <option value={otherEntity.id} key={otherEntity.id}>
+                        {otherEntity.name}
+                      </option>
+                    ))
+                  : null}
+              </ValidatedField>
+              <ValidatedField
+                name="documentNumber"
+                label={translate('global.form.documentNumber.label')}
+                placeholder={translate('global.form.documentNumber.placeholder')}
+                required
+                data-cy="documentNumber"
+                validate={{ required: 'El numero de documento no puede estar vacio!' }}
+                register={register}
+                error={errors.documentNumber as FieldError}
+                isTouched={touchedFields.documentNumber}
               />
               <ValidatedField
                 name="password"
@@ -68,19 +100,11 @@ const LoginModal = (props: ILoginModalProps) => {
                 placeholder={translate('login.form.password.placeholder')}
                 required
                 data-cy="password"
-                validate={{ required: 'Password cannot be empty!' }}
+                validate={{ required: 'La contraseña no puede estar vacia!' }}
                 register={register}
                 error={errors.password as FieldError}
                 isTouched={touchedFields.password}
               />
-              {/* <ValidatedField
-                name="rememberMe"
-                type="checkbox"
-                check
-                label={translate('login.form.rememberme')}
-                value={true}
-                register={register}
-              /> */}
             </Col>
           </Row>
           <div className="mt-1 text-center" style={{ color: '#6c757d', fontSize: '0.85rem' }}>

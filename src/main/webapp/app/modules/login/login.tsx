@@ -19,7 +19,7 @@ export const Login = () => {
     setShowModal(true);
   }, []);
 
-  const handleLogin = (username, password, rememberMe = false) => dispatch(login(username, password, rememberMe));
+  const handleLogin = (documentTypeId, documentNumber, password) => dispatch(login(documentTypeId, documentNumber, password));
 
   const handleClose = () => {
     setShowModal(false);
