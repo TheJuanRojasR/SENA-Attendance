@@ -1,12 +1,15 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,15 +33,20 @@ public class GradeServiceImpl implements GradeService {
 
     private final GradeMapper gradeMapper;
 
-    public GradeServiceImpl(GradeRepository gradeRepository, GradeMapper gradeMapper) {
+    private final ProgramRepository programRepository;
+
+    public GradeServiceImpl(GradeRepository gradeRepository, GradeMapper gradeMapper, ProgramRepository programRepository) {
         this.gradeRepository = gradeRepository;
         this.gradeMapper = gradeMapper;
+        this.programRepository = programRepository;
     }
 
     @Override
     public GradeDTO save(GradeDTO gradeDTO) {
         LOG.debug("Request to save Grade : {}", gradeDTO);
         Grade grade = gradeMapper.toEntity(gradeDTO);
+
+        validateProgramActiveForGrade(grade.getProgram());
 
         // Inserta fecha de creación
         grade.setCreatedDate(Instant.now());
@@ -126,5 +134,23 @@ public class GradeServiceImpl implements GradeService {
             .filter(grade -> grade.getState() != null && grade.getState().equals(StateGrade.ACTIVA))
             .map(gradeMapper::toDto)
             .collect(Collectors.toCollection(LinkedList::new));
+    }
+
+    /**
+     * A ficha (grade) can only be created for an ACTIVE program. If the referenced
+     * program exists and is inactive, creating a new ficha under it is rejected (A2).
+     * A reference to a program that is not persisted is left untouched.
+     *
+     * @param program the program referenced by the new grade.
+     */
+    private void validateProgramActiveForGrade(Program program) {
+        if (program == null || program.getId() == null) {
+            return;
+        }
+        programRepository.findById(program.getId()).ifPresent(existing -> {
+            if (Boolean.FALSE.equals(existing.getStatus())) {
+                throw new BadRequestAlertException("No se pueden crear fichas para un programa inactivo", "program", "programInactive");
+            }
+        });
     }
 }

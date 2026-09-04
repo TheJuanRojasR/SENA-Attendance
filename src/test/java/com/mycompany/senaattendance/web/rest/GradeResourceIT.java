@@ -16,8 +16,11 @@ import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
+import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -43,7 +46,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class GradeResourceIT {
 
     private static final String DEFAULT_CODE = "AAAAAAAAAA";
@@ -72,6 +75,9 @@ class GradeResourceIT {
 
     @Autowired
     private GradeMapper gradeMapper;
+
+    @Autowired
+    private ProgramRepository programRepository;
 
     @Mock
     private GradeService gradeServiceMock;
@@ -169,6 +175,30 @@ class GradeResourceIT {
         assertGradeUpdatableFieldsEquals(returnedGrade, getPersistedGrade(returnedGrade));
 
         insertedGrade = returnedGrade;
+    }
+
+    @Test
+    void createGradeWithInactiveProgramReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+
+        // The ficha references a program that is inactive (persisted in the DB)
+        Program inactiveProgram = ProgramResourceIT.createEntity();
+        inactiveProgram.setStatus(false);
+        inactiveProgram = programRepository.save(inactiveProgram);
+
+        try {
+            GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+            gradeDTO.getProgram().setId(inactiveProgram.getId());
+
+            restGradeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.programInactive"));
+
+            assertSameRepositoryCount(databaseSizeBeforeTest);
+        } finally {
+            programRepository.delete(inactiveProgram);
+        }
     }
 
     @Test

@@ -29,4 +29,7 @@ public interface GradeRepository extends MongoRepository<Grade, String> {
 
     // ------- SEARCH LATEST 5 GRADES -------
     List<Grade> findTop5ByOrderByCreatedDateDesc();
+
+    // ------- COUNT ACTIVE GRADES BY PROGRAM -------
+    long countByProgram_IdAndState(String programId, StateGrade state);
 }

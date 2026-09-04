@@ -9,11 +9,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Program;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import com.mycompany.senaattendance.service.mapper.ProgramMapper;
+import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,11 +64,16 @@ class ProgramResourceIT {
     private ProgramMapper programMapper;
 
     @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
     private MockMvc restProgramMockMvc;
 
     private Program program;
 
     private Program insertedProgram;
+
+    private Grade insertedGrade;
 
     /**
      * Create an entity for this test.
@@ -103,6 +112,10 @@ class ProgramResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedGrade != null) {
+            gradeRepository.delete(insertedGrade);
+            insertedGrade = null;
+        }
         if (insertedProgram != null) {
             programRepository.delete(insertedProgram);
             insertedProgram = null;
@@ -537,13 +550,12 @@ class ProgramResourceIT {
     }
 
     @Test
-    void fullUpdateProgramWithPatch() throws Exception {
+    void fullUpdateProgramWithPatchDoesNotChangeStatus() throws Exception {
         // Initialize the database
         insertedProgram = programRepository.save(program);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
-        // Update the program using partial update
         Program partialUpdatedProgram = new Program();
         partialUpdatedProgram.setId(program.getId());
 
@@ -559,9 +571,182 @@ class ProgramResourceIT {
             .andExpect(status().isOk());
 
         // Validate the Program in the database
-
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertProgramUpdatableFieldsEquals(partialUpdatedProgram, getPersistedProgram(partialUpdatedProgram));
+
+        Program persisted = getPersistedProgram(program);
+        assertThat(persisted.getName()).isEqualTo(UPDATED_NAME);
+        assertThat(persisted.getInitials()).isEqualTo(UPDATED_INITIALS);
+        assertThat(persisted.getCode()).isEqualTo(UPDATED_CODE);
+        assertThat(persisted.getTrimesters()).isEqualTo(UPDATED_TRIMESTERS);
+        assertThat(persisted.getStatus()).isEqualTo(DEFAULT_STATUS);
+    }
+
+    @Test
+    void patchProgramWithStatusOnlyDoesNotChangeStatus() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        ProgramDTO patchDto = new ProgramDTO();
+        patchDto.setId(program.getId());
+        patchDto.setStatus(false);
+
+        ProgramDTO returnedProgram = om.readValue(
+            restProgramMockMvc
+                .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(patchDto)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ProgramDTO.class
+        );
+
+        assertThat(returnedProgram.getStatus()).isEqualTo(DEFAULT_STATUS);
+        // editable fields remain untouched
+        assertProgramUpdatableFieldsEquals(program, getPersistedProgram(program));
+    }
+
+    @Test
+    void setProgramActivatedDeactivate() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        var body = om.createObjectNode().put("id", program.getId()).put("status", false);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.program.status").value(false))
+            .andExpect(jsonPath("$.activeFichasCount").value(0));
+
+        Program persisted = getPersistedProgram(program);
+        assertThat(persisted.getStatus()).isFalse();
+        // the editable fields are untouched by a status-only change
+        assertThat(persisted.getName()).isEqualTo(DEFAULT_NAME);
+        assertThat(persisted.getInitials()).isEqualTo(DEFAULT_INITIALS);
+        assertThat(persisted.getCode()).isEqualTo(DEFAULT_CODE);
+        assertThat(persisted.getTrimesters()).isEqualTo(DEFAULT_TRIMESTERS);
+    }
+
+    @Test
+    void setProgramActivatedActivate() throws Exception {
+        Program inactive = createEntity().status(false);
+        insertedProgram = programRepository.save(inactive);
+
+        var body = om.createObjectNode().put("id", inactive.getId()).put("status", true);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.program.status").value(true));
+
+        assertThat(getPersistedProgram(inactive).getStatus()).isTrue();
+    }
+
+    @Test
+    void setProgramActivatedSameStatusNoChange() throws Exception {
+        insertedProgram = programRepository.save(program); // status defaults to true
+
+        var body = om.createObjectNode().put("id", program.getId()).put("status", true);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.program.status").value(true));
+
+        assertThat(getPersistedProgram(program).getStatus()).isTrue();
+    }
+
+    @Test
+    void setProgramActivatedWithActiveFichasWarns() throws Exception {
+        Program activeProgram = createEntity();
+        insertedProgram = programRepository.save(activeProgram);
+
+        // one active ficha (grade) under the program
+        Grade ficha = new Grade()
+            .code("FICHA01")
+            .state(StateGrade.ACTIVA)
+            .startDate(LocalDate.of(2025, 1, 1))
+            .endDate(LocalDate.of(2025, 12, 31))
+            .program(activeProgram);
+        insertedGrade = gradeRepository.save(ficha);
+
+        var body = om.createObjectNode().put("id", activeProgram.getId()).put("status", false);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.program.status").value(false))
+            .andExpect(jsonPath("$.activeFichasCount").value(1))
+            .andExpect(jsonPath("$.warning", org.hamcrest.Matchers.containsString("1")));
+
+        // deactivation is allowed and the existing ficha is not affected
+        assertThat(getPersistedProgram(activeProgram).getStatus()).isFalse();
+        assertThat(gradeRepository.findById(ficha.getId()).orElseThrow().getState()).isEqualTo(StateGrade.ACTIVA);
+    }
+
+    @Test
+    void setProgramActivatedNonExisting() throws Exception {
+        long databaseSizeBefore = getRepositoryCount();
+
+        var body = om.createObjectNode().put("id", UUID.randomUUID().toString()).put("status", false);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnotfound"));
+
+        assertSameRepositoryCount(databaseSizeBefore);
+    }
+
+    @Test
+    void setProgramActivatedInvalidStatusType() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        // numeric 1 is not a valid boolean for status, it must be rejected while reading the body
+        var body = om.createObjectNode().put("id", program.getId()).put("status", 1);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isBadRequest());
+
+        assertThat(getPersistedProgram(program).getStatus()).isTrue();
+    }
+
+    @Test
+    void setProgramActivatedMissingStatus() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        var body = om.createObjectNode().put("id", program.getId());
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType("application/json")
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isBadRequest());
     }
 
     @Test
