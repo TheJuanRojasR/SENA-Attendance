@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.config;
 
 import io.mongock.runner.springboot.EnableMongock;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration;
@@ -34,6 +35,18 @@ public class DatabaseConfiguration {
     @Bean
     public LocalValidatorFactoryBean validator() {
         return new LocalValidatorFactoryBean();
+    }
+
+    /**
+     * Single source of "today" for the trimester status lifecycle. Both the create-time
+     * status computation and the daily {@code syncStatuses()} job use this clock so they
+     * converge, and unit tests can inject a fixed clock for deterministic dates.
+     *
+     * @return a clock in the system default zone.
+     */
+    @Bean
+    public Clock clock() {
+        return Clock.systemDefaultZone();
     }
 
     @Bean

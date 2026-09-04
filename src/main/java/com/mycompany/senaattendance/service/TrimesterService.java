@@ -65,6 +65,13 @@ public interface TrimesterService {
     Optional<TrimesterDTO> findOne(String id);
 
     /**
+     * Synchronises every trimester's {@code status} with today versus its
+     * {@code [startDate, endDate]} range. Only trimesters whose computed status differs
+     * from the persisted status are rewritten.
+     */
+    void syncStatuses();
+
+    /**
      * Delete the "id" trimester.
      *
      * @param id the id of the entity.

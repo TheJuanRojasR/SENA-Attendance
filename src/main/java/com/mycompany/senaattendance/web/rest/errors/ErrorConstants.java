@@ -16,6 +16,8 @@ public final class ErrorConstants {
     public static final URI PROGRAM_CODE_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-code-already-used");
     public static final URI PROGRAM_INITIALS_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-initials-already-used");
     public static final URI PROGRAM_NAME_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-name-already-used");
+    public static final URI TRIMESTER_DATES_ORDER_TYPE = URI.create(PROBLEM_BASE_URL + "/trimester-dates-order");
+    public static final URI TRIMESTER_DATES_OVERLAP_TYPE = URI.create(PROBLEM_BASE_URL + "/trimester-dates-overlap");
 
     private ErrorConstants() {}
 }

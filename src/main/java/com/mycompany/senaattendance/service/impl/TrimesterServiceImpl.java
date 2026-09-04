@@ -6,12 +6,18 @@ import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import com.mycompany.senaattendance.service.mapper.TrimesterMapper;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterDatesOrderException;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterDatesOverlapException;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,19 +28,27 @@ public class TrimesterServiceImpl implements TrimesterService {
 
     private static final Logger LOG = LoggerFactory.getLogger(TrimesterServiceImpl.class);
 
+    private static final String ENTITY_NAME = "trimester";
+
     private final TrimesterRepository trimesterRepository;
 
     private final TrimesterMapper trimesterMapper;
 
-    public TrimesterServiceImpl(TrimesterRepository trimesterRepository, TrimesterMapper trimesterMapper) {
+    private final Clock clock;
+
+    public TrimesterServiceImpl(TrimesterRepository trimesterRepository, TrimesterMapper trimesterMapper, Clock clock) {
         this.trimesterRepository = trimesterRepository;
         this.trimesterMapper = trimesterMapper;
+        this.clock = clock;
     }
 
     @Override
     public TrimesterDTO save(TrimesterDTO trimesterDTO) {
         LOG.debug("Request to save Trimester : {}", trimesterDTO);
         Trimester trimester = trimesterMapper.toEntity(trimesterDTO);
+
+        validateDatesAndOverlap(trimester);
+        trimester.setStatus(computeStatus(LocalDate.now(clock), trimester.getStartDate(), trimester.getEndDate()));
 
         trimester.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -124,5 +138,58 @@ public class TrimesterServiceImpl implements TrimesterService {
     public void delete(String id) {
         LOG.debug("Request to delete Trimester : {}", id);
         trimesterRepository.deleteById(id);
+    }
+
+    /**
+     * Computes whether a trimester is active on {@code today}, defined as today falling
+     * within the inclusive {@code [start, end]} range.
+     *
+     * @param today the reference day.
+     * @param start the trimester start date (inclusive).
+     * @param end the trimester end date (inclusive).
+     * @return {@code true} when {@code start <= today <= end}.
+     */
+    private boolean computeStatus(LocalDate today, LocalDate start, LocalDate end) {
+        return !today.isBefore(start) && !today.isAfter(end);
+    }
+
+    /**
+     * Validates the date order (E2) and the no-overlap rule (E1) for a trimester being
+     * created, throwing a {@code BadRequestAlertException} subclass on failure. Date order
+     * is checked first so a malformed range fails before any repository query.
+     *
+     * @param trimester the trimester to validate.
+     * @throws TrimesterDatesOrderException if {@code startDate >= endDate}.
+     * @throws TrimesterDatesOverlapException if the range overlaps an existing trimester.
+     */
+    private void validateDatesAndOverlap(Trimester trimester) {
+        LocalDate start = trimester.getStartDate();
+        LocalDate end = trimester.getEndDate();
+        if (!start.isBefore(end)) {
+            throw new TrimesterDatesOrderException();
+        }
+        if (!trimesterRepository.findAllOverlapping(start, end).isEmpty()) {
+            throw new TrimesterDatesOverlapException();
+        }
+    }
+
+    /**
+     * Daily job that keeps each trimester's {@code status} in sync with today versus its
+     * {@code [startDate, endDate]} range. Only trimesters whose computed status differs
+     * from the persisted status are rewritten; each loaded entity is saved as-is so its
+     * {@code createdBy}/{@code createdDate} audit fields are preserved and the auditing
+     * listener fills {@code lastModifiedDate}.
+     */
+    @Override
+    @Scheduled(cron = "0 0 1 * * ?")
+    public void syncStatuses() {
+        LocalDate today = LocalDate.now(clock);
+        trimesterRepository.findAll().forEach(trimester -> {
+            boolean computed = computeStatus(today, trimester.getStartDate(), trimester.getEndDate());
+            if (trimester.getStatus() == null || trimester.getStatus() != computed) {
+                trimester.setStatus(computed);
+                trimesterRepository.save(trimester);
+            }
+        });
     }
 }
