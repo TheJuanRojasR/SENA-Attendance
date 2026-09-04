@@ -90,6 +90,31 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     @Override
+    public Page<TrimesterDTO> search(String searchTerm, Boolean status, Pageable pageable) {
+        LOG.debug("Request to search Trimesters with term: {}, status: {}", searchTerm, status);
+
+        boolean hasTerm = searchTerm != null && !searchTerm.isBlank();
+        boolean year = hasTerm && searchTerm.matches("\\d{4}");
+
+        Page<Trimester> page;
+        if (year && status != null) {
+            page = trimesterRepository.searchByStartDateYearAndStatus(Integer.valueOf(searchTerm), status, pageable);
+        } else if (year) {
+            page = trimesterRepository.searchByStartDateYear(Integer.valueOf(searchTerm), pageable);
+        } else if (hasTerm && status != null) {
+            page = trimesterRepository.searchByNameAndStatus(searchTerm, status, pageable);
+        } else if (hasTerm) {
+            page = trimesterRepository.searchByName(searchTerm, pageable);
+        } else if (status != null) {
+            page = trimesterRepository.findByStatus(status, pageable);
+        } else {
+            page = trimesterRepository.findAll(pageable);
+        }
+
+        return page.map(trimesterMapper::toDto);
+    }
+
+    @Override
     public Optional<TrimesterDTO> findOne(String id) {
         LOG.debug("Request to get Trimester : {}", id);
         return trimesterRepository.findById(id).map(trimesterMapper::toDto);

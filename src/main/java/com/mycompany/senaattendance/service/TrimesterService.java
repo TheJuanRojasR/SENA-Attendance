@@ -42,6 +42,21 @@ public interface TrimesterService {
     Page<TrimesterDTO> findAll(Pageable pageable);
 
     /**
+     * Search and filter trimesters.
+     *
+     * <p>A 4-digit term is matched against the {@code startDate} year; any other
+     * non-blank term is matched as a case-insensitive name substring. The optional
+     * {@code status} filter is ANDed with the text filter. A blank term with no status
+     * returns all trimesters.
+     *
+     * @param searchTerm the term to search for (may be blank).
+     * @param status the status to filter by (may be null for all).
+     * @param pageable the pagination information.
+     * @return a page of matching trimesters.
+     */
+    Page<TrimesterDTO> search(String searchTerm, Boolean status, Pageable pageable);
+
+    /**
      * Get the "id" trimester.
      *
      * @param id the id of the entity.

@@ -1,6 +1,5 @@
 package com.mycompany.senaattendance.domain;
 
-import com.mycompany.senaattendance.domain.enumeration.State;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -35,9 +34,8 @@ public class Trimester extends AbstractAuditingEntity implements Serializable {
     @Field("end_date")
     private LocalDate endDate;
 
-    @NotNull
-    @Field("state")
-    private State state;
+    @Field("status")
+    private Boolean status;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -93,17 +91,17 @@ public class Trimester extends AbstractAuditingEntity implements Serializable {
         this.endDate = endDate;
     }
 
-    public State getState() {
-        return this.state;
+    public Boolean getStatus() {
+        return this.status;
     }
 
-    public Trimester state(State state) {
-        this.setState(state);
+    public Trimester status(Boolean status) {
+        this.setStatus(status);
         return this;
     }
 
-    public void setState(State state) {
-        this.state = state;
+    public void setStatus(Boolean status) {
+        this.status = status;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
@@ -133,7 +131,7 @@ public class Trimester extends AbstractAuditingEntity implements Serializable {
             ", name='" + getName() + "'" +
             ", startDate='" + getStartDate() + "'" +
             ", endDate='" + getEndDate() + "'" +
-            ", state='" + getState() + "'" +
+            ", status='" + getStatus() + "'" +
             "}";
     }
 }

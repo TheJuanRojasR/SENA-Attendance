@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -152,6 +153,34 @@ public class TrimesterResource {
         Page<TrimesterDTO> page = trimesterService.findAll(pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
+     * {@code GET  /trimesters/search} : search and filter trimesters.
+     *
+     * <p>Matches by year when {@code search} is a 4-digit number (against the
+     * {@code startDate} year), otherwise by a case-insensitive name substring, and
+     * optionally filters by {@code status}. Both parameters are independent:
+     * <ul>
+     *     <li>{@code search} may be blank to ignore the text filter.</li>
+     *     <li>{@code status} may be omitted to return trimesters with any status.</li>
+     * </ul>
+     *
+     * @param search the term to search for (optional).
+     * @param status the status to filter by (optional).
+     * @param pageable the pagination information.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Trimesters in body.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<TrimesterDTO>> searchTrimesters(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) Boolean status,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+    ) {
+        LOG.debug("REST request to search Trimesters with term: {}, status: {}", search, status);
+        Page<TrimesterDTO> page = trimesterService.search(search, status, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
     }
 
     /**

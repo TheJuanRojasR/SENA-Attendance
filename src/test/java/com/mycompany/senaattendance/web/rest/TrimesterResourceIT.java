@@ -10,12 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Trimester;
-import com.mycompany.senaattendance.domain.enumeration.State;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import com.mycompany.senaattendance.service.mapper.TrimesterMapper;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,8 +44,8 @@ class TrimesterResourceIT {
     private static final LocalDate DEFAULT_END_DATE = LocalDate.ofEpochDay(0L);
     private static final LocalDate UPDATED_END_DATE = LocalDate.now(ZoneId.systemDefault());
 
-    private static final State DEFAULT_STATE = State.ACTIVO;
-    private static final State UPDATED_STATE = State.INACTIVO;
+    private static final Boolean DEFAULT_STATUS = Boolean.TRUE;
+    private static final Boolean UPDATED_STATUS = Boolean.FALSE;
 
     private static final String ENTITY_API_URL = "/api/trimesters";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -65,6 +66,8 @@ class TrimesterResourceIT {
 
     private Trimester insertedTrimester;
 
+    private final List<Trimester> insertedTrimesters = new ArrayList<>();
+
     /**
      * Create an entity for this test.
      *
@@ -72,7 +75,7 @@ class TrimesterResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Trimester createEntity() {
-        return new Trimester().name(DEFAULT_NAME).startDate(DEFAULT_START_DATE).endDate(DEFAULT_END_DATE).state(DEFAULT_STATE);
+        return new Trimester().name(DEFAULT_NAME).startDate(DEFAULT_START_DATE).endDate(DEFAULT_END_DATE).status(DEFAULT_STATUS);
     }
 
     /**
@@ -82,7 +85,7 @@ class TrimesterResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Trimester createUpdatedEntity() {
-        return new Trimester().name(UPDATED_NAME).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE).state(UPDATED_STATE);
+        return new Trimester().name(UPDATED_NAME).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE).status(UPDATED_STATUS);
     }
 
     @BeforeEach
@@ -92,6 +95,8 @@ class TrimesterResourceIT {
 
     @AfterEach
     void cleanup() {
+        insertedTrimesters.forEach(trimesterRepository::delete);
+        insertedTrimesters.clear();
         if (insertedTrimester != null) {
             trimesterRepository.delete(insertedTrimester);
             insertedTrimester = null;
@@ -187,10 +192,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    void checkStateIsRequired() throws Exception {
+    void checkStatusIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
-        trimester.setState(null);
+        trimester.setStatus(null);
 
         // Create the Trimester, which fails.
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
@@ -211,12 +216,125 @@ class TrimesterResourceIT {
         restTrimesterMockMvc
             .perform(get(ENTITY_API_URL + "?sort=id,desc"))
             .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(trimester.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].startDate").value(hasItem(DEFAULT_START_DATE.toString())))
             .andExpect(jsonPath("$.[*].endDate").value(hasItem(DEFAULT_END_DATE.toString())))
-            .andExpect(jsonPath("$.[*].state").value(hasItem(DEFAULT_STATE.toString())));
+            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS)));
+    }
+
+    @Test
+    void searchTrimestersByYear() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre 2025", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre 2026", LocalDate.of(2026, 1, 1), false)));
+
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "/search").param("search", "2025"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$.[*].name").value(hasItem("Primer Trimestre 2025")));
+    }
+
+    @Test
+    void searchTrimestersByName() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "/search").param("search", "Primer"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$.[*].name").value(hasItem("Primer Trimestre")));
+    }
+
+    @Test
+    void searchTrimestersByStatus() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "/search").param("status", "true"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$.[*].status").value(hasItem(true)));
+    }
+
+    @Test
+    void searchTrimestersByStatusFalse() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "/search").param("status", "false"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$.[*].status").value(hasItem(false)));
+    }
+
+    @Test
+    void searchTrimestersCombined() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre Inactivo", LocalDate.of(2025, 6, 1), false)));
+
+        restTrimesterMockMvc
+            .perform(
+                get(ENTITY_API_URL + "/search")
+                    .param("search", "Primer")
+                    .param("status", "true")
+            )
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$.[*].status").value(hasItem(true)));
+    }
+
+    @Test
+    void searchTrimestersNoResults() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "/search").param("search", "noexiste"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "0"))
+            .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void searchTrimestersCaseInsensitive() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+
+        // Stored name is capitalized; the search term is lowercase. The repository
+        // regex uses $options: 'i' so the match must be case-insensitive.
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "/search").param("search", "primer"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$.[*].name").value(hasItem("Primer Trimestre")));
+    }
+
+    @Test
+    void getAllTrimestersEmpty() throws Exception {
+        // No trimester is saved in this test: initTest() only creates an in-memory
+        // object, and the Mongo collection is fresh per-test. The list must be empty.
+        restTrimesterMockMvc
+            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(header().string("X-Total-Count", "0"))
+            .andExpect(jsonPath("$").isEmpty());
+    }
+
+    private Trimester newTrimester(String name, LocalDate startDate, Boolean status) {
+        return new Trimester().name(name).startDate(startDate).endDate(startDate.plusYears(1)).status(status);
     }
 
     @Test
@@ -233,7 +351,7 @@ class TrimesterResourceIT {
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.startDate").value(DEFAULT_START_DATE.toString()))
             .andExpect(jsonPath("$.endDate").value(DEFAULT_END_DATE.toString()))
-            .andExpect(jsonPath("$.state").value(DEFAULT_STATE.toString()));
+            .andExpect(jsonPath("$.status").value(DEFAULT_STATUS));
     }
 
     @Test
@@ -251,7 +369,7 @@ class TrimesterResourceIT {
 
         // Update the trimester
         Trimester updatedTrimester = trimesterRepository.findById(trimester.getId()).orElseThrow();
-        updatedTrimester.name(UPDATED_NAME).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE).state(UPDATED_STATE);
+        updatedTrimester.name(UPDATED_NAME).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE).status(UPDATED_STATUS);
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(updatedTrimester);
 
         restTrimesterMockMvc
@@ -337,7 +455,7 @@ class TrimesterResourceIT {
         Trimester partialUpdatedTrimester = new Trimester();
         partialUpdatedTrimester.setId(trimester.getId());
 
-        partialUpdatedTrimester.endDate(UPDATED_END_DATE).state(UPDATED_STATE);
+        partialUpdatedTrimester.endDate(UPDATED_END_DATE).status(UPDATED_STATUS);
 
         restTrimesterMockMvc
             .perform(
@@ -367,7 +485,7 @@ class TrimesterResourceIT {
         Trimester partialUpdatedTrimester = new Trimester();
         partialUpdatedTrimester.setId(trimester.getId());
 
-        partialUpdatedTrimester.name(UPDATED_NAME).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE).state(UPDATED_STATE);
+        partialUpdatedTrimester.name(UPDATED_NAME).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE).status(UPDATED_STATUS);
 
         restTrimesterMockMvc
             .perform(
