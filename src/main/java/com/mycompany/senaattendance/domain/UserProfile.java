@@ -4,7 +4,7 @@ import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -13,6 +13,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
  * A UserProfile.
  */
 @Document(collection = "user_profile")
+@CompoundIndex(name = "user_profile_document_unique", def = "{'documentType': 1, 'documentNumber': 1}", unique = true)
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class UserProfile extends AbstractAuditingEntity implements Serializable {
 
@@ -43,7 +44,6 @@ public class UserProfile extends AbstractAuditingEntity implements Serializable 
     @NotNull
     @Size(max = 15)
     @Field("document_number")
-    @Indexed(unique = true)
     private String documentNumber;
 
     @NotNull

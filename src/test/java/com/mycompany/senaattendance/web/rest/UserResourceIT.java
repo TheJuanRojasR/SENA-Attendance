@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Authority;
 import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
@@ -125,6 +126,17 @@ class UserResourceIT {
         return documentTypeRepository.findAll().iterator().next().getId();
     }
 
+    /**
+     * Derives the login that {@link com.mycompany.senaattendance.service.UserService#createUser} /
+     * {@link com.mycompany.senaattendance.service.UserService#updateUser} now produce from the
+     * seeded {@link DocumentType} initials: {@code <initials>_<documentNumber>}.
+     */
+    private String derivedLogin(String documentNumber) {
+        DocumentType dt = documentTypeRepository.findById(seededDocumentTypeId()).orElseThrow();
+        String typeCode = dt.getInitials() != null ? dt.getInitials() : "";
+        return (typeCode + "_" + documentNumber).toLowerCase().trim();
+    }
+
     private User persistedUser(String login, String email) {
         User u = new User();
         u.setLogin(login);
@@ -212,7 +224,7 @@ class UserResourceIT {
     @Test
     void createUser() throws Exception {
         String documentNumber = "JDOC0001";
-        String expectedLogin = documentNumber.toLowerCase().trim();
+        String expectedLogin = derivedLogin(documentNumber);
         AdminCreateUserVM userVM = new AdminCreateUserVM();
         userVM.setLogin("ignored.create.login");
         userVM.setEmail(DEFAULT_EMAIL);
@@ -277,6 +289,8 @@ class UserResourceIT {
 
     @Test
     void createUserWithExistingLogin() throws Exception {
+        // the existing user's login must equal the derived login (cc_johndoe) so the collision triggers
+        user.setLogin(derivedLogin(DEFAULT_LOGIN));
         userRepository.save(user);
         int databaseSizeBeforeCreate = userRepository.findAll().size();
 
@@ -288,7 +302,7 @@ class UserResourceIT {
         userVM.setMiddleName("M");
         userVM.setFirstLastName("Doe");
         userVM.setSecondLastName("S");
-        userVM.setDocumentNumber(DEFAULT_LOGIN); // derived login (johndoe) already used
+        userVM.setDocumentNumber(DEFAULT_LOGIN); // derived login (cc_johndoe) already used
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
         userVM.setRole(AuthoritiesConstants.INSTRUCTOR);
@@ -382,7 +396,7 @@ class UserResourceIT {
         restUserMockMvc
             .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.login").value(DEFAULT_DOCUMENT.toLowerCase()))
+            .andExpect(jsonPath("$.login").value(derivedLogin(DEFAULT_DOCUMENT)))
             .andExpect(jsonPath("$.email").value(UPDATED_EMAIL))
             .andExpect(jsonPath("$.langKey").value(UPDATED_LANGKEY))
             .andExpect(jsonPath("$.activated").value(true))
@@ -395,7 +409,7 @@ class UserResourceIT {
                 .filter(usr -> usr.getId().equals(user.getId()))
                 .findFirst()
                 .orElseThrow();
-            assertThat(testUser.getLogin()).isEqualTo(DEFAULT_DOCUMENT.toLowerCase());
+            assertThat(testUser.getLogin()).isEqualTo(derivedLogin(DEFAULT_DOCUMENT));
             assertThat(testUser.getEmail()).isEqualTo(UPDATED_EMAIL);
             assertThat(testUser.getImageUrl()).isEqualTo(UPDATED_IMAGEURL);
             assertThat(testUser.getLangKey()).isEqualTo(UPDATED_LANGKEY);
@@ -433,10 +447,10 @@ class UserResourceIT {
         restUserMockMvc
             .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.login").value(UPDATED_DOCUMENT.toLowerCase()));
+            .andExpect(jsonPath("$.login").value(derivedLogin(UPDATED_DOCUMENT)));
 
-        assertThat(userRepository.findOneByLogin(DEFAULT_DOCUMENT.toLowerCase())).isEmpty();
-        assertThat(userRepository.findOneByLogin(UPDATED_DOCUMENT.toLowerCase())).isPresent();
+        assertThat(userRepository.findOneByLogin(derivedLogin(DEFAULT_DOCUMENT))).isEmpty();
+        assertThat(userRepository.findOneByLogin(derivedLogin(UPDATED_DOCUMENT))).isPresent();
 
         assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeUpdate));
         UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();

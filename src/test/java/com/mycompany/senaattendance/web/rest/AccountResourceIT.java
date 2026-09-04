@@ -12,6 +12,7 @@ import com.mycompany.senaattendance.domain.Authority;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -56,6 +57,9 @@ class AccountResourceIT {
     private UserProfileRepository userProfileRepository;
 
     @Autowired
+    private AuthorityRepository authorityRepository;
+
+    @Autowired
     private DocumentTypeRepository documentTypeRepository;
 
     @Autowired
@@ -88,20 +92,34 @@ class AccountResourceIT {
     @Test
     @WithMockUser(TEST_USER_LOGIN)
     void testGetExistingAccount() throws Exception {
-        AdminCreateUserVM user = new AdminCreateUserVM();
-        user.setLogin(TEST_USER_LOGIN);
-        user.setPassword("Passw0rd!");
-        user.setEmail("john.doe@jhipster.com");
-        user.setFirstName("John");
-        user.setMiddleName("Michael");
-        user.setFirstLastName("Doe");
-        user.setSecondLastName("Smith");
-        user.setDocumentNumber(TEST_USER_LOGIN);
-        user.setPhoneNumber("3000000000");
-        user.setDocumentTypeId(validDocumentTypeId());
-        user.setRole(AuthoritiesConstants.ADMIN);
-        user.setLangKey("en");
-        userService.createUser(user);
+        // The user's login is fixed (not derived) so the @WithMockUser principal matches.
+        User accountUser = new User();
+        accountUser.setLogin(TEST_USER_LOGIN);
+        accountUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        accountUser.setEmail("john.doe@jhipster.com");
+        accountUser.setLangKey("en");
+        accountUser.setActivated(true);
+        accountUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.ADMIN).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(accountUser);
+
+        userProfileRepository.save(
+            new UserProfile()
+                .firstName("John")
+                .middleName("Michael")
+                .firstLastName("Doe")
+                .secondLastName("Smith")
+                .documentNumber(TEST_USER_LOGIN)
+                .phoneNumber("3000000000")
+                .user(accountUser)
+                .documentType(seededDocumentType())
+        );
 
         restAccountMockMvc
             .perform(get("/api/account").accept(MediaType.APPLICATION_JSON))
@@ -125,13 +143,13 @@ class AccountResourceIT {
         String documentNumber = "1000000001";
         String email = "test-register-valid@example.com";
         ManagedUserVM validUser = validRegisterVM(documentNumber, email);
-        assertThat(userRepository.findOneByLogin(documentNumber)).isEmpty();
+        assertThat(userRepository.findOneByLogin(expectedLogin(documentNumber))).isEmpty();
 
         restAccountMockMvc
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
             .andExpect(status().isCreated());
 
-        Optional<User> createdUser = userRepository.findOneByLogin(documentNumber);
+        Optional<User> createdUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
         assertThat(createdUser).isPresent();
         assertThat(createdUser.get().getPassword()).isNotEqualTo(VALID_PASSWORD);
         assertThat(passwordEncoder.matches(VALID_PASSWORD, createdUser.get().getPassword())).isTrue();
@@ -162,7 +180,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
             .andExpect(status().isBadRequest());
 
-        assertThat(userRepository.findOneByLogin("1000000003")).isEmpty();
+        assertThat(userRepository.findOneByLogin(expectedLogin("1000000003"))).isEmpty();
     }
 
     @Test
@@ -175,7 +193,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(firstUser)))
             .andExpect(status().isCreated());
 
-        assertThat(userRepository.findOneByLogin(documentNumber)).isPresent();
+        assertThat(userRepository.findOneByLogin(expectedLogin(documentNumber))).isPresent();
 
         // Duplicate login (same document number -> same derived login), different email
         ManagedUserVM secondUser = validRegisterVM(documentNumber, "duplicate-login-2@example.com");
@@ -184,7 +202,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
             .andExpect(status().is4xxClientError());
 
-        Optional<User> testUser = userRepository.findOneByLogin(documentNumber);
+        Optional<User> testUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
         assertThat(testUser).isPresent();
         assertThat(testUser.get().getEmail()).isEqualTo("duplicate-login@example.com");
     }
@@ -198,7 +216,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(firstUser)))
             .andExpect(status().isCreated());
 
-        assertThat(userRepository.findOneByLogin("1000000005")).isPresent();
+        assertThat(userRepository.findOneByLogin(expectedLogin("1000000005"))).isPresent();
 
         // Duplicate email, different login (different document number)
         ManagedUserVM secondUser = validRegisterVM("1000000006", email);
@@ -207,7 +225,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
             .andExpect(status().is4xxClientError());
 
-        assertThat(userRepository.findOneByLogin("1000000006")).isEmpty();
+        assertThat(userRepository.findOneByLogin(expectedLogin("1000000006"))).isEmpty();
     }
 
     @Test
@@ -226,9 +244,32 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
             .andExpect(status().isBadRequest());
 
-        Optional<User> testUser = userRepository.findOneByLogin(documentNumber);
+        Optional<User> testUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
         assertThat(testUser).isPresent();
         assertThat(testUser.get().getEmail()).isEqualTo("duplicate-document@example.com");
+    }
+
+    @Test
+    void testRegisterSameDocumentNumberDifferentDocumentType() throws Exception {
+        // The same document number is allowed as long as the document type differs.
+        String documentNumber = "1000000010";
+
+        ManagedUserVM first = validRegisterVM(documentNumber, "same-doc-type-1@example.com");
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(first)))
+            .andExpect(status().isCreated());
+
+        ManagedUserVM second = validRegisterVM(documentNumber, "same-doc-type-2@example.com");
+        second.setDocumentTypeId(secondDocumentTypeId());
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(second)))
+            .andExpect(status().isCreated());
+
+        // Both profiles exist under the same document number, but with distinct derived logins.
+        assertThat(userProfileRepository.findByDocumentTypeAndDocumentNumber(validDocumentTypeId(), documentNumber)).isPresent();
+        assertThat(userProfileRepository.findByDocumentTypeAndDocumentNumber(secondDocumentTypeId(), documentNumber)).isPresent();
+        assertThat(userRepository.findOneByLogin(loginFor(validDocumentTypeId(), documentNumber))).isPresent();
+        assertThat(userRepository.findOneByLogin(loginFor(secondDocumentTypeId(), documentNumber))).isPresent();
     }
 
     @Test
@@ -250,7 +291,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
             .andExpect(status().isCreated());
 
-        Optional<User> userDup = userRepository.findOneByLogin("1000000009");
+        Optional<User> userDup = userRepository.findOneByLogin(expectedLogin("1000000009"));
         assertThat(userDup).isPresent();
         assertThat(userDup.orElseThrow().getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
             AuthoritiesConstants.USER,
@@ -294,6 +335,28 @@ class AccountResourceIT {
 
     private DocumentType seededDocumentType() {
         return documentTypeRepository.findAll().iterator().next();
+    }
+
+    /**
+     * Derives the login that {@link UserService#registerUser} / {@link UserService#createUser}
+     * now produce from the seeded {@link DocumentType} initials: {@code <initials>_<documentNumber>}.
+     */
+    private String expectedLogin(String documentNumber) {
+        return loginFor(validDocumentTypeId(), documentNumber);
+    }
+
+    /**
+     * Derives the login for an arbitrary document type id, mirroring {@link UserService#buildLogin}.
+     */
+    private String loginFor(String documentTypeId, String documentNumber) {
+        DocumentType dt = documentTypeRepository.findById(documentTypeId).orElseThrow();
+        String typeCode = dt.getInitials() != null ? dt.getInitials() : "";
+        return (typeCode + "_" + documentNumber).toLowerCase().trim();
+    }
+
+    private String secondDocumentTypeId() {
+        List<DocumentType> types = documentTypeRepository.findAll();
+        return types.size() > 1 ? types.get(1).getId() : types.get(0).getId();
     }
 
     private User persistedResetUser(String login) {

@@ -56,7 +56,8 @@ class UserProfileResourceIT {
     private static final String UPDATED_SECOND_LAST_NAME = "BBBBBBBBBB";
 
     private static final String DEFAULT_DOCUMENT_NUMBER = "AAAAAAAAAA";
-    private static final String UPDATED_DOCUMENT_NUMBER = "BBBBBBBBBB";
+    // UPDATED_DOCUMENT_NUMBER usa un sufijo único para evitar colisiones con el índice compuesto (tipo + número)
+    private static final String UPDATED_DOCUMENT_NUMBER = "UPDATED_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
     private static final String DEFAULT_PHONE_NUMBER = "AAAAAAAAAA";
     private static final String UPDATED_PHONE_NUMBER = "BBBBBBBBBB";
