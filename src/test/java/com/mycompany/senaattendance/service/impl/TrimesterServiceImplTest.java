@@ -5,21 +5,33 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mycompany.senaattendance.domain.ClassSchedule;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import com.mycompany.senaattendance.service.mapper.TrimesterMapper;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterAttendanceStartDateException;
 import com.mycompany.senaattendance.web.rest.errors.TrimesterDatesOrderException;
 import com.mycompany.senaattendance.web.rest.errors.TrimesterDatesOverlapException;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterEndDateInPastException;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterNotEditableException;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterStartDateLockedException;
+import com.mycompany.senaattendance.web.rest.errors.TrimesterStartDateMustBeFutureException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +63,12 @@ class TrimesterServiceImplTest {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private ClassScheduleRepository classScheduleRepository;
+
+    @Mock
+    private AttendanceRepository attendanceRepository;
 
     @InjectMocks
     private TrimesterServiceImpl trimesterService;
@@ -388,6 +406,373 @@ class TrimesterServiceImplTest {
 
         assertThat(active.getStatus()).isTrue();
         assertThat(inactive.getStatus()).isFalse();
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    private Trimester activeTrimester(LocalDate today) {
+        return new Trimester().id("t-1").name(NAME).startDate(today.minusDays(10)).endDate(today.plusDays(10)).status(true);
+    }
+
+    private Trimester futureTrimester(LocalDate today) {
+        return new Trimester().id("t-1").name(NAME).startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(false);
+    }
+
+    private Trimester closedTrimester(LocalDate today) {
+        return new Trimester().id("t-1").name(NAME).startDate(today.minusDays(40)).endDate(today.minusDays(10)).status(false);
+    }
+
+    private void stubFindById(Trimester t) {
+        when(trimesterRepository.findById(t.getId())).thenReturn(Optional.of(t));
+    }
+
+    /**
+     * Simulates the MapStruct merge semantics for a {@code partialUpdate}: non-null source
+     * fields overwrite the target, null source fields are ignored.
+     */
+    private void stubMapperMerge() {
+        doAnswer(invocation -> {
+            Trimester target = invocation.getArgument(0);
+            TrimesterDTO source = invocation.getArgument(1);
+            if (source.getName() != null) {
+                target.setName(source.getName());
+            }
+            if (source.getStartDate() != null) {
+                target.setStartDate(source.getStartDate());
+            }
+            if (source.getEndDate() != null) {
+                target.setEndDate(source.getEndDate());
+            }
+            return null;
+        })
+            .when(trimesterMapper)
+            .partialUpdate(any(Trimester.class), any(TrimesterDTO.class));
+    }
+
+    private void stubSaveAndMap(Trimester t) {
+        when(trimesterRepository.save(t)).thenReturn(t);
+        when(trimesterMapper.toDto(t)).thenAnswer(invocation -> toDto(invocation.getArgument(0)));
+    }
+
+    private void stubNoOverlapExcluding(Trimester t) {
+        when(trimesterRepository.findAllOverlappingExcluding(any(), any(), eq(t.getId()))).thenReturn(List.of());
+    }
+
+    @Test
+    void partialUpdateClosedTrimesterRejectsAnyChange() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester closed = closedTrimester(today);
+        stubFindById(closed);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(closed.getId());
+        dto.setName("Nuevo Nombre");
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterNotEditableException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateActiveTrimesterAllowsNameChange() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester active = activeTrimester(today);
+        stubFindById(active);
+        stubMapperMerge();
+        stubSaveAndMap(active);
+        stubNoOverlapExcluding(active);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setName("Nombre Nuevo");
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getName()).isEqualTo("Nombre Nuevo");
+        assertThat(active.getName()).isEqualTo("Nombre Nuevo");
+        verify(trimesterRepository).save(active);
+    }
+
+    @Test
+    void partialUpdateActiveTrimesterRejectsStartDateChange() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester active = activeTrimester(today);
+        stubFindById(active);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setStartDate(today.plusDays(5));
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterStartDateLockedException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateActiveTrimesterRejectsEndDateBeforeToday() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester active = activeTrimester(today);
+        stubFindById(active);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setEndDate(today.minusDays(1));
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterEndDateInPastException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateFutureTrimesterRejectsNonFutureStartDate() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today);
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterStartDateMustBeFutureException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateFutureTrimesterAllowsFutureStartDate() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        stubMapperMerge();
+        stubSaveAndMap(future);
+        stubNoOverlapExcluding(future);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(20));
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStartDate()).isEqualTo(today.plusDays(20));
+        verify(trimesterRepository).save(future);
+    }
+
+    @Test
+    void partialUpdateResendingUnchangedStartDateDoesNotReject() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester active = activeTrimester(today);
+        stubFindById(active);
+        stubMapperMerge();
+        stubSaveAndMap(active);
+        stubNoOverlapExcluding(active);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setStartDate(active.getStartDate());
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStartDate()).isEqualTo(active.getStartDate());
+        verify(trimesterRepository).save(active);
+    }
+
+    @Test
+    void partialUpdateOmittingStartDateDoesNotReject() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester active = activeTrimester(today);
+        stubFindById(active);
+        stubMapperMerge();
+        stubSaveAndMap(active);
+        stubNoOverlapExcluding(active);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setName("Solo Nombre");
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getName()).isEqualTo("Solo Nombre");
+        verify(trimesterRepository).save(active);
+    }
+
+    @Test
+    void partialUpdateStartDateChangeWithAttendanceThrows() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        ClassSection section = new ClassSection().id("000000000000000000000001").subjectName("Matemáticas").isActive(true);
+        ClassSchedule schedule = new ClassSchedule().id("sched-1").trimester(future).classSection(section);
+        when(classScheduleRepository.findByTrimesterId(future.getId())).thenReturn(List.of(schedule));
+        when(attendanceRepository.countByClassSection_IdIn(List.of(new ObjectId("000000000000000000000001")))).thenReturn(2L);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(20));
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterAttendanceStartDateException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateStartDateChangeWithoutAttendanceAllowed() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        stubMapperMerge();
+        stubSaveAndMap(future);
+        stubNoOverlapExcluding(future);
+        when(classScheduleRepository.findByTrimesterId(future.getId())).thenReturn(List.of());
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(20));
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStartDate()).isEqualTo(today.plusDays(20));
+        verify(trimesterRepository).save(future);
+    }
+
+    @Test
+    void partialUpdateNullClassSectionIgnoredInAttendanceCheck() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        stubMapperMerge();
+        stubSaveAndMap(future);
+        stubNoOverlapExcluding(future);
+        ClassSchedule scheduleNoSection = new ClassSchedule().id("sched-1").trimester(future).classSection(null);
+        when(classScheduleRepository.findByTrimesterId(future.getId())).thenReturn(List.of(scheduleNoSection));
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(20));
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStartDate()).isEqualTo(today.plusDays(20));
+        verify(attendanceRepository, never()).countByClassSection_IdIn(any());
+        verify(trimesterRepository).save(future);
+    }
+
+    @Test
+    void partialUpdateDateChangeRecomputesStatusIgnoringClientStatus() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        // Persisted status is stale (false) while the range already includes today; a date
+        // change must recompute it from the new dates and ignore the client-supplied value.
+        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today.minusDays(5)).endDate(today.plusDays(10)).status(false);
+        stubFindById(t);
+        stubMapperMerge();
+        stubSaveAndMap(t);
+        stubNoOverlapExcluding(t);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(t.getId());
+        dto.setEndDate(today.plusDays(30));
+        dto.setStatus(false);
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStatus()).isTrue();
+        assertThat(t.getStatus()).isTrue();
+        verify(trimesterRepository).save(t);
+    }
+
+    @Test
+    void partialUpdateNameOnlyPreservesStatus() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today.minusDays(5)).endDate(today.plusDays(10)).status(false);
+        stubFindById(t);
+        stubMapperMerge();
+        stubSaveAndMap(t);
+        stubNoOverlapExcluding(t);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(t.getId());
+        dto.setName("Nuevo");
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStatus()).isFalse();
+        assertThat(t.getStatus()).isFalse();
+        verify(trimesterRepository).save(t);
+    }
+
+    @Test
+    void partialUpdateReversedDatesRejects() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        stubMapperMerge();
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setEndDate(today.plusDays(5));
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterDatesOrderException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateOverlapWithOtherTrimesterRejects() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        stubMapperMerge();
+        Trimester other = new Trimester().id("t-2").name(NAME2).startDate(today.plusDays(20)).endDate(today.plusDays(50)).status(false);
+        when(trimesterRepository.findAllOverlappingExcluding(any(), any(), eq(future.getId()))).thenReturn(List.of(other));
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(15));
+
+        assertThatThrownBy(() -> trimesterService.partialUpdate(dto)).isInstanceOf(TrimesterDatesOverlapException.class);
+        verify(trimesterRepository, never()).save(any());
+    }
+
+    @Test
+    void partialUpdateSelfOverlapIsAllowed() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester future = futureTrimester(today);
+        stubFindById(future);
+        stubMapperMerge();
+        stubSaveAndMap(future);
+        stubNoOverlapExcluding(future);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(12));
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStartDate()).isEqualTo(today.plusDays(12));
+        verify(trimesterRepository).save(future);
+    }
+
+    @Test
+    void partialUpdateEmptyPatchIsNoOp() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        Trimester closed = closedTrimester(today);
+        stubFindById(closed);
+        when(trimesterMapper.toDto(closed)).thenAnswer(invocation -> toDto(invocation.getArgument(0)));
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(closed.getId());
+
+        TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getId()).isEqualTo(closed.getId());
         verify(trimesterRepository, never()).save(any());
     }
 }

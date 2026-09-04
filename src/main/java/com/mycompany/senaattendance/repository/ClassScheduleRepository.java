@@ -22,4 +22,16 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
 
     @Query("{'id': ?0}")
     Optional<ClassSchedule> findOneWithEagerRelationships(String id);
+
+    /**
+     * Finds the class schedules that reference the given trimester. Used to resolve the
+     * multi-hop path from a trimester to its attendance records (E3 guard).
+     *
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @return the schedules whose {@code trimester} reference matches {@code trimesterId}.
+     */
+
+    // ------- SEARCH CLASS SECTION BY TRIMESTER ID -------
+    @Query("{ 'trimester._id': ?0 }")
+    List<ClassSchedule> findByTrimesterId(String trimesterId);
 }

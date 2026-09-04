@@ -9,12 +9,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.ClassSchedule;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import com.mycompany.senaattendance.service.mapper.TrimesterMapper;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +69,15 @@ class TrimesterResourceIT {
     private TrimesterMapper trimesterMapper;
 
     @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private ClassScheduleRepository classScheduleRepository;
+
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
     private MockMvc restTrimesterMockMvc;
 
     private Trimester trimester;
@@ -68,6 +85,12 @@ class TrimesterResourceIT {
     private Trimester insertedTrimester;
 
     private final List<Trimester> insertedTrimesters = new ArrayList<>();
+
+    private final List<ClassSection> insertedClassSections = new ArrayList<>();
+
+    private final List<ClassSchedule> insertedClassSchedules = new ArrayList<>();
+
+    private final List<Attendance> insertedAttendances = new ArrayList<>();
 
     /**
      * Create an entity for this test.
@@ -102,6 +125,12 @@ class TrimesterResourceIT {
             trimesterRepository.delete(insertedTrimester);
             insertedTrimester = null;
         }
+        insertedAttendances.forEach(attendanceRepository::delete);
+        insertedAttendances.clear();
+        insertedClassSchedules.forEach(classScheduleRepository::delete);
+        insertedClassSchedules.clear();
+        insertedClassSections.forEach(classSectionRepository::delete);
+        insertedClassSections.clear();
     }
 
     @Test
@@ -700,6 +729,199 @@ class TrimesterResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    // -----------------------------------------------------------------
+    // PATCH state-based edit rules (COORDINATOR)
+    // -----------------------------------------------------------------
+
+    private Trimester saveTrimester(String name, LocalDate start, LocalDate end, Boolean status) {
+        Trimester t = new Trimester().name(name).startDate(start).endDate(end).status(status);
+        insertedTrimesters.add(trimesterRepository.save(t));
+        return t;
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchClosedTrimesterRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester closed = saveTrimester("Cerrado", today.minusDays(40), today.minusDays(10), false);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(closed.getId());
+        dto.setName("Cambio");
+
+        restTrimesterMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, closed.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-not-editable"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchActiveTrimesterStartDateChangeRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester active = saveTrimester("Activo", today.minusDays(10), today.plusDays(10), true);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setStartDate(today.plusDays(5));
+
+        restTrimesterMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, active.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-start-date-locked"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchActiveTrimesterEndDateInPastRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester active = saveTrimester("Activo", today.minusDays(10), today.plusDays(10), true);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(active.getId());
+        dto.setEndDate(today.minusDays(1));
+
+        restTrimesterMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, active.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-end-date-in-past"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchFutureTrimesterNonFutureStartDateRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), false);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today);
+
+        restTrimesterMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, future.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-start-date-must-be-future"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchReversedDatesRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), false);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setEndDate(today.plusDays(5));
+
+        restTrimesterMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, future.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-dates-order"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchOverlapWithOtherTrimesterRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester a = saveTrimester("A", today.plusDays(10), today.plusDays(40), false);
+        saveTrimester("B", today.plusDays(20), today.plusDays(50), false);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(a.getId());
+        dto.setStartDate(today.plusDays(15));
+
+        restTrimesterMockMvc
+            .perform(patch(ENTITY_API_URL_ID, a.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-dates-overlap"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchSelfOverlapAllowed() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester a = saveTrimester("A", today.plusDays(10), today.plusDays(40), false);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(a.getId());
+        dto.setStartDate(today.plusDays(12));
+
+        var returned = om.readValue(
+            restTrimesterMockMvc
+                .perform(patch(ENTITY_API_URL_ID, a.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            TrimesterDTO.class
+        );
+        assertThat(returned.getStartDate()).isEqualTo(today.plusDays(12));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchAdjacentDatesAllowed() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester a = saveTrimester("A", today.minusDays(5), today.plusDays(5), true);
+        saveTrimester("B", today.plusDays(30), today.plusDays(60), false);
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(a.getId());
+        dto.setEndDate(today.plusDays(29));
+
+        var returned = om.readValue(
+            restTrimesterMockMvc
+                .perform(patch(ENTITY_API_URL_ID, a.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            TrimesterDTO.class
+        );
+        assertThat(returned.getEndDate()).isEqualTo(today.plusDays(29));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void patchStartDateChangeWithAttendanceRejected() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), false);
+
+        ClassSection section = new ClassSection().subjectName("Matemáticas").isActive(true);
+        insertedClassSections.add(classSectionRepository.save(section));
+
+        ClassSchedule schedule = new ClassSchedule()
+            .startTime(LocalTime.of(8, 0))
+            .endTime(LocalTime.of(10, 0))
+            .trimester(future)
+            .classSection(section);
+        insertedClassSchedules.add(classScheduleRepository.save(schedule));
+
+        Attendance attendance = new Attendance().date(today).stateAttendance(StateAttendance.PRESENTE).classSection(section);
+        insertedAttendances.add(attendanceRepository.save(attendance));
+
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId(future.getId());
+        dto.setStartDate(today.plusDays(20));
+
+        restTrimesterMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, future.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-attendance-start-date"));
     }
 
     protected long getRepositoryCount() {
