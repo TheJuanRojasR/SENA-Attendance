@@ -105,9 +105,8 @@ public class TrimesterResource {
     }
 
     /**
-     * {@code PATCH  /trimesters/:id} : Partial updates given fields of an existing trimester, field will ignore if it is null
+     * {@code PATCH  /trimesters} : Partial updates given fields of an existing trimester; the id is taken from the request body.
      *
-     * @param id the id of the trimesterDTO to save.
      * @param trimesterDTO the trimesterDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated trimesterDTO,
      * or with status {@code 400 (Bad Request)} if the trimesterDTO is not valid,
@@ -115,18 +114,13 @@ public class TrimesterResource {
      * or with status {@code 500 (Internal Server Error)} if the trimesterDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TrimesterDTO> partialUpdateTrimester(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody TrimesterDTO trimesterDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Trimester partially : {}, {}", id, trimesterDTO);
-        if (trimesterDTO.getId() == null) {
+    public ResponseEntity<TrimesterDTO> partialUpdateTrimester(@NotNull @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
+        String id = trimesterDTO.getId();
+        LOG.debug("REST request to partial update Trimester partially : {}", trimesterDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, trimesterDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!trimesterRepository.existsById(id)) {
