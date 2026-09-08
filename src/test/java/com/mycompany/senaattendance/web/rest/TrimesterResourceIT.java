@@ -41,17 +41,21 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class TrimesterResourceIT {
 
     private static final String DEFAULT_NAME = "AAAAAAAAAA";
     private static final String UPDATED_NAME = "BBBBBBBBBB";
 
-    private static final LocalDate DEFAULT_START_DATE = LocalDate.ofEpochDay(0L);
-    private static final LocalDate UPDATED_START_DATE = LocalDate.now(ZoneId.systemDefault());
+    /**
+     * FUTURE date ranges with a realistic ~3-month span (business rule E2: startDate must
+     * be strictly before endDate, and edits are rejected while the trimester is CLOSED).
+     */
+    private static final LocalDate DEFAULT_START_DATE = LocalDate.now(ZoneId.systemDefault()).plusDays(15);
+    private static final LocalDate UPDATED_START_DATE = LocalDate.now(ZoneId.systemDefault()).plusDays(20);
 
-    private static final LocalDate DEFAULT_END_DATE = LocalDate.ofEpochDay(0L);
-    private static final LocalDate UPDATED_END_DATE = LocalDate.now(ZoneId.systemDefault());
+    private static final LocalDate DEFAULT_END_DATE = DEFAULT_START_DATE.plusDays(90);
+    private static final LocalDate UPDATED_END_DATE = UPDATED_START_DATE.plusDays(90);
 
     private static final Boolean DEFAULT_STATUS = Boolean.TRUE;
     private static final Boolean UPDATED_STATUS = Boolean.FALSE;
@@ -614,9 +618,7 @@ class TrimesterResourceIT {
 
         restTrimesterMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedTrimester.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedTrimester))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedTrimester))
             )
             .andExpect(status().isOk());
 
@@ -644,9 +646,7 @@ class TrimesterResourceIT {
 
         restTrimesterMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedTrimester.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedTrimester))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedTrimester))
             )
             .andExpect(status().isOk());
 
@@ -666,50 +666,8 @@ class TrimesterResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, trimesterDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Trimester in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithIdMismatchTrimester() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        trimester.setId(UUID.randomUUID().toString());
-
-        // Create the Trimester
-        TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Trimester in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamTrimester() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        trimester.setId(UUID.randomUUID().toString());
-
-        // Create the Trimester
-        TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restTrimesterMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(trimesterDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest());
 
         // Validate the Trimester in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -752,9 +710,7 @@ class TrimesterResourceIT {
         dto.setName("Cambio");
 
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, closed.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-not-editable"));
     }
@@ -770,9 +726,7 @@ class TrimesterResourceIT {
         dto.setStartDate(today.plusDays(5));
 
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, active.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-start-date-locked"));
     }
@@ -788,9 +742,7 @@ class TrimesterResourceIT {
         dto.setEndDate(today.minusDays(1));
 
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, active.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-end-date-in-past"));
     }
@@ -806,9 +758,7 @@ class TrimesterResourceIT {
         dto.setStartDate(today);
 
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, future.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-start-date-must-be-future"));
     }
@@ -824,9 +774,7 @@ class TrimesterResourceIT {
         dto.setEndDate(today.plusDays(5));
 
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, future.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-dates-order"));
     }
@@ -843,7 +791,7 @@ class TrimesterResourceIT {
         dto.setStartDate(today.plusDays(15));
 
         restTrimesterMockMvc
-            .perform(patch(ENTITY_API_URL_ID, a.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-dates-overlap"));
     }
@@ -860,7 +808,7 @@ class TrimesterResourceIT {
 
         var returned = om.readValue(
             restTrimesterMockMvc
-                .perform(patch(ENTITY_API_URL_ID, a.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+                .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
@@ -883,7 +831,7 @@ class TrimesterResourceIT {
 
         var returned = om.readValue(
             restTrimesterMockMvc
-                .perform(patch(ENTITY_API_URL_ID, a.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+                .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
@@ -917,9 +865,7 @@ class TrimesterResourceIT {
         dto.setStartDate(today.plusDays(20));
 
         restTrimesterMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, future.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-attendance-start-date"));
     }

@@ -15,7 +15,10 @@ import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.AuditLogRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.AuditLogService;
 import com.mycompany.senaattendance.service.dto.AuditLogDTO;
 import com.mycompany.senaattendance.service.mapper.AuditLogMapper;
@@ -43,7 +46,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class AuditLogResourceIT {
 
     private static final StateAttendance DEFAULT_PREVIOUS_STATE = StateAttendance.PRESENTE;
@@ -62,7 +65,13 @@ class AuditLogResourceIT {
     private ObjectMapper om;
 
     @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
     private AuditLogRepository auditLogRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Mock
     private AuditLogRepository auditLogRepositoryMock;
@@ -136,6 +145,9 @@ class AuditLogResourceIT {
             auditLogRepository.delete(insertedAuditLog);
             insertedAuditLog = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        attendanceRepository.deleteAll();
+        userProfileRepository.deleteAll();
     }
 
     @Test
@@ -283,6 +295,10 @@ class AuditLogResourceIT {
 
     @Test
     void putExistingAuditLog() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        userProfileRepository.save(auditLog.getModifiedBy());
+        attendanceRepository.save(auditLog.getAttendance());
+
         // Initialize the database
         insertedAuditLog = auditLogRepository.save(auditLog);
 

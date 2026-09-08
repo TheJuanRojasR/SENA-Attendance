@@ -12,6 +12,7 @@ import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.JustificationType;
 import com.mycompany.senaattendance.domain.enumeration.State;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationTypeMapper;
 import java.util.UUID;
@@ -29,7 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class JustificationTypeResourceIT {
 
     private static final String DEFAULT_NAME = "AAAAAAAAAA";

@@ -15,6 +15,9 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassScheduleService;
 import com.mycompany.senaattendance.service.dto.ClassScheduleDTO;
 import com.mycompany.senaattendance.service.mapper.ClassScheduleMapper;
@@ -42,7 +45,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ClassScheduleResourceIT {
 
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -64,6 +67,12 @@ class ClassScheduleResourceIT {
 
     @Autowired
     private ClassScheduleRepository classScheduleRepository;
+
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private TrimesterRepository trimesterRepository;
 
     @Mock
     private ClassScheduleRepository classScheduleRepositoryMock;
@@ -140,6 +149,9 @@ class ClassScheduleResourceIT {
             classScheduleRepository.delete(insertedClassSchedule);
             insertedClassSchedule = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        classSectionRepository.deleteAll();
+        trimesterRepository.deleteAll();
     }
 
     @Test
@@ -271,6 +283,10 @@ class ClassScheduleResourceIT {
 
     @Test
     void putExistingClassSchedule() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        classSectionRepository.save(classSchedule.getClassSection());
+        trimesterRepository.save(classSchedule.getTrimester());
+
         // Initialize the database
         insertedClassSchedule = classScheduleRepository.save(classSchedule);
 

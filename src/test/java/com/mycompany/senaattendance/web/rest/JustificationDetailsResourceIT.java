@@ -14,7 +14,10 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
+import com.mycompany.senaattendance.repository.JustificationRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
@@ -43,7 +46,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class JustificationDetailsResourceIT {
 
     private static final StateJustification DEFAULT_STATE_JUSTIFICATION = StateJustification.ACEPTADA;
@@ -71,6 +74,12 @@ class JustificationDetailsResourceIT {
 
     @Autowired
     private JustificationDetailsRepository justificationDetailsRepository;
+
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private JustificationRepository justificationRepository;
 
     @Mock
     private JustificationDetailsRepository justificationDetailsRepositoryMock;
@@ -153,6 +162,9 @@ class JustificationDetailsResourceIT {
             justificationDetailsRepository.delete(insertedJustificationDetails);
             insertedJustificationDetails = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        classSectionRepository.deleteAll();
+        justificationRepository.deleteAll();
     }
 
     @Test
@@ -311,6 +323,10 @@ class JustificationDetailsResourceIT {
 
     @Test
     void putExistingJustificationDetails() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        classSectionRepository.save(justificationDetails.getClassSection());
+        justificationRepository.save(justificationDetails.getJustification());
+
         // Initialize the database
         insertedJustificationDetails = justificationDetailsRepository.save(justificationDetails);
 

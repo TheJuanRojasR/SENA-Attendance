@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.TimeSlotMapper;
 import java.time.LocalTime;
@@ -30,7 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class TimeSlotResourceIT {
 
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");

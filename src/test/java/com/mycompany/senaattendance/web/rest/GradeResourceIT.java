@@ -16,7 +16,9 @@ import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
@@ -78,6 +80,12 @@ class GradeResourceIT {
 
     @Autowired
     private ProgramRepository programRepository;
+
+    @Autowired
+    private ModalityRepository modalityRepository;
+
+    @Autowired
+    private TimeSlotRepository timeSlotRepository;
 
     @Mock
     private GradeService gradeServiceMock;
@@ -152,6 +160,10 @@ class GradeResourceIT {
             gradeRepository.delete(insertedGrade);
             insertedGrade = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        modalityRepository.deleteAll();
+        programRepository.deleteAll();
+        timeSlotRepository.deleteAll();
     }
 
     @Test
@@ -341,6 +353,11 @@ class GradeResourceIT {
 
     @Test
     void putExistingGrade() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+
         // Initialize the database
         insertedGrade = gradeRepository.save(grade);
 

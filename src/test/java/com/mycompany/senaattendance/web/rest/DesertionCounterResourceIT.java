@@ -14,6 +14,9 @@ import com.mycompany.senaattendance.domain.DesertionCounter;
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.DesertionCounterRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.DesertionCounterService;
 import com.mycompany.senaattendance.service.dto.DesertionCounterDTO;
 import com.mycompany.senaattendance.service.mapper.DesertionCounterMapper;
@@ -39,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class DesertionCounterResourceIT {
 
     private static final Integer DEFAULT_TOTAL_GLOBAL_ABSENCES = 1;
@@ -62,6 +65,12 @@ class DesertionCounterResourceIT {
 
     @Autowired
     private DesertionCounterRepository desertionCounterRepository;
+
+    @Autowired
+    private TrimesterRepository trimesterRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Mock
     private DesertionCounterRepository desertionCounterRepositoryMock;
@@ -140,6 +149,9 @@ class DesertionCounterResourceIT {
             desertionCounterRepository.delete(insertedDesertionCounter);
             insertedDesertionCounter = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        trimesterRepository.deleteAll();
+        userProfileRepository.deleteAll();
     }
 
     @Test
@@ -241,6 +253,10 @@ class DesertionCounterResourceIT {
 
     @Test
     void putExistingDesertionCounter() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        userProfileRepository.save(desertionCounter.getStudent());
+        trimesterRepository.save(desertionCounter.getTrimester());
+
         // Initialize the database
         insertedDesertionCounter = desertionCounterRepository.save(desertionCounter);
 

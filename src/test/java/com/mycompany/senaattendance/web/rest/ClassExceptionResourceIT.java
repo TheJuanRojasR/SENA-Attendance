@@ -13,6 +13,8 @@ import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassExceptionService;
 import com.mycompany.senaattendance.service.dto.ClassExceptionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassExceptionMapper;
@@ -40,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ClassExceptionResourceIT {
 
     private static final LocalDate DEFAULT_DATE = LocalDate.ofEpochDay(0L);
@@ -57,6 +59,9 @@ class ClassExceptionResourceIT {
 
     @Autowired
     private ClassExceptionRepository classExceptionRepository;
+
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
 
     @Mock
     private ClassExceptionRepository classExceptionRepositoryMock;
@@ -117,6 +122,8 @@ class ClassExceptionResourceIT {
             classExceptionRepository.delete(insertedClassException);
             insertedClassException = null;
         }
+        // Remove the related document persisted for the PUT tests
+        classSectionRepository.deleteAll();
     }
 
     @Test
@@ -246,6 +253,9 @@ class ClassExceptionResourceIT {
 
     @Test
     void putExistingClassException() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        classSectionRepository.save(classException.getClassSection());
+
         // Initialize the database
         insertedClassException = classExceptionRepository.save(classException);
 
