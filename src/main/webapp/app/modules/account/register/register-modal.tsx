@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Col, Form, Modal, ModalBody, ModalFooter, ModalHeader, Row } from 'react-bootstrap';
+import { Alert, Button, Form, Modal, ModalBody, ModalFooter, ModalHeader, Row } from 'react-bootstrap';
 import { Translate, ValidatedField, isEmail, translate } from 'react-jhipster';
 import { Link } from 'react-router';
 
 import { type FieldError, useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 
+import './register-modal.scss';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
 import PasswordStrengthBar from 'app/shared/layout/password/password-strength-bar';
@@ -78,8 +79,8 @@ export const RegisterModal = (props: IRegisterProps) => {
     <Modal show={props.showModal} onHide={props.handleClose} id={'register-page'} autoFocus={false}>
       <Row className="justify-content-center">
         <Form id="register-form" onSubmit={handleSubmit(handleValidSubmit)}>
-          <ModalHeader>
-            <h1 id="register-title" data-cy="registerTitle">
+          <ModalHeader id="register-title" data-cy="registerTitle" closeButton>
+            <h1>
               <Translate contentKey="register.title">Registration</Translate>
             </h1>
           </ModalHeader>
@@ -95,6 +96,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.firstName as FieldError}
                 isTouched={touchedFields.firstName}
+                className="test"
               />
               <ValidatedField
                 name="middleName"
@@ -104,6 +106,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.middleName as FieldError}
                 isTouched={touchedFields.middleName}
+                className="test"
               />
             </Row>
             <Row>
@@ -117,6 +120,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.firstLastName as FieldError}
                 isTouched={touchedFields.firstLastName}
+                className="test"
               />
               <ValidatedField
                 name="secondLastName"
@@ -126,6 +130,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.secondLastName as FieldError}
                 isTouched={touchedFields.secondLastName}
+                className="test"
               />
             </Row>
             <ValidatedField
