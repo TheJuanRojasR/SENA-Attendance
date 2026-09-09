@@ -14,6 +14,9 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
@@ -39,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ClassSectionResourceIT {
 
     private static final String DEFAULT_SUBJECT_NAME = "AAAAAAAAAA";
@@ -56,6 +59,12 @@ class ClassSectionResourceIT {
 
     @Autowired
     private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Mock
     private ClassSectionRepository classSectionRepositoryMock;
@@ -126,6 +135,9 @@ class ClassSectionResourceIT {
             classSectionRepository.delete(insertedClassSection);
             insertedClassSection = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        gradeRepository.deleteAll();
+        userProfileRepository.deleteAll();
     }
 
     @Test
@@ -255,6 +267,10 @@ class ClassSectionResourceIT {
 
     @Test
     void putExistingClassSection() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        gradeRepository.save(classSection.getGrade());
+        userProfileRepository.save(classSection.getInstructor());
+
         // Initialize the database
         insertedClassSection = classSectionRepository.save(classSection);
 

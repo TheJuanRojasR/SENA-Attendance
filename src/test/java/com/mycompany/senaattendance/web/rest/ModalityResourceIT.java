@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.repository.ModalityRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.ModalityDTO;
 import com.mycompany.senaattendance.service.mapper.ModalityMapper;
 import java.util.UUID;
@@ -28,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ModalityResourceIT {
 
     private static final String DEFAULT_NAME = "AAAAAAAAAA";

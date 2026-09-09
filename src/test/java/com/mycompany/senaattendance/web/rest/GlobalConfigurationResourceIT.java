@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.GlobalConfiguration;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.service.mapper.GlobalConfigurationMapper;
 import java.util.UUID;
@@ -28,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class GlobalConfigurationResourceIT {
 
     private static final Integer DEFAULT_STUDENT_JUSTIFICATION_DAYS = 1;

@@ -122,7 +122,12 @@ public class UserService {
     }
 
     public User registerUser(ManagedUserVM userVM, String password) {
-        String login = userVM.getDocumentNumber().toLowerCase().trim();
+        // ------- RESOLVE DOCUMENT TYPE FIRST (login is derived from it) -------
+        DocumentType documentType = documentTypeRepository
+            .findById(userVM.getDocumentTypeId())
+            .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
+
+        String login = buildLogin(documentType, userVM.getDocumentNumber());
 
         if (login.isEmpty()) {
             throw new IllegalArgumentException("Document number cannot be null or empty");
@@ -170,20 +175,11 @@ public class UserService {
         newUser.setAuthorities(authorities);
         userRepository.save(newUser);
 
-        // ------- SEARCH DOCUMENT TYPE -------
-        DocumentType documentType = documentTypeRepository
-            .findById(userVM.getDocumentTypeId())
-            .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
-
-        if (documentType == null) {
-            throw new DocumentTypeNotFoundException("Document type not found");
-        }
-
         // ------- CREATE USER PROFILE -------
         UserProfile userProfile = new UserProfile();
 
-        if (userProfileRepository.findByDocumentNumber(userVM.getDocumentNumber()).isPresent()) {
-            throw new DocumentNumberAlreadyUsedException("Document number is already in use");
+        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), userVM.getDocumentNumber()).isPresent()) {
+            throw new DocumentNumberAlreadyUsedException("Document number is already in use for this document type");
         }
 
         userProfile.setFirstName(userVM.getFirstName());
@@ -212,7 +208,10 @@ public class UserService {
 
     @Transactional
     public User createUser(AdminCreateUserVM userVM) {
-        String login = userVM.getDocumentNumber().toLowerCase().trim();
+        // ------- RESOLVE DOCUMENT TYPE FIRST (login is derived from it) -------
+        DocumentType documentType = resolveDocumentType(userVM.getDocumentTypeId());
+
+        String login = buildLogin(documentType, userVM.getDocumentNumber());
 
         userRepository.findOneByLogin(login).ifPresent(existing -> {
             throw new LoginAlreadyUsedException();
@@ -222,7 +221,7 @@ public class UserService {
             throw new EmailAlreadyUsedException();
         });
 
-        userProfileRepository.findByDocumentNumber((userVM.getDocumentNumber())).ifPresent(existing -> {
+        userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), userVM.getDocumentNumber()).ifPresent(existing -> {
             throw new DocumentNumberAlreadyUsedException("Document number already in use");
         });
 
@@ -256,7 +255,7 @@ public class UserService {
         userProfile.setDocumentNumber(userVM.getDocumentNumber().trim());
         userProfile.setPhoneNumber(userVM.getPhoneNumber().trim());
         userProfile.setUser(user);
-        userProfile.setDocumentType(resolveDocumentType(userVM.getDocumentTypeId()));
+        userProfile.setDocumentType(documentType);
 
         userProfileRepository.save(userProfile);
         LOG.debug("Created Information for User: {}", user);
@@ -267,6 +266,16 @@ public class UserService {
         return documentTypeRepository
             .findById(documentTypeId)
             .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
+    }
+
+    /**
+     * Builds a unique login from the {@code (documentType, documentNumber)} pair.
+     * Format: {@code <initials>_<documentNumber>} (lowercased and trimmed), e.g. {@code cc_12345678}.
+     * When the type has no initials, the login falls back to just the document number.
+     */
+    private String buildLogin(DocumentType documentType, String documentNumber) {
+        String typeCode = documentType != null && documentType.getInitials() != null ? documentType.getInitials() : "";
+        return (typeCode + "_" + documentNumber).toLowerCase().trim();
     }
 
     /**
@@ -308,10 +317,17 @@ public class UserService {
                 String documentNumber = null;
                 String newLogin = null;
 
+                // ----- USER PROFILE (fetch first so we can read the existing documentType for login) -----
+                UserProfile userProfile = userProfileRepository
+                    .findOneByUserId(user.getId())
+                    .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
+
                 // ----- CONDITIONAL documentNumber / login re-derivation -----
                 if (vm.getDocumentNumber() != null) {
                     documentNumber = vm.getDocumentNumber().trim();
-                    newLogin = documentNumber.toLowerCase();
+                    DocumentType effectiveType =
+                        vm.getDocumentTypeId() != null ? resolveDocumentType(vm.getDocumentTypeId()) : userProfile.getDocumentType();
+                    newLogin = buildLogin(effectiveType, documentNumber);
 
                     if (!newLogin.equals(user.getLogin())) {
                         // uniqueness excluding self
@@ -322,11 +338,13 @@ public class UserService {
                         });
                     }
 
-                    userProfileRepository.findByDocumentNumber(documentNumber).ifPresent(existing -> {
-                        if (!existing.getUser().getId().equals(vm.getId())) {
-                            throw new DocumentNumberAlreadyUsedException("Document number is already in use");
-                        }
-                    });
+                    userProfileRepository
+                        .findByDocumentTypeAndDocumentNumber(effectiveType != null ? effectiveType.getId() : null, documentNumber)
+                        .ifPresent(existing -> {
+                            if (!existing.getUser().getId().equals(vm.getId())) {
+                                throw new DocumentNumberAlreadyUsedException("Document number is already in use");
+                            }
+                        });
 
                     user.setLogin(newLogin);
                 }
@@ -355,10 +373,6 @@ public class UserService {
                 }
 
                 // ----- USER PROFILE (only provided fields are touched) -----
-                UserProfile userProfile = userProfileRepository
-                    .findOneByUserId(user.getId())
-                    .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
-
                 if (vm.getFirstName() != null) {
                     userProfile.setFirstName(vm.getFirstName().trim());
                 }

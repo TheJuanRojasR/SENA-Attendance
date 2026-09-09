@@ -19,7 +19,7 @@ export const handlePasswordResetInit = createAsyncThunk(
   'passwordReset/reset_password_init',
   // If the content-type isn't set that way, axios will try to encode the body and thus modify the data sent to the server.
   async (data: { documentTypeId: string; documentNumber: string }) =>
-    axios.post(`${apiUrl}/init`, data, { headers: { 'Content-Type': 'text/plain' } }),
+    axios.post(`${apiUrl}/init`, data, { headers: { 'Content-Type': 'application/json' } }),
   { serializeError: serializeAxiosError },
 );
 

@@ -3,6 +3,7 @@ package com.mycompany.senaattendance.repository;
 import com.mycompany.senaattendance.domain.Attendance;
 import java.util.List;
 import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -22,4 +23,8 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
 
     @Query("{'id': ?0}")
     Optional<Attendance> findOneWithEagerRelationships(String id);
+
+    // ------- SEARCH COUNT CLASS SECTION BY ID -------
+    @Query(value = "{ 'classSection.$id': { $in: ?0 } }", count = true)
+    long countByClassSection_IdIn(List<ObjectId> classSectionIds);
 }

@@ -15,6 +15,9 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
 import com.mycompany.senaattendance.service.mapper.AttendanceMapper;
@@ -42,7 +45,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class AttendanceResourceIT {
 
     private static final LocalDate DEFAULT_DATE = LocalDate.ofEpochDay(0L);
@@ -59,6 +62,12 @@ class AttendanceResourceIT {
 
     @Autowired
     private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Mock
     private AttendanceRepository attendanceRepositoryMock;
@@ -129,6 +138,9 @@ class AttendanceResourceIT {
             attendanceRepository.delete(insertedAttendance);
             insertedAttendance = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        classSectionRepository.deleteAll();
+        userProfileRepository.deleteAll();
     }
 
     @Test
@@ -258,6 +270,10 @@ class AttendanceResourceIT {
 
     @Test
     void putExistingAttendance() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        classSectionRepository.save(attendance.getClassSection());
+        userProfileRepository.save(attendance.getStudent());
+
         // Initialize the database
         insertedAttendance = attendanceRepository.save(attendance);
 

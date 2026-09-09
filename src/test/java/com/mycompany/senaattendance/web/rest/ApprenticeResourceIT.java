@@ -15,6 +15,9 @@ import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ApprenticeService;
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
 import com.mycompany.senaattendance.service.mapper.ApprenticeMapper;
@@ -40,7 +43,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ApprenticeResourceIT {
 
     private static final StateAcademic DEFAULT_STATE_ACADEMIC = StateAcademic.RETIRO_VOLUNTARIO;
@@ -54,6 +57,12 @@ class ApprenticeResourceIT {
 
     @Autowired
     private ApprenticeRepository apprenticeRepository;
+
+    @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Mock
     private ApprenticeRepository apprenticeRepositoryMock;
@@ -124,6 +133,9 @@ class ApprenticeResourceIT {
             apprenticeRepository.delete(insertedApprentice);
             insertedApprentice = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        userProfileRepository.deleteAll();
+        gradeRepository.deleteAll();
     }
 
     @Test
@@ -235,6 +247,10 @@ class ApprenticeResourceIT {
 
     @Test
     void putExistingApprentice() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        userProfileRepository.save(apprentice.getStudent());
+        gradeRepository.save(apprentice.getGrade());
+
         // Initialize the database
         insertedApprentice = apprenticeRepository.save(apprentice);
 

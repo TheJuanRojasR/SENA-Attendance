@@ -50,7 +50,7 @@ public class TrimesterAsserts {
             .satisfies(a -> assertThat(a.getName()).as("check name").isEqualTo(expected.getName()))
             .satisfies(a -> assertThat(a.getStartDate()).as("check startDate").isEqualTo(expected.getStartDate()))
             .satisfies(a -> assertThat(a.getEndDate()).as("check endDate").isEqualTo(expected.getEndDate()))
-            .satisfies(a -> assertThat(a.getState()).as("check state").isEqualTo(expected.getState()));
+            .satisfies(a -> assertThat(a.getStatus()).as("check status").isEqualTo(expected.getStatus()));
     }
 
     /**

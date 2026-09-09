@@ -13,8 +13,10 @@ import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.UserProfileService;
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.service.mapper.UserProfileMapper;
@@ -40,7 +42,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class UserProfileResourceIT {
 
     private static final String DEFAULT_FIRST_NAME = "AAAAAAAAAA";
@@ -56,7 +58,8 @@ class UserProfileResourceIT {
     private static final String UPDATED_SECOND_LAST_NAME = "BBBBBBBBBB";
 
     private static final String DEFAULT_DOCUMENT_NUMBER = "AAAAAAAAAA";
-    private static final String UPDATED_DOCUMENT_NUMBER = "BBBBBBBBBB";
+    // Unique suffix to avoid collisions with the compound index (documentType + documentNumber); kept within @Size(max = 15)
+    private static final String UPDATED_DOCUMENT_NUMBER = "B" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 
     private static final String DEFAULT_PHONE_NUMBER = "AAAAAAAAAA";
     private static final String UPDATED_PHONE_NUMBER = "BBBBBBBBBB";
@@ -66,6 +69,9 @@ class UserProfileResourceIT {
 
     @Autowired
     private ObjectMapper om;
+
+    @Autowired
+    private DocumentTypeRepository documentTypeRepository;
 
     @Autowired
     private UserProfileRepository userProfileRepository;
@@ -152,6 +158,8 @@ class UserProfileResourceIT {
             userProfileRepository.delete(insertedUserProfile);
             insertedUserProfile = null;
         }
+        // Remove the related document persisted for the PUT tests
+        documentTypeRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -322,6 +330,9 @@ class UserProfileResourceIT {
 
     @Test
     void putExistingUserProfile() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        documentTypeRepository.save(userProfile.getDocumentType());
+
         // Initialize the database
         insertedUserProfile = userProfileRepository.save(userProfile);
 

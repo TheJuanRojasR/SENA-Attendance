@@ -31,10 +31,10 @@ spring:
     serialization:
       indent-output: true
   mail:
-    host: smtp.gmail.com
+    host: smtp.hostinger.com
     port: 587
-    username: senaattendance.noreply@gmail.com
-    password: bmznbkqfnwudsvso
+    username: noreply.senaattendance@adso-sena.online
+    password: x983-2njn-4unp-zxib
     properties:
       mail:
         transport:
@@ -82,7 +82,9 @@ jhipster:
         token-validity-in-seconds: 86400
         token-validity-in-seconds-for-remember-me: 2592000
   mail: # specific JHipster mail property, for standard properties see MailProperties
-    base-url: http://127.0.0.1:8080
+    # Frontend URL. Usado en los templates de mail para los enlaces de activación/reset.
+    # En dev el frontend corre en el puerto 9060; en prod apuntar a la URL real del frontend.
+    base-url: http://localhost:9060
   logging:
     use-json-format: false # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration

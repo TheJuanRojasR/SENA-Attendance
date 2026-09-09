@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -104,9 +105,8 @@ public class TrimesterResource {
     }
 
     /**
-     * {@code PATCH  /trimesters/:id} : Partial updates given fields of an existing trimester, field will ignore if it is null
+     * {@code PATCH  /trimesters} : Partial updates given fields of an existing trimester; the id is taken from the request body.
      *
-     * @param id the id of the trimesterDTO to save.
      * @param trimesterDTO the trimesterDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated trimesterDTO,
      * or with status {@code 400 (Bad Request)} if the trimesterDTO is not valid,
@@ -114,18 +114,13 @@ public class TrimesterResource {
      * or with status {@code 500 (Internal Server Error)} if the trimesterDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TrimesterDTO> partialUpdateTrimester(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody TrimesterDTO trimesterDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Trimester partially : {}, {}", id, trimesterDTO);
-        if (trimesterDTO.getId() == null) {
+    public ResponseEntity<TrimesterDTO> partialUpdateTrimester(@NotNull @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
+        String id = trimesterDTO.getId();
+        LOG.debug("REST request to partial update Trimester partially : {}", trimesterDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, trimesterDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!trimesterRepository.existsById(id)) {
@@ -152,6 +147,34 @@ public class TrimesterResource {
         Page<TrimesterDTO> page = trimesterService.findAll(pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
+     * {@code GET  /trimesters/search} : search and filter trimesters.
+     *
+     * <p>Matches by year when {@code search} is a 4-digit number (against the
+     * {@code startDate} year), otherwise by a case-insensitive name substring, and
+     * optionally filters by {@code status}. Both parameters are independent:
+     * <ul>
+     *     <li>{@code search} may be blank to ignore the text filter.</li>
+     *     <li>{@code status} may be omitted to return trimesters with any status.</li>
+     * </ul>
+     *
+     * @param search the term to search for (optional).
+     * @param status the status to filter by (optional).
+     * @param pageable the pagination information.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Trimesters in body.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<TrimesterDTO>> searchTrimesters(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) Boolean status,
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable
+    ) {
+        LOG.debug("REST request to search Trimesters with term: {}, status: {}", search, status);
+        Page<TrimesterDTO> page = trimesterService.search(search, status, pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
     }
 
     /**

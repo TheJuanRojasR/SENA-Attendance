@@ -72,7 +72,7 @@ class NotificacionIT {
         doThrow(new MailSendException("SMTP connection refused")).when(mailService).sendCreationEmailSync(any(User.class));
 
         String documentNumber = "1000000001";
-        String expectedLogin = documentNumber.toLowerCase().trim();
+        String expectedLogin = derivedLogin(documentNumber);
         AdminCreateUserVM userVM = new AdminCreateUserVM();
         userVM.setLogin(expectedLogin);
         userVM.setEmail("failed.mail@example.com");
@@ -102,5 +102,16 @@ class NotificacionIT {
         assertThat(notificaciones).hasSize(1);
         assertThat(notificaciones.get(0).getTipo()).isEqualTo(NotificacionTipo.CREDENTIALS);
         assertThat(notificaciones.get(0).getEstado()).isEqualTo(NotificacionEstado.PENDIENTE);
+    }
+
+    /**
+     * Derives the login that {@link com.mycompany.senaattendance.service.UserService#createUser}
+     * now produces from the seeded {@link com.mycompany.senaattendance.domain.DocumentType}
+     * initials: {@code <initials>_<documentNumber>}.
+     */
+    private String derivedLogin(String documentNumber) {
+        com.mycompany.senaattendance.domain.DocumentType dt = documentTypeRepository.findAll().iterator().next();
+        String typeCode = dt.getInitials() != null ? dt.getInitials() : "";
+        return (typeCode + "_" + documentNumber).toLowerCase().trim();
     }
 }

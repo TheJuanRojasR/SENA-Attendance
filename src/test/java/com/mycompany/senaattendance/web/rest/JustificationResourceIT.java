@@ -14,6 +14,9 @@ import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationType;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.JustificationRepository;
+import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationMapper;
@@ -42,7 +45,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class JustificationResourceIT {
 
     private static final String DEFAULT_DESCRIPTION = "AAAAAAAAAA";
@@ -67,6 +70,12 @@ class JustificationResourceIT {
 
     @Autowired
     private JustificationRepository justificationRepository;
+
+    @Autowired
+    private JustificationTypeRepository justificationTypeRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Mock
     private JustificationRepository justificationRepositoryMock;
@@ -147,6 +156,9 @@ class JustificationResourceIT {
             justificationRepository.delete(insertedJustification);
             insertedJustification = null;
         }
+        // Remove the related documents persisted for the PUT tests
+        justificationTypeRepository.deleteAll();
+        userProfileRepository.deleteAll();
     }
 
     @Test
@@ -314,6 +326,10 @@ class JustificationResourceIT {
 
     @Test
     void putExistingJustification() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        justificationTypeRepository.save(justification.getJustificationType());
+        userProfileRepository.save(justification.getStudent());
+
         // Initialize the database
         insertedJustification = justificationRepository.save(justification);
 

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Alert, Button, Form, Modal, ModalBody, ModalHeader, Row } from 'react-bootstrap';
+import { Alert, Button, Modal, ModalBody, ModalHeader, Row } from 'react-bootstrap';
 import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
 
 import { toast } from 'react-toastify';
@@ -24,8 +24,8 @@ export const PasswordResetInitModal = (props: IPasswordResetInitModalProps) => {
     };
   }, []);
 
-  const handleValidSubmit = ({ documentNumber }: Record<string, any>) => {
-    dispatch(handlePasswordResetInit(documentNumber));
+  const handleValidSubmit = ({ documentNumber, documentTypeId }: Record<string, any>) => {
+    dispatch(handlePasswordResetInit({ documentTypeId, documentNumber }));
   };
 
   const successMessage = useAppSelector(state => state.passwordReset.successMessage);
@@ -40,7 +40,7 @@ export const PasswordResetInitModal = (props: IPasswordResetInitModalProps) => {
   return (
     <Modal show={props.showModal} onHide={props.handleClose} id={'password-reset-init-modal'} autoFocus={false}>
       <Row className="justify-content-center">
-        <Form>
+        <div className="pad">
           <ModalHeader id="recovery-title" data-cy="recoveryTitle" closeButton>
             <h1>
               <Translate contentKey="reset.request.title">Reset your password</Translate>
@@ -87,7 +87,7 @@ export const PasswordResetInitModal = (props: IPasswordResetInitModalProps) => {
               </Button>
             </ValidatedForm>
           </ModalBody>
-        </Form>
+        </div>
       </Row>
     </Modal>
   );

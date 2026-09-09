@@ -60,9 +60,8 @@
           la plataforma:
         </p>
         <p style="text-align: center; margin: 20px 0">
-          <!-- Conservamos la URL con http://localhost:9060 como solicitó -->
           <a
-            th:with="url=@{|http://localhost:9060/account/activate?key=${user.activationKey}|}"
+            th:with="url=@{|${baseUrl}/account/activate?key=${user.activationKey}|}"
             th:href="${url}"
             style="text-decoration: none; background-color: #39a900; color: #ffffff"
             class="btn"
@@ -72,7 +71,7 @@
         <p class="muted">Si el botón anterior no funciona, copie y pegue la siguiente URL en su navegador:</p>
         <p class="muted" style="word-break: break-all; font-size: 13px">
           <a
-            th:with="url=@{|http://localhost:9060/account/activate?key=${user.activationKey}|}"
+            th:with="url=@{|${baseUrl}/account/activate?key=${user.activationKey}|}"
             th:href="${url}"
             th:text="${url}"
             style="color: #39a900; text-decoration: underline"
