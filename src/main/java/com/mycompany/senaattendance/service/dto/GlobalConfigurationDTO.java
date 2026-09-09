@@ -12,20 +12,11 @@ public class GlobalConfigurationDTO implements Serializable {
 
     private String id;
 
-    @NotNull
+    @Min(1)
     private Integer studentJustificationDays;
 
-    @NotNull
+    @Min(1)
     private Integer instructorResponseDays;
-
-    @NotNull
-    private Integer lateArrivalsToFail;
-
-    @NotNull
-    private Integer maxPostponementJustifications;
-
-    @NotNull
-    private Integer standardTrimesterMonths;
 
     public String getId() {
         return id;
@@ -49,30 +40,6 @@ public class GlobalConfigurationDTO implements Serializable {
 
     public void setInstructorResponseDays(Integer instructorResponseDays) {
         this.instructorResponseDays = instructorResponseDays;
-    }
-
-    public Integer getLateArrivalsToFail() {
-        return lateArrivalsToFail;
-    }
-
-    public void setLateArrivalsToFail(Integer lateArrivalsToFail) {
-        this.lateArrivalsToFail = lateArrivalsToFail;
-    }
-
-    public Integer getMaxPostponementJustifications() {
-        return maxPostponementJustifications;
-    }
-
-    public void setMaxPostponementJustifications(Integer maxPostponementJustifications) {
-        this.maxPostponementJustifications = maxPostponementJustifications;
-    }
-
-    public Integer getStandardTrimesterMonths() {
-        return standardTrimesterMonths;
-    }
-
-    public void setStandardTrimesterMonths(Integer standardTrimesterMonths) {
-        this.standardTrimesterMonths = standardTrimesterMonths;
     }
 
     @Override
@@ -103,9 +70,6 @@ public class GlobalConfigurationDTO implements Serializable {
             "id='" + getId() + "'" +
             ", studentJustificationDays=" + getStudentJustificationDays() +
             ", instructorResponseDays=" + getInstructorResponseDays() +
-            ", lateArrivalsToFail=" + getLateArrivalsToFail() +
-            ", maxPostponementJustifications=" + getMaxPostponementJustifications() +
-            ", standardTrimesterMonths=" + getStandardTrimesterMonths() +
             "}";
     }
 }

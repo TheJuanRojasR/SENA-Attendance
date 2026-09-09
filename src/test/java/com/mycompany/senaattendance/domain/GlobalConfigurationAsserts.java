@@ -54,19 +54,6 @@ public class GlobalConfigurationAsserts {
             )
             .satisfies(a ->
                 assertThat(a.getInstructorResponseDays()).as("check instructorResponseDays").isEqualTo(expected.getInstructorResponseDays())
-            )
-            .satisfies(a ->
-                assertThat(a.getLateArrivalsToFail()).as("check lateArrivalsToFail").isEqualTo(expected.getLateArrivalsToFail())
-            )
-            .satisfies(a ->
-                assertThat(a.getMaxPostponementJustifications())
-                    .as("check maxPostponementJustifications")
-                    .isEqualTo(expected.getMaxPostponementJustifications())
-            )
-            .satisfies(a ->
-                assertThat(a.getStandardTrimesterMonths())
-                    .as("check standardTrimesterMonths")
-                    .isEqualTo(expected.getStandardTrimesterMonths())
             );
     }
 
