@@ -40,7 +40,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 
 | UC                                                  | Nombre                             | Estado          |
 | --------------------------------------------------- | ---------------------------------- | --------------- |
-| [UC001](#uc001--registrarme)                        | Registrarme                        | Parcial         |
+| [UC001](#uc001--registrarme)                        | Registrarme                        | Implementado    |
 | [UC002](#uc002--iniciar-sesión)                     | Iniciar sesión                     | Parcial         |
 | [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Parcial         |
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
@@ -68,7 +68,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 
 ## UC001 — Registrarme
 
-**Módulo:** Cuenta y acceso | **Actor:** Aprendiz | **Estado:** Parcial
+**Módulo:** Cuenta y acceso | **Actor:** Aprendiz | **Estado:** Implementado
 
 **Feature:** Autorregistro público de un aprendiz sin exigir ficha. La cuenta nace activa, con rol Aprendiz y login derivado de `<iniciales del tipo de documento>_<número de documento>`.
 
@@ -96,17 +96,17 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 
 Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authorities` se aceptan en el JSON pero el servicio los ignora.
 
-| Campo            | Tipo   | Obligatorio | Reglas                                                                                              |
-| ---------------- | ------ | ----------- | --------------------------------------------------------------------------------------------------- |
+| Campo            | Tipo   | Obligatorio | Reglas                                                                                                                                              |
+| ---------------- | ------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `documentTypeId` | string | Sí          | `@NotNull`; id de un `DocumentType` existente y **activo**. Si no existe: `400 documentTypeNotFound`; si está inactivo: `400 documentTypeInactive`. |
-| `documentNumber` | string | Sí          | `@NotNull`, `@Pattern(\d+)`, máximo 30. Solo dígitos.                                               |
-| `firstName`      | string | Sí          | `@NotNull`, 1–30 caracteres.                                                                        |
-| `middleName`     | string | No          | 1–30 caracteres.                                                                                    |
-| `firstLastName`  | string | Sí          | `@NotNull`, 1–30 caracteres.                                                                        |
-| `secondLastName` | string | No          | 1–30 caracteres.                                                                                    |
-| `email`          | string | Sí          | `@Email`, 5–254; único en el sistema (case-insensitive).                                            |
-| `phoneNumber`    | string | Sí          | `@NotNull`, `@Pattern(\d{10})`: exactamente 10 dígitos.                                             |
-| `password`       | string | Sí          | 8–20 con mayúscula, minúscula, número y carácter especial (validado en `UserService.registerUser`). |
+| `documentNumber` | string | Sí          | `@NotNull`, `@Pattern(\d+)`, máximo 30. Solo dígitos.                                                                                               |
+| `firstName`      | string | Sí          | `@NotNull`, 1–30 caracteres.                                                                                                                        |
+| `middleName`     | string | No          | 1–30 caracteres.                                                                                                                                    |
+| `firstLastName`  | string | Sí          | `@NotNull`, 1–30 caracteres.                                                                                                                        |
+| `secondLastName` | string | No          | 1–30 caracteres.                                                                                                                                    |
+| `email`          | string | Sí          | `@Email`, 5–254; único en el sistema (case-insensitive).                                                                                            |
+| `phoneNumber`    | string | Sí          | `@NotNull`, `@Pattern(\d{10})`: exactamente 10 dígitos.                                                                                             |
+| `password`       | string | Sí          | 8–20 con mayúscula, minúscula, número y carácter especial (validado en `UserService.registerUser`).                                                 |
 
 **Response:** `201 Created` sin cuerpo.
 
@@ -123,7 +123,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 | 400    | `error.http.400` (tipo `invalid-password`, título "Incorrect password") | La contraseña no cumple la política.                                                                                       |
 | 400    | `error.validation`                                                      | Fallo de validación de campos; incluye `fieldErrors`.                                                                      |
 
-**Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword`. El documento duplicado sí tiene mensajes diferenciados: `error.documentnumberexists` cuando el par tipo + número pertenece a una cuenta **activa** y `error.documentnumberinactive` cuando pertenece a una cuenta **desactivada**. Todas las validaciones (incluida la del documento duplicado) corren antes de la primera escritura, por lo que un registro fallido no deja usuario ni perfil parciales. Para el formulario, el frontend obtiene los tipos con `GET /api/document-types` (ver UC022).
+**Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword`. El documento duplicado sí tiene mensajes diferenciados: `error.documentnumberexists` cuando el par tipo + número pertenece a una cuenta **activa** y `error.documentnumberinactive` cuando pertenece a una cuenta **desactivada**. Todas las validaciones (incluida la del documento duplicado) corren antes de la primera escritura, por lo que un registro rechazado por validación no deja usuario ni perfil parciales. El backend cubre el flujo de UC001; quedan a cargo del frontend el formulario en sí y la traducción de las claves de error (`emailrequired`, `documentnumberexists`, `documentnumberinactive`, `documentTypeInactive`); los tipos se obtienen con `GET /api/document-types` (ver UC022).
 
 ---
 
@@ -464,7 +464,7 @@ Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o 
 | ---------- | ------- | ----------- | ---------------------------------------------------------------------------------------- |
 | `name`     | string  | Sí          | `@NotNull`, máximo 30. No se valida unicidad.                                            |
 | `initials` | string  | Sí          | `@NotNull`, máximo 10. No se normaliza a mayúsculas en el backend ni se valida unicidad. |
-| `isActive` | boolean | No          | Estado del catálogo. Si se omite al crear, el tipo nace **activo** (`true`).              |
+| `isActive` | boolean | No          | Estado del catálogo. Si se omite al crear, el tipo nace **activo** (`true`).             |
 
 **Response:** `201 Created` con el `DocumentTypeDTO` (`id`, `name`, `initials`, `isActive`). El listado es público por configuración de seguridad, lo que permite poblar los formularios de registro e inicio de sesión sin sesión.
 
