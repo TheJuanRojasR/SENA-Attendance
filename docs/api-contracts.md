@@ -327,7 +327,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Errores:** `400` tipo `invalid-password` si la nueva contraseña no cumple la política o si la clave ya no es válida; `500` si la clave no corresponde a ningún usuario (la clave se limpia al usarse, así que un segundo intento cae en `500`).
 
-**Notas / lo que se necesita:** la clave de reset expira a las **24 horas** (`resetDate > now - 1 día` en `UserService.completePasswordReset`), no a los 30 minutos del UC. Es de un solo uso (se limpia al completar). El reset no activa un indicador de cambio obligatorio. El mensaje neutro no se devuelve en el cuerpo: `init` responde `200` vacío y el cliente debe mostrar el texto del UC. Un enlace expirado produce `500`, no un `400` con "El enlace ha expirado" (`por confirmar` el mapeo final en el frontend).
+**Notas / lo que se necesita:** la clave de reset expira a los **30 minutos** (`resetDate > now - 30 minutos` en `UserService.completePasswordReset`), como pide el UC. Es de un solo uso (se limpia al completar). El reset no activa un indicador de cambio obligatorio. El mensaje neutro no se devuelve en el cuerpo: `init` responde `200` vacío y el cliente debe mostrar el texto del UC. Un enlace expirado produce `500`, no un `400` con "El enlace ha expirado" (`por confirmar` el mapeo final en el frontend).
 
 ---
 

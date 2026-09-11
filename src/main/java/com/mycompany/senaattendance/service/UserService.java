@@ -56,6 +56,11 @@ public class UserService {
      */
     private static final String PROTECTED_ADMIN_LOGIN = "admin";
 
+    /**
+     * How long a password-reset link stays valid after it is requested.
+     */
+    private static final long RESET_KEY_VALIDITY_MINUTES = 30;
+
     private final UserRepository userRepository;
 
     private final PasswordEncoder passwordEncoder;
@@ -104,7 +109,7 @@ public class UserService {
         LOG.debug("Reset user password for reset key {}", key);
         return userRepository
             .findOneByResetKey(key)
-            .filter(user -> user.getResetDate().isAfter(Instant.now().minus(1, ChronoUnit.DAYS)))
+            .filter(user -> user.getResetDate().isAfter(Instant.now().minus(RESET_KEY_VALIDITY_MINUTES, ChronoUnit.MINUTES)))
             .map(user -> {
                 user.setPassword(passwordEncoder.encode(newPassword));
                 user.setResetKey(null);

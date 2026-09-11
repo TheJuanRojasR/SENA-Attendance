@@ -129,11 +129,11 @@ class UserServiceIT {
     }
 
     @Test
-    void assertThatResetKeyMustNotBeOlderThan24Hours() {
-        Instant daysAgo = Instant.now().minus(25, ChronoUnit.HOURS);
+    void assertThatResetKeyMustNotBeOlderThan30Minutes() {
+        Instant minutesAgo = Instant.now().minus(31, ChronoUnit.MINUTES);
         String resetKey = RandomUtil.generateResetKey();
         user.setActivated(true);
-        user.setResetDate(daysAgo);
+        user.setResetDate(minutesAgo);
         user.setResetKey(resetKey);
         userRepository.save(user);
 
@@ -158,10 +158,10 @@ class UserServiceIT {
     @Test
     void assertThatUserCanResetPassword() {
         String oldPassword = user.getPassword();
-        Instant daysAgo = Instant.now().minus(2, ChronoUnit.HOURS);
+        Instant minutesAgo = Instant.now().minus(5, ChronoUnit.MINUTES);
         String resetKey = RandomUtil.generateResetKey();
         user.setActivated(true);
-        user.setResetDate(daysAgo);
+        user.setResetDate(minutesAgo);
         user.setResetKey(resetKey);
         userRepository.save(user);
 

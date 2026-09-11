@@ -165,13 +165,22 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC005 — Recuperar contraseña
+
+**Estado del backend:** parcial. El enlace de recuperación es de **un solo uso** y vence a los **30 minutos** (ver [`docs/api-contracts.md#uc005--recuperar-contraseña`](./api-contracts.md#uc005--recuperar-contraseña)).
+
+| #   | Ítem                                                                                                                                                                            | Estado      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | **E3 — Enlace expirado:** si el usuario abre el enlace después de los **30 minutos**, mostrar "El enlace ha expirado, solicita uno nuevo" y redirigirlo al paso 1 (solicitud). | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
 
 | UC    | Nombre                             | Contrato                                              |
 | ----- | ---------------------------------- | ----------------------------------------------------- |
-| UC005 | Recuperar contraseña               | [`docs/api-contracts.md`](./api-contracts.md) — UC005 |
 | UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006 |
 | UC007 | Gestionar fichas                   | [`docs/api-contracts.md`](./api-contracts.md) — UC007 |
 | UC008 | Gestionar aprendices               | [`docs/api-contracts.md`](./api-contracts.md) — UC008 |
