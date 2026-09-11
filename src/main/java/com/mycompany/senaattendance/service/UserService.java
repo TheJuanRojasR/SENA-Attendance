@@ -154,11 +154,15 @@ public class UserService {
             throw new EmailAlreadyUsedException();
         });
 
-        User newUser = new User();
+        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), documentNumber).isPresent()) {
+            throw new DocumentNumberAlreadyUsedException("Document number is already in use for this document type");
+        }
 
         if (!password.matches(PASSWORD_PATTERN.pattern())) {
             throw new InvalidPasswordException();
         }
+
+        User newUser = new User();
 
         String encryptedPassword = passwordEncoder.encode(password);
         newUser.setLogin(login);
@@ -175,10 +179,6 @@ public class UserService {
 
         // ------- CREATE USER PROFILE -------
         UserProfile userProfile = new UserProfile();
-
-        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), documentNumber).isPresent()) {
-            throw new DocumentNumberAlreadyUsedException("Document number is already in use for this document type");
-        }
 
         userProfile.setFirstName(userVM.getFirstName().trim());
         if (userVM.getMiddleName() != null) {

@@ -343,6 +343,56 @@ class AccountResourceIT {
     }
 
     @Test
+    void testRegisterDuplicateDocumentNumberFromProfileLeavesNoPartialUser() throws Exception {
+        String conflictingDocumentNumber = "1000000020";
+        String otherDocumentNumber = "1000000099";
+
+        // Simulate inconsistent legacy data: a UserProfile already owns (valid type, conflictingDocumentNumber)
+        // but it points to a DIFFERENT user whose login derives from another document number.
+        User otherUser = new User();
+        otherUser.setLogin(expectedLogin(otherDocumentNumber));
+        otherUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        otherUser.setEmail("other-partial-user@example.com");
+        otherUser.setActivated(true);
+        otherUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(otherUser);
+
+        UserProfile existingProfile = userProfileRepository.save(
+            new UserProfile()
+                .firstName("Other")
+                .firstLastName("User")
+                .documentNumber(conflictingDocumentNumber)
+                .phoneNumber("3001234567")
+                .user(otherUser)
+                .documentType(seededDocumentType())
+        );
+
+        ManagedUserVM conflictingUser = validRegisterVM(conflictingDocumentNumber, "no-partial-user@example.com");
+
+        // The profile duplicate check must fire BEFORE any write, so registration fails with 400...
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(conflictingUser)))
+            .andExpect(status().isBadRequest());
+
+        // ...and no orphan User is left behind for the requested document.
+        assertThat(userRepository.findOneByLogin(expectedLogin(conflictingDocumentNumber))).isEmpty();
+
+        // The pre-existing profile is untouched and still points to the other user.
+        UserProfile unchangedProfile = userProfileRepository
+            .findByDocumentTypeAndDocumentNumber(validDocumentTypeId(), conflictingDocumentNumber)
+            .orElseThrow();
+        assertThat(unchangedProfile.getId()).isEqualTo(existingProfile.getId());
+        assertThat(unchangedProfile.getUser().getId()).isEqualTo(otherUser.getId());
+    }
+
+    @Test
     void testRegisterMissingRequiredFields() throws Exception {
         ManagedUserVM invalidUser = validRegisterVM("1000000008", "register-missing-fields@example.com");
         invalidUser.setFirstName(null); // @NotNull required field missing
