@@ -133,6 +133,10 @@ public class UserService {
             .findById(userVM.getDocumentTypeId())
             .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
 
+        if (Boolean.FALSE.equals(documentType.getIsActive())) {
+            throw new BadRequestAlertException("Document type is inactive", "userProfile", "documentTypeInactive");
+        }
+
         String login = buildLogin(documentType, documentNumber);
 
         if (login.isEmpty()) {

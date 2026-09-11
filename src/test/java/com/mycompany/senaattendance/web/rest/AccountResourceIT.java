@@ -172,6 +172,30 @@ class AccountResourceIT {
     }
 
     @Test
+    void testRegisterInactiveDocumentType() throws Exception {
+        String documentNumber = "1000000021";
+        DocumentType inactiveType = new DocumentType();
+        inactiveType.setName("Inactive Document Type");
+        inactiveType.setInitials("IX");
+        inactiveType.setIsActive(false);
+        inactiveType = documentTypeRepository.save(inactiveType);
+
+        try {
+            ManagedUserVM invalidUser = validRegisterVM(documentNumber, "register-inactive-doc-type@example.com");
+            invalidUser.setDocumentTypeId(inactiveType.getId());
+
+            restAccountMockMvc
+                .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeInactive"));
+
+            assertThat(userRepository.findOneByLogin(loginFor(inactiveType.getId(), documentNumber))).isEmpty();
+        } finally {
+            documentTypeRepository.delete(inactiveType);
+        }
+    }
+
+    @Test
     void testRegisterInvalidPassword() throws Exception {
         ManagedUserVM invalidUser = validRegisterVM("1000000003", "register-invalid-password@example.com");
         invalidUser.setPassword("password"); // no uppercase / digit / symbol -> fails PASSWORD_PATTERN

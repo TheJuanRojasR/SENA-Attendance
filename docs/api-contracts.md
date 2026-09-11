@@ -98,7 +98,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 
 | Campo            | Tipo   | Obligatorio | Reglas                                                                                              |
 | ---------------- | ------ | ----------- | --------------------------------------------------------------------------------------------------- |
-| `documentTypeId` | string | Sí          | `@NotNull`; id de un `DocumentType` existente. Si no existe: `400 documentTypeNotFound`.            |
+| `documentTypeId` | string | Sí          | `@NotNull`; id de un `DocumentType` existente y **activo**. Si no existe: `400 documentTypeNotFound`; si está inactivo: `400 documentTypeInactive`. |
 | `documentNumber` | string | Sí          | `@NotNull`, `@Pattern(\d+)`, máximo 30. Solo dígitos.                                               |
 | `firstName`      | string | Sí          | `@NotNull`, 1–30 caracteres.                                                                        |
 | `middleName`     | string | No          | 1–30 caracteres.                                                                                    |
@@ -118,6 +118,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 | 400    | `error.documentnumberexists`                                            | El par tipo + número de documento ya está registrado en una cuenta **activa**.                                             |
 | 400    | `error.documentnumberinactive`                                          | El par tipo + número pertenece a una cuenta **desactivada**; el aprendiz debe contactar al Administrador para reactivarla. |
 | 400    | `error.documentTypeNotFound`                                            | `documentTypeId` no corresponde a un tipo de documento existente.                                                          |
+| 400    | `error.documentTypeInactive`                                            | El tipo de documento está inactivo y no puede usarse en el registro.                                                       |
 | 400    | `error.emailrequired`                                                   | Correo ausente o en blanco.                                                                                                |
 | 400    | `error.http.400` (tipo `invalid-password`, título "Incorrect password") | La contraseña no cumple la política.                                                                                       |
 | 400    | `error.validation`                                                      | Fallo de validación de campos; incluye `fieldErrors`.                                                                      |
@@ -459,16 +460,17 @@ Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o 
 }
 ```
 
-| Campo      | Tipo   | Obligatorio | Reglas                                                                                   |
-| ---------- | ------ | ----------- | ---------------------------------------------------------------------------------------- |
-| `name`     | string | Sí          | `@NotNull`, máximo 30. No se valida unicidad.                                            |
-| `initials` | string | Sí          | `@NotNull`, máximo 10. No se normaliza a mayúsculas en el backend ni se valida unicidad. |
+| Campo      | Tipo    | Obligatorio | Reglas                                                                                   |
+| ---------- | ------- | ----------- | ---------------------------------------------------------------------------------------- |
+| `name`     | string  | Sí          | `@NotNull`, máximo 30. No se valida unicidad.                                            |
+| `initials` | string  | Sí          | `@NotNull`, máximo 10. No se normaliza a mayúsculas en el backend ni se valida unicidad. |
+| `isActive` | boolean | No          | Estado del catálogo. Si se omite al crear, el tipo nace **activo** (`true`).              |
 
-**Response:** `201 Created` con el `DocumentTypeDTO` (`id`, `name`, `initials`). El listado es público por configuración de seguridad, lo que permite poblar los formularios de registro e inicio de sesión sin sesión.
+**Response:** `201 Created` con el `DocumentTypeDTO` (`id`, `name`, `initials`, `isActive`). El listado es público por configuración de seguridad, lo que permite poblar los formularios de registro e inicio de sesión sin sesión.
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403` en escritura; `404`.
 
-**Notas / lo que se necesita:** el modelo `DocumentTypeDTO` **no tiene estado** activo/inactivo, así que no existen Desactivar/Reactivar. No se validan nombre ni iniciales duplicados (E1/E2) ni se bloquea el cambio de iniciales de un tipo en uso (E3) ni su eliminación (E4). Cualquier usuario autenticado puede listar tipos, y los GET son públicos.
+**Notas / lo que se necesita:** el `DocumentTypeDTO` ahora expone `isActive`; los tipos nuevos nacen activos (`true`) y el registro (UC001) rechaza los inactivos con `400 error.documentTypeInactive`. Al actualizar sin enviar `isActive`, el backend conserva el estado existente. Quedan pendientes las demás reglas de UC022: no se validan nombre ni iniciales duplicados (E1/E2), no se bloquea el cambio de iniciales de un tipo en uso (E3) ni su eliminación por uso (E4). Cualquier usuario autenticado puede listar tipos, y los GET son públicos.
 
 ---
 
