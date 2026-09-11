@@ -644,6 +644,10 @@ public class UserService {
             .flatMap(userRepository::findOneByLogin)
             .orElseThrow(() -> new BadRequestAlertException("Current user not found", "user", "notfound"));
 
+        if (accountUpdateVM.getDocumentTypeId() != null || accountUpdateVM.getDocumentNumber() != null) {
+            throw new BadRequestAlertException("The document cannot be modified", "userProfile", "documentimmutable");
+        }
+
         if (accountUpdateVM.getEmail() != null) {
             userRepository.findOneByEmailIgnoreCase(accountUpdateVM.getEmail()).ifPresent(existing -> {
                 if (!existing.getLogin().equalsIgnoreCase(user.getLogin())) {

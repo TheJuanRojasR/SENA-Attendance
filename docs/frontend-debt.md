@@ -148,6 +148,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 2   | `settings.reducer.ts` envía la actualización con `axios.post('api/account')`; el backend expone `PATCH /api/account`. Cambiar el método a `PATCH`.                                                                                                          | `Pendiente` |
 | 3   | Validar el teléfono en el cliente como **exactamente 10 dígitos**. El backend responde `400 error.validation` con `fieldErrors` sobre `phoneNumber` si llega con 9/11 dígitos o letras, y no persiste ningún cambio parcial.                                | `Pendiente` |
 | 4   | Para **limpiar** el segundo nombre o el segundo apellido, enviar cadena vacía (`""`): el backend persiste `null`. Omitir el campo lo deja sin cambios.                                                                                                      | `Pendiente` |
+| 5   | El documento (tipo + número) es **inmutable**: **no enviar** `documentTypeId` ni `documentNumber` en el `PATCH`. Si el backend los recibe, responde `400 error.documentimmutable` (E3). Mapear esa clave a "Este dato no puede modificarse".                | `Pendiente` |
 
 ---
 
@@ -197,6 +198,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                               | Inicio de sesión (UC002-E2).           |
 | `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                               | Cambio de contraseña (UC002/UC003-E4). |
 | `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                               | Cambio de contraseña (UC003-E6).       |
+| `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).          |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.           |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

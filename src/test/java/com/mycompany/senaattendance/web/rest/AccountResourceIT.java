@@ -753,6 +753,57 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser("save-account-document-number")
+    void testSaveAccountDocumentNumberImmutable() throws Exception {
+        User user = persistedAccountUser("save-account-document-number");
+        UserProfile profile = persistedAccountProfile(user, "SAVEDOCN1");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setFirstName("Changed");
+        updateVM.setDocumentNumber("9999999999");
+
+        // Manipulating the request with a document number must be rejected (E3).
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentimmutable"));
+
+        // The rejection happens before any write: document and other fields stay untouched.
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getId()).isEqualTo(profile.getId());
+        assertThat(unchangedProfile.getDocumentNumber()).isEqualTo("SAVEDOCN1");
+        assertThat(unchangedProfile.getFirstName()).isEqualTo("Juan");
+
+        userService.deleteUser("save-account-document-number");
+    }
+
+    @Test
+    @WithMockUser("save-account-document-type")
+    void testSaveAccountDocumentTypeImmutable() throws Exception {
+        User user = persistedAccountUser("save-account-document-type");
+        UserProfile profile = persistedAccountProfile(user, "SAVEDOCT1");
+        String originalDocumentTypeId = profile.getDocumentType().getId();
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setFirstName("Changed");
+        updateVM.setDocumentTypeId(secondDocumentTypeId());
+
+        // Manipulating the request with a document type must be rejected (E3).
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentimmutable"));
+
+        // The rejection happens before any write: document and other fields stay untouched.
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getId()).isEqualTo(profile.getId());
+        assertThat(unchangedProfile.getDocumentType().getId()).isEqualTo(originalDocumentTypeId);
+        assertThat(unchangedProfile.getFirstName()).isEqualTo("Juan");
+
+        userService.deleteUser("save-account-document-type");
+    }
+
+    @Test
     @WithMockUser("save-account-valid-phone")
     void testSaveAccountValidPhone() throws Exception {
         User user = persistedAccountUser("save-account-valid-phone");

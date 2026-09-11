@@ -24,6 +24,13 @@ public class AccountUpdateVM {
     @Pattern(regexp = "\\d{10}")
     private String phoneNumber;
 
+    // ----- DOCUMENT (IMMUTABLE) DETECTION FIELDS -----
+    // Optional on purpose: deserialization must accept them so the service can detect
+    // and reject an attempt to change the document (UC003-E3). They are never applied.
+    private String documentTypeId;
+
+    private String documentNumber;
+
     // ----- USER FIELDS -----
     @Email
     @Pattern(regexp = Constants.EMAIL_REGEX)
@@ -83,6 +90,22 @@ public class AccountUpdateVM {
 
     public void setPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
+    }
+
+    public String getDocumentTypeId() {
+        return documentTypeId;
+    }
+
+    public void setDocumentTypeId(String documentTypeId) {
+        this.documentTypeId = documentTypeId;
+    }
+
+    public String getDocumentNumber() {
+        return documentNumber;
+    }
+
+    public void setDocumentNumber(String documentNumber) {
+        this.documentNumber = documentNumber;
     }
 
     public String getEmail() {
