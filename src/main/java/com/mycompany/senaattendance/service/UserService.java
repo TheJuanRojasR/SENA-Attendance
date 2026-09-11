@@ -557,6 +557,7 @@ public class UserService {
                 }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
+                user.setMustChangePassword(false);
                 userRepository.save(user);
                 LOG.debug("Changed password for User: {}", user);
             });
@@ -646,6 +647,7 @@ public class UserService {
             }
 
             user.setPassword(passwordEncoder.encode(accountUpdateVM.getNewPassword()));
+            user.setMustChangePassword(false);
         }
 
         UserProfile userProfile = userProfileRepository

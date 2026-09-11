@@ -23,7 +23,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,33 +51,13 @@ public class AuthenticateController {
     @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds-for-remember-me:0}")
     private long tokenValidityInSecondsForRememberMe;
 
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
-
     private final PasswordEncoder passwordEncoder;
 
-    public AuthenticateController(
-        JwtEncoder jwtEncoder,
-        AuthenticationManagerBuilder authenticationManagerBuilder,
-        UserProfileRepository userProfileRepository,
-        PasswordEncoder passwordEncoder
-    ) {
+    public AuthenticateController(JwtEncoder jwtEncoder, UserProfileRepository userProfileRepository, PasswordEncoder passwordEncoder) {
         this.jwtEncoder = jwtEncoder;
-        this.authenticationManagerBuilder = authenticationManagerBuilder;
         this.userProfileRepository = userProfileRepository;
         this.passwordEncoder = passwordEncoder;
     }
-
-    //    @PostMapping("/authenticate")
-    //    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
-    //        var authenticationToken = new UsernamePasswordAuthenticationToken(loginVM.getDocumentNumber(), loginVM.getPassword());
-    //
-    //        var authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-    //        SecurityContextHolder.getContext().setAuthentication(authentication);
-    //        String jwt = this.createToken(authentication, loginVM.isRememberMe());
-    //        var httpHeaders = new HttpHeaders();
-    //        httpHeaders.setBearerAuth(jwt);
-    //        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
-    //    }
 
     @PostMapping("/authenticate")
     public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
@@ -117,7 +96,7 @@ public class AuthenticateController {
         var httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(jwt);
 
-        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+        return new ResponseEntity<>(new JWTToken(jwt, user.isMustChangePassword()), httpHeaders, HttpStatus.OK);
     }
 
     /**
@@ -164,8 +143,11 @@ public class AuthenticateController {
 
         private String idToken;
 
-        JWTToken(String idToken) {
+        private boolean mustChangePassword;
+
+        JWTToken(String idToken, boolean mustChangePassword) {
             this.idToken = idToken;
+            this.mustChangePassword = mustChangePassword;
         }
 
         @JsonProperty("id_token")
@@ -175,6 +157,15 @@ public class AuthenticateController {
 
         void setIdToken(String idToken) {
             this.idToken = idToken;
+        }
+
+        @JsonProperty("mustChangePassword")
+        boolean isMustChangePassword() {
+            return mustChangePassword;
+        }
+
+        void setMustChangePassword(boolean mustChangePassword) {
+            this.mustChangePassword = mustChangePassword;
         }
     }
 }

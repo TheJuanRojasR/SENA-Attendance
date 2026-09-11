@@ -83,6 +83,34 @@ class AuthenticateControllerIT {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id_token").isString())
             .andExpect(jsonPath("$.id_token").isNotEmpty())
+            .andExpect(jsonPath("$.mustChangePassword").value(false))
+            .andExpect(header().string("Authorization", not(nullValue())))
+            .andExpect(header().string("Authorization", not(is(emptyString()))));
+    }
+
+    @Test
+    void testAuthorizeWithMustChangePassword() throws Exception {
+        String suffix = uniqueSuffix();
+        String login = "auth-must-change-" + suffix;
+        String documentNumber = "10" + suffix;
+
+        User user = persistedUser(login, true);
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+        DocumentType documentType = seededDocumentType();
+        userProfileRepository.save(persistedProfile(user, documentType, documentNumber));
+
+        LoginVM loginVM = new LoginVM();
+        loginVM.setDocumentTypeId(documentType.getId());
+        loginVM.setDocumentNumber(documentNumber);
+        loginVM.setPassword(VALID_PASSWORD);
+
+        mockMvc
+            .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(loginVM)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id_token").isString())
+            .andExpect(jsonPath("$.id_token").isNotEmpty())
+            .andExpect(jsonPath("$.mustChangePassword").value(true))
             .andExpect(header().string("Authorization", not(nullValue())))
             .andExpect(header().string("Authorization", not(is(emptyString()))));
     }

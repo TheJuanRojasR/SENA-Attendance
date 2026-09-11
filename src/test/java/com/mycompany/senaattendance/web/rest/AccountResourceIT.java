@@ -775,6 +775,8 @@ class AccountResourceIT {
     @WithMockUser("save-account-change-password")
     void testSaveAccountChangePassword() throws Exception {
         User user = persistedAccountUser("save-account-change-password");
+        user.setMustChangePassword(true);
+        userRepository.save(user);
         persistedAccountProfile(user, "SAVEPW1");
 
         AccountUpdateVM updateVM = new AccountUpdateVM();
@@ -787,6 +789,7 @@ class AccountResourceIT {
 
         User updatedUser = userRepository.findOneByLogin("save-account-change-password").orElseThrow();
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
 
         userService.deleteUser("save-account-change-password");
     }
@@ -860,6 +863,32 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("change-password");
+    }
+
+    @Test
+    @WithMockUser("change-password-must-change")
+    void testChangePasswordClearsMustChangePassword() throws Exception {
+        User user = new User();
+        String currentPassword = RandomStringUtils.insecure().nextAlphanumeric(60);
+        user.setPassword(passwordEncoder.encode(currentPassword));
+        user.setLogin("change-password-must-change");
+        user.setEmail("change-password-must-change@example.com");
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/change-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "new password")))
+            )
+            .andExpect(status().isOk());
+
+        User updatedUser = userRepository.findOneByLogin("change-password-must-change").orElse(null);
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
+        assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("change-password-must-change");
     }
 
     @Test

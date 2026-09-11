@@ -163,15 +163,16 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 
 ```json
 {
-  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "mustChangePassword": false
 }
 ```
 
-La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta; `GET /api/account` responde `200` con un `AdminUserDTO` (campos `id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `authorities`).
+La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `mustChangePassword` viaja en el cuerpo del login (`true` en cuentas creadas por un Administrador que aún no cambiaron su contraseña; `false` en el resto). `POST /api/account/change-password` limpia el indicador a `false`; `GET /api/account` responde `200` con un `AdminUserDTO` (campos `id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `authorities`).
 
 **Errores:** `401 Unauthorized` sin cuerpo para documento inexistente, contraseña incorrecta o cuenta inactiva. `400 error.validation` si falta un campo obligatorio.
 
-**Notas / lo que se necesita:** el `AdminUserDTO` ya expone `mustChangePassword` (las cuentas creadas por un Administrador nacen en `true`; el auto-registro de UC001 y el reset de UC005 lo dejan en `false`), pero `POST /api/authenticate` todavía no lo devuelve ni existe el flujo de cambio obligatorio del UC; tampoco hay mensajes distintos para "credenciales incorrectas" y "cuenta inactiva": ambos responden `401` genérico. No hay bloqueo por intentos fallidos ni cierre por inactividad (consistente con el UC). `GET /api/account` devuelve solo datos de la cuenta (`AdminUserDTO`), no nombres, apellidos ni documento del perfil; no hay endpoint "perfil actual" (`por confirmar` cómo lo resuelve el frontend).
+**Notas / lo que se necesita:** `POST /api/authenticate` ya devuelve `mustChangePassword` en el cuerpo del login, además de exponerlo el `AdminUserDTO` (las cuentas creadas por un Administrador nacen en `true`; el auto-registro de UC001 y el reset de UC005 lo dejan en `false`). El cambio de contraseña (`POST /api/account/change-password` y `PATCH /api/account` cuando cambia la contraseña) limpia el indicador a `false`; el flujo de cambio obligatorio en el primer inicio queda a cargo del frontend. Tampoco hay mensajes distintos para "credenciales incorrectas" y "cuenta inactiva": ambos responden `401` genérico. No hay bloqueo por intentos fallidos ni cierre por inactividad (consistente con el UC). `GET /api/account` devuelve solo datos de la cuenta (`AdminUserDTO`), no nombres, apellidos ni documento del perfil; no hay endpoint "perfil actual" (`por confirmar` cómo lo resuelve el frontend).
 
 ---
 
@@ -236,7 +237,7 @@ Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o 
 
 **Errores:** `400` con tipo `invalid-password` y título "Incorrect password" si la contraseña actual no coincide o la nueva es inválida; `400 error.emailexists` si el correo pertenece a otra cuenta; `400 error.validation` con `fieldErrors`; `401` sin sesión válida.
 
-**Notas / lo que se necesita:** no se valida que la nueva contraseña sea distinta de la actual ni que cumpla la política en `change-password` (solo largo 4–20). El cambio de contraseña no cierra la sesión (el cierre voluntario del UC depende del cliente) y no existe `mustChangePassword`. `PATCH /api/account` no devuelve el perfil actualizado.
+**Notas / lo que se necesita:** no se valida que la nueva contraseña sea distinta de la actual ni que cumpla la política en `change-password` (solo largo 4–20). El cambio de contraseña no cierra la sesión (el cierre voluntario del UC depende del cliente) y limpia `mustChangePassword` a `false` tanto en `POST /api/account/change-password` como en `PATCH /api/account` cuando cambia la contraseña. `PATCH /api/account` no devuelve el perfil actualizado.
 
 ---
 
