@@ -126,12 +126,14 @@ public class UserService {
             throw new BadRequestAlertException("Email is required", "userManagement", "emailrequired");
         }
 
+        String documentNumber = userVM.getDocumentNumber().trim();
+
         // ------- RESOLVE DOCUMENT TYPE FIRST (login is derived from it) -------
         DocumentType documentType = documentTypeRepository
             .findById(userVM.getDocumentTypeId())
             .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
 
-        String login = buildLogin(documentType, userVM.getDocumentNumber());
+        String login = buildLogin(documentType, documentNumber);
 
         if (login.isEmpty()) {
             throw new IllegalArgumentException("Document number cannot be null or empty");
@@ -164,11 +166,7 @@ public class UserService {
         newUser.setEmail(userVM.getEmail().toLowerCase());
         newUser.setImageUrl(userVM.getImageUrl());
 
-        if (userVM.getLangKey() != null) {
-            newUser.setLangKey(Constants.DEFAULT_LANGUAGE);
-        } else {
-            newUser.setLangKey(userVM.getLangKey());
-        }
+        newUser.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
 
         newUser.setActivated(true);
         Set<Authority> authorities = new HashSet<>();
@@ -180,16 +178,20 @@ public class UserService {
         // ------- CREATE USER PROFILE -------
         UserProfile userProfile = new UserProfile();
 
-        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), userVM.getDocumentNumber()).isPresent()) {
+        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), documentNumber).isPresent()) {
             throw new DocumentNumberAlreadyUsedException("Document number is already in use for this document type");
         }
 
-        userProfile.setFirstName(userVM.getFirstName());
-        userProfile.setMiddleName(userVM.getMiddleName());
-        userProfile.setFirstLastName(userVM.getFirstLastName());
-        userProfile.setSecondLastName(userVM.getSecondLastName());
-        userProfile.setDocumentNumber(userVM.getDocumentNumber());
-        userProfile.setPhoneNumber(userVM.getPhoneNumber());
+        userProfile.setFirstName(userVM.getFirstName().trim());
+        if (userVM.getMiddleName() != null) {
+            userProfile.setMiddleName(userVM.getMiddleName().trim());
+        }
+        userProfile.setFirstLastName(userVM.getFirstLastName().trim());
+        if (userVM.getSecondLastName() != null) {
+            userProfile.setSecondLastName(userVM.getSecondLastName().trim());
+        }
+        userProfile.setDocumentNumber(documentNumber);
+        userProfile.setPhoneNumber(userVM.getPhoneNumber().trim());
 
         userProfile.setUser(newUser);
         userProfile.setDocumentType(documentType);

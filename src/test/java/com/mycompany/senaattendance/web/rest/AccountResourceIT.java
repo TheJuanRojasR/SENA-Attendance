@@ -328,6 +328,56 @@ class AccountResourceIT {
             .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void testRegisterLangKeyHonored() throws Exception {
+        String documentNumber = "1000000013";
+        ManagedUserVM validUser = validRegisterVM(documentNumber, "register-lang-key-honored@example.com");
+        validUser.setLangKey("en");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+            .andExpect(status().isCreated());
+
+        Optional<User> createdUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
+        assertThat(createdUser).isPresent();
+        assertThat(createdUser.orElseThrow().getLangKey()).isEqualTo("en");
+    }
+
+    @Test
+    void testRegisterLangKeyDefaultsWhenNull() throws Exception {
+        String documentNumber = "1000000014";
+        ManagedUserVM validUser = validRegisterVM(documentNumber, "register-lang-key-default@example.com");
+        validUser.setLangKey(null);
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+            .andExpect(status().isCreated());
+
+        Optional<User> createdUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
+        assertThat(createdUser).isPresent();
+        assertThat(createdUser.orElseThrow().getLangKey()).isEqualTo(Constants.DEFAULT_LANGUAGE);
+    }
+
+    @Test
+    void testRegisterTrimsPersistedNames() throws Exception {
+        String documentNumber = "1000000015";
+        ManagedUserVM validUser = validRegisterVM(documentNumber, "register-trimmed-names@example.com");
+        validUser.setFirstName("  Juan  ");
+        validUser.setMiddleName("  Carlos ");
+        validUser.setFirstLastName(" Perez  ");
+        validUser.setSecondLastName("  Gomez  ");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+            .andExpect(status().isCreated());
+
+        UserProfile createdProfile = userProfileRepository.findByDocumentNumber(documentNumber).orElseThrow();
+        assertThat(createdProfile.getFirstName()).isEqualTo("Juan");
+        assertThat(createdProfile.getMiddleName()).isEqualTo("Carlos");
+        assertThat(createdProfile.getFirstLastName()).isEqualTo("Perez");
+        assertThat(createdProfile.getSecondLastName()).isEqualTo("Gomez");
+    }
+
     private static ManagedUserVM createInvalidUser(String login, String password, String email, boolean activated) {
         ManagedUserVM invalidUser = new ManagedUserVM();
         invalidUser.setLogin(login);
