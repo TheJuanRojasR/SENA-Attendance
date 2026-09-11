@@ -149,6 +149,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 3   | Validar el teléfono en el cliente como **exactamente 10 dígitos**. El backend responde `400 error.validation` con `fieldErrors` sobre `phoneNumber` si llega con 9/11 dígitos o letras, y no persiste ningún cambio parcial.                                | `Pendiente` |
 | 4   | Para **limpiar** el segundo nombre o el segundo apellido, enviar cadena vacía (`""`): el backend persiste `null`. Omitir el campo lo deja sin cambios.                                                                                                      | `Pendiente` |
 | 5   | El documento (tipo + número) es **inmutable**: **no enviar** `documentTypeId` ni `documentNumber` en el `PATCH`. Si el backend los recibe, responde `400 error.documentimmutable` (E3). Mapear esa clave a "Este dato no puede modificarse".                | `Pendiente` |
+| 6   | `imageUrl` ya **no se acepta** en `PATCH /api/account`: el backend lo **ignora** (no se persiste). No enviarlo en el formulario de autoedición.                                                                                                            | `Pendiente` |
 
 ---
 

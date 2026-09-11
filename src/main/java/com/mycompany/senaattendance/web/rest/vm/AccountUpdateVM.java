@@ -41,9 +41,6 @@ public class AccountUpdateVM {
 
     private String newPassword;
 
-    @Size(max = 256)
-    private String imageUrl;
-
     @Size(min = 2, max = 10)
     private String langKey;
 
@@ -128,14 +125,6 @@ public class AccountUpdateVM {
 
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
     }
 
     public String getLangKey() {

@@ -754,6 +754,31 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser("save-account-image-url-ignored")
+    void testSaveAccountIgnoresImageUrl() throws Exception {
+        User user = persistedAccountUser("save-account-image-url-ignored");
+        String originalImageUrl = "http://original.example.com/avatar.png";
+        user.setImageUrl(originalImageUrl);
+        userRepository.save(user);
+        persistedAccountProfile(user, "SAVEIMG1");
+
+        // imageUrl is no longer part of the self-service contract: it must be ignored by
+        // deserialization and never reach the persisted User.imageUrl.
+        restAccountMockMvc
+            .perform(
+                patch("/api/account")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"imageUrl\":\"http://attacker.example.com/avatar.png\"}")
+            )
+            .andExpect(status().isOk());
+
+        User unchangedUser = userRepository.findOneByLogin("save-account-image-url-ignored").orElseThrow();
+        assertThat(unchangedUser.getImageUrl()).isEqualTo(originalImageUrl);
+
+        userService.deleteUser("save-account-image-url-ignored");
+    }
+
+    @Test
     @WithMockUser("save-account-document-number")
     void testSaveAccountDocumentNumberImmutable() throws Exception {
         User user = persistedAccountUser("save-account-document-number");

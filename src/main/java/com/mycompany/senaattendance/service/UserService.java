@@ -532,27 +532,6 @@ public class UserService {
         );
     }
 
-    /**
-     * Update basic information (email, language) for the current user.
-     *
-     * @param email     email id of user.
-     * @param langKey   language key.
-     * @param imageUrl  image URL of user.
-     */
-    public void updateUser(String email, String langKey, String imageUrl) {
-        SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .ifPresent(user -> {
-                if (email != null) {
-                    user.setEmail(email.toLowerCase());
-                }
-                user.setLangKey(langKey);
-                user.setImageUrl(imageUrl);
-                userRepository.save(user);
-                LOG.debug("Changed Information for User: {}", user);
-            });
-    }
-
     public void changePassword(String currentClearTextPassword, String newPassword) {
         SecurityUtils.getCurrentUserLogin()
             .flatMap(userRepository::findOneByLogin)
@@ -634,7 +613,7 @@ public class UserService {
 
     /**
      * Updates the current user's own account information:
-     * email, langKey, imageUrl and the associated UserProfile names/phone.
+     * email, langKey and the associated UserProfile names/phone.
      * Optionally changes the password when newPassword is provided.
      */
     public void updateOwnAccount(AccountUpdateVM accountUpdateVM) {
@@ -660,10 +639,6 @@ public class UserService {
 
         if (accountUpdateVM.getLangKey() != null) {
             user.setLangKey(accountUpdateVM.getLangKey());
-        }
-
-        if (accountUpdateVM.getImageUrl() != null) {
-            user.setImageUrl(accountUpdateVM.getImageUrl());
         }
 
         if (StringUtils.isNotBlank(accountUpdateVM.getNewPassword())) {

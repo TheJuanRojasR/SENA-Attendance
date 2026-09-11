@@ -215,10 +215,9 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 | `email`           | string | No          | `@Email`, 5–254; debe ser único.                                                                  |
 | `currentPassword` | string | Condicional | Obligatoria si se envía `newPassword`; se compara contra la vigente y un valor incorrecto responde `400 error.currentpasswordinvalid` (E4). |
 | `newPassword`     | string | No          | 8–20; debe cumplir mayúscula, minúscula, número y carácter especial, y ser distinta de la actual. |
-| `imageUrl`        | string | No          | máximo 256.                                                                                       |
 | `langKey`         | string | No          | 2–10.                                                                                             |
 
-Campos no enviados quedan sin cambios. Los campos opcionales `middleName` y `secondLastName` se **limpian** enviando una cadena vacía (`""`); el servicio los persiste como `null`. El documento (tipo + número) es **inmutable**: el cliente **no debe enviar** `documentTypeId` ni `documentNumber`. Si llega cualquiera de ellos, el backend rechaza la operación con `400 error.documentimmutable` (E3) sin persistir ningún cambio.
+Campos no enviados quedan sin cambios. Los campos opcionales `middleName` y `secondLastName` se **limpian** enviando una cadena vacía (`""`); el servicio los persiste como `null`. El documento (tipo + número) es **inmutable**: el cliente **no debe enviar** `documentTypeId` ni `documentNumber`. Si llega cualquiera de ellos, el backend rechaza la operación con `400 error.documentimmutable` (E3) sin persistir ningún cambio. `imageUrl` ya no forma parte de este contrato: el cliente **no debe enviarlo** y, si llega, el backend lo **ignora** (no se persiste).
 
 **Request — `POST /api/account/change-password`**
 
