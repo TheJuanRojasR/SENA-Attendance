@@ -11,16 +11,17 @@ public class AccountUpdateVM {
     @Size(min = 1, max = 30)
     private String firstName;
 
-    @Size(min = 1, max = 30)
+    @Size(max = 30)
     private String middleName;
 
     @Size(min = 1, max = 30)
     private String firstLastName;
 
-    @Size(min = 1, max = 30)
+    @Size(max = 30)
     private String secondLastName;
 
     @Size(min = 1, max = 30)
+    @Pattern(regexp = "\\d{10}")
     private String phoneNumber;
 
     // ----- USER FIELDS -----

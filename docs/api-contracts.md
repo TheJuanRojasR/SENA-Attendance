@@ -208,17 +208,17 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 | Campo             | Tipo   | Obligatorio | Reglas                                                                                            |
 | ----------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------- |
 | `firstName`       | string | No          | 1–30; si se envía, actualiza.                                                                     |
-| `middleName`      | string | No          | 1–30; si se envía, actualiza.                                                                     |
+| `middleName`      | string | No          | máximo 30; si se envía vacío o solo espacios, se limpia (queda `null`); si se omite, no cambia.    |
 | `firstLastName`   | string | No          | 1–30; si se envía, actualiza.                                                                     |
-| `secondLastName`  | string | No          | 1–30; si se envía, actualiza.                                                                     |
-| `phoneNumber`     | string | No          | 1–30; el patrón de 10 dígitos no se revalida aquí.                                                |
+| `secondLastName`  | string | No          | máximo 30; si se envía vacío o solo espacios, se limpia (queda `null`); si se omite, no cambia.    |
+| `phoneNumber`     | string | No          | `@Pattern(\d{10})`: exactamente 10 dígitos; si se omite, no cambia.                               |
 | `email`           | string | No          | `@Email`, 5–254; debe ser único.                                                                  |
 | `currentPassword` | string | Condicional | 8–20; obligatoria si se envía `newPassword`.                                                      |
 | `newPassword`     | string | No          | 8–20; debe cumplir mayúscula, minúscula, número y carácter especial, y ser distinta de la actual. |
 | `imageUrl`        | string | No          | máximo 256.                                                                                       |
 | `langKey`         | string | No          | 2–10.                                                                                             |
 
-Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o `documentNumber` no se procesa: el VM no los expone y se descartan como propiedades desconocidas.
+Campos no enviados quedan sin cambios. Los campos opcionales `middleName` y `secondLastName` se **limpian** enviando una cadena vacía (`""`); el servicio los persiste como `null`. Un intento de incluir `documentTypeId` o `documentNumber` no se procesa: el VM no los expone y se descartan como propiedades desconocidas.
 
 **Request — `POST /api/account/change-password`**
 
@@ -263,7 +263,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Errores:** `400 error.currentpasswordinvalid` si la contraseña actual no coincide o está ausente (E4); `400` con tipo `invalid-password` y título "Incorrect password" (`message: error.http.400`) si la nueva no cumple la política de complejidad (E5: 8–20 con mayúscula, minúscula, número y carácter especial); `400 error.samepassword` si la nueva es igual a la actual (E6); `400 error.emailexists` si el correo pertenece a otra cuenta; `400 error.validation` con `fieldErrors`; `401` sin sesión válida.
 
-**Notas / lo que se necesita:** ambas rutas de cambio de contraseña (`POST /api/account/change-password` y el bloque de contraseña de `PATCH /api/account`) validan la contraseña actual (E4), la política completa (E5) y que la nueva sea distinta de la actual (E6). La validación de longitud superficial de la ruta `change-password` se mantiene antes de invocar al servicio. El cambio de contraseña no cierra la sesión (el cierre voluntario del UC depende del cliente) y limpia `mustChangePassword` a `false` tanto en `POST /api/account/change-password` como en `PATCH /api/account` cuando cambia la contraseña. `PATCH /api/account` no devuelve el perfil actualizado; el frontend precarga el formulario de edición con `GET /api/account/profile`.
+**Notas / lo que se necesita:** ambas rutas de cambio de contraseña (`POST /api/account/change-password` y el bloque de contraseña de `PATCH /api/account`) validan la contraseña actual (E4), la política completa (E5) y que la nueva sea distinta de la actual (E6). La validación de longitud superficial de la ruta `change-password` se mantiene antes de invocar al servicio. El cambio de contraseña no cierra la sesión (el cierre voluntario del UC depende del cliente) y limpia `mustChangePassword` a `false` tanto en `POST /api/account/change-password` como en `PATCH /api/account` cuando cambia la contraseña. `PATCH /api/account` no devuelve el perfil actualizado; el frontend precarga el formulario de edición con `GET /api/account/profile`. Cuando se envía `phoneNumber`, debe tener **exactamente 10 dígitos**: un valor de 9 u 11 dígitos, o con letras, responde `400 error.validation` con `fieldErrors` sobre `phoneNumber` (lo valida el VM antes de invocar al servicio, por lo que no se persiste ningún cambio parcial).
 
 ---
 

@@ -699,11 +699,13 @@ public class UserService {
         }
 
         if (accountUpdateVM.getMiddleName() != null) {
-            userProfile.setMiddleName(accountUpdateVM.getMiddleName().trim());
+            String middleName = accountUpdateVM.getMiddleName().trim();
+            userProfile.setMiddleName(middleName.isEmpty() ? null : middleName);
         }
 
         if (accountUpdateVM.getSecondLastName() != null) {
-            userProfile.setSecondLastName(accountUpdateVM.getSecondLastName().trim());
+            String secondLastName = accountUpdateVM.getSecondLastName().trim();
+            userProfile.setSecondLastName(secondLastName.isEmpty() ? null : secondLastName);
         }
 
         userRepository.save(user);

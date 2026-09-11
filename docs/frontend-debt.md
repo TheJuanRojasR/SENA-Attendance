@@ -146,6 +146,8 @@ Claves `error.*` verificadas contra los archivos actuales:
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | 1   | Precargar el formulario de edición con `GET /api/account/profile`, que devuelve nombres, tipo y número de documento, teléfono y correo del usuario autenticado. `GET /api/account` no incluye esos campos del perfil.                                        | `Pendiente` |
 | 2   | `settings.reducer.ts` envía la actualización con `axios.post('api/account')`; el backend expone `PATCH /api/account`. Cambiar el método a `PATCH`.                                                                                                          | `Pendiente` |
+| 3   | Validar el teléfono en el cliente como **exactamente 10 dígitos**. El backend responde `400 error.validation` con `fieldErrors` sobre `phoneNumber` si llega con 9/11 dígitos o letras, y no persiste ningún cambio parcial.                                | `Pendiente` |
+| 4   | Para **limpiar** el segundo nombre o el segundo apellido, enviar cadena vacía (`""`): el backend persiste `null`. Omitir el campo lo deja sin cambios.                                                                                                      | `Pendiente` |
 
 ---
 

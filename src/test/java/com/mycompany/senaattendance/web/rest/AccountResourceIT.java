@@ -753,6 +753,91 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser("save-account-valid-phone")
+    void testSaveAccountValidPhone() throws Exception {
+        User user = persistedAccountUser("save-account-valid-phone");
+        persistedAccountProfile(user, "SAVEPH1");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setPhoneNumber("3105551234"); // exactly 10 digits -> valid
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isOk());
+
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getPhoneNumber()).isEqualTo("3105551234");
+
+        userService.deleteUser("save-account-valid-phone");
+    }
+
+    @Test
+    @WithMockUser("save-account-short-phone")
+    void testSaveAccountPhoneTooShort() throws Exception {
+        User user = persistedAccountUser("save-account-short-phone");
+        persistedAccountProfile(user, "SAVEPH2");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setPhoneNumber("310555123"); // 9 digits -> fails @Pattern("\\d{10}")
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("phoneNumber"));
+
+        // rejected before the service runs -> persisted value is untouched
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getPhoneNumber()).isEqualTo("3001234567");
+
+        userService.deleteUser("save-account-short-phone");
+    }
+
+    @Test
+    @WithMockUser("save-account-nonnumeric-phone")
+    void testSaveAccountPhoneNonNumeric() throws Exception {
+        User user = persistedAccountUser("save-account-nonnumeric-phone");
+        persistedAccountProfile(user, "SAVEPH3");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setPhoneNumber("31055A1234"); // non-numeric -> fails @Pattern("\\d{10}")
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("phoneNumber"));
+
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getPhoneNumber()).isEqualTo("3001234567");
+
+        userService.deleteUser("save-account-nonnumeric-phone");
+    }
+
+    @Test
+    @WithMockUser("save-account-clear-optional-names")
+    void testSaveAccountClearOptionalNames() throws Exception {
+        User user = persistedAccountUser("save-account-clear-optional-names");
+        UserProfile profile = persistedAccountProfile(user, "SAVENA1");
+        assertThat(profile.getMiddleName()).isEqualTo("Carlos");
+        assertThat(profile.getSecondLastName()).isEqualTo("Gomez");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setMiddleName("");
+        updateVM.setSecondLastName("");
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isOk());
+
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getMiddleName()).isNull();
+        assertThat(updatedProfile.getSecondLastName()).isNull();
+
+        userService.deleteUser("save-account-clear-optional-names");
+    }
+
+    @Test
     @WithMockUser("save-invalid-email-user")
     void testSaveInvalidEmail() throws Exception {
         User user = persistedAccountUser("save-invalid-email-user");
