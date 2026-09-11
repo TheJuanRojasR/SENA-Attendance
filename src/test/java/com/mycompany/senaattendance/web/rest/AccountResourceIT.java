@@ -1369,7 +1369,7 @@ class AccountResourceIT {
 
         KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
         keyAndPassword.setKey(user.getResetKey());
-        keyAndPassword.setNewPassword("new password");
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
 
         restAccountMockMvc
             .perform(
@@ -1383,6 +1383,36 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("finish-password-reset");
+    }
+
+    @Test
+    void testFinishPasswordResetWithWeakPassword() throws Exception {
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-weak");
+        user.setEmail("finish-password-reset-weak@example.com");
+        user.setResetDate(Instant.now().plusSeconds(60));
+        user.setResetKey("reset key weak");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setKey(user.getResetKey());
+        // Length-valid (8) but class-invalid: no uppercase, lowercase or special character.
+        keyAndPassword.setNewPassword("12345678");
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
+
+        User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
+        assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isFalse();
+
+        userService.deleteUser("finish-password-reset-weak");
     }
 
     @Test

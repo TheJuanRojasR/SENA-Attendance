@@ -111,6 +111,9 @@ public class UserService {
             .findOneByResetKey(key)
             .filter(user -> user.getResetDate().isAfter(Instant.now().minus(RESET_KEY_VALIDITY_MINUTES, ChronoUnit.MINUTES)))
             .map(user -> {
+                if (!PASSWORD_PATTERN.matcher(newPassword).matches()) {
+                    throw new InvalidPasswordException();
+                }
                 user.setPassword(passwordEncoder.encode(newPassword));
                 user.setResetKey(null);
                 user.setResetDate(null);

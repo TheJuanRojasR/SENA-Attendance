@@ -172,6 +172,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | #   | Ítem                                                                                                                                                                            | Estado      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | 1   | **E3 — Enlace expirado:** si el usuario abre el enlace después de los **30 minutos**, mostrar "El enlace ha expirado, solicita uno nuevo" y redirigirlo al paso 1 (solicitud). | `Pendiente` |
+| 2   | **E2 — Contraseña débil:** si la nueva contraseña no cumple la política completa (8–20 con mayúscula, minúscula, número y carácter especial), el backend responde `400` con `error.invalidpassword`. Mostrar "Contraseña no válida" y conservar el enlace para reintentar. | `Pendiente` |
 
 ---
 
@@ -219,7 +220,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                               | Inicio de sesión (UC002-E2).                          |
 | `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                               | Cambio de contraseña (UC002/UC003-E4).                |
 | `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                               | Cambio de contraseña (UC003-E6).                      |
-| `error.invalidpassword`        | "Contraseña no válida."                                                                             | Cambio de contraseña y registro (UC003-E5, UC001-E1). |
+| `error.invalidpassword`        | "Contraseña no válida."                                                                             | Cambio de contraseña y registro (UC003-E5, UC001-E1) y reset (UC005-E2). |
 | `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).                         |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
