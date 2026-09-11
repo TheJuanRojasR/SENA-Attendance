@@ -553,7 +553,17 @@ public class UserService {
             .ifPresent(user -> {
                 String currentEncryptedPassword = user.getPassword();
                 if (!passwordEncoder.matches(currentClearTextPassword, currentEncryptedPassword)) {
+                    throw new BadRequestAlertException("Current password is incorrect", "userManagement", "currentpasswordinvalid");
+                }
+                if (!PASSWORD_PATTERN.matcher(newPassword).matches()) {
                     throw new InvalidPasswordException();
+                }
+                if (passwordEncoder.matches(newPassword, currentEncryptedPassword)) {
+                    throw new BadRequestAlertException(
+                        "New password must be different from the current one",
+                        "userManagement",
+                        "samepassword"
+                    );
                 }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
@@ -639,11 +649,15 @@ public class UserService {
                 StringUtils.isBlank(accountUpdateVM.getCurrentPassword()) ||
                 !passwordEncoder.matches(accountUpdateVM.getCurrentPassword(), user.getPassword())
             ) {
-                throw new InvalidPasswordException();
+                throw new BadRequestAlertException("Current password is incorrect", "userManagement", "currentpasswordinvalid");
             }
 
             if (!PASSWORD_PATTERN.matcher(accountUpdateVM.getNewPassword()).matches()) {
                 throw new InvalidPasswordException();
+            }
+
+            if (passwordEncoder.matches(accountUpdateVM.getNewPassword(), user.getPassword())) {
+                throw new BadRequestAlertException("New password must be different from the current one", "userManagement", "samepassword");
             }
 
             user.setPassword(passwordEncoder.encode(accountUpdateVM.getNewPassword()));

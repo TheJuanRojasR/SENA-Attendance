@@ -804,16 +804,39 @@ class AccountResourceIT {
         updateVM.setCurrentPassword("WrongPassw0rd!");
         updateVM.setNewPassword("NewPassw0rd!");
 
-        // wrong currentPassword -> InvalidPasswordException (400), password must not change
+        // wrong currentPassword -> BadRequestAlertException (400, error.currentpasswordinvalid), password must not change
         restAccountMockMvc
             .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.currentpasswordinvalid"));
 
         User updatedUser = userRepository.findOneByLogin("save-account-change-password-wrong").orElseThrow();
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("save-account-change-password-wrong");
+    }
+
+    @Test
+    @WithMockUser("save-account-change-password-same")
+    void testSaveAccountChangePasswordSameAsCurrent() throws Exception {
+        User user = persistedAccountUser("save-account-change-password-same");
+        persistedAccountProfile(user, "SAVEPW3");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword(VALID_PASSWORD);
+        updateVM.setNewPassword(VALID_PASSWORD);
+
+        // new password equals the current one -> BadRequestAlertException (400, error.samepassword)
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.samepassword"));
+
+        User updatedUser = userRepository.findOneByLogin("save-account-change-password-same").orElseThrow();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-change-password-same");
     }
 
     @Test
@@ -832,7 +855,8 @@ class AccountResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(new PasswordChangeDTO("1" + currentPassword, "new password")))
             )
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.currentpasswordinvalid"));
 
         User updatedUser = userRepository.findOneByLogin("change-password-wrong-existing-password").orElse(null);
         assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isFalse();
@@ -855,14 +879,64 @@ class AccountResourceIT {
             .perform(
                 post("/api/account/change-password")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "new password")))
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "NewPassw0rd!")))
             )
             .andExpect(status().isOk());
 
         User updatedUser = userRepository.findOneByLogin("change-password").orElse(null);
-        assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isTrue();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("change-password");
+    }
+
+    @Test
+    @WithMockUser("change-password-policy")
+    void testChangePasswordPolicyViolationLengthValid() throws Exception {
+        User user = new User();
+        String currentPassword = RandomStringUtils.insecure().nextAlphanumeric(60);
+        user.setPassword(passwordEncoder.encode(currentPassword));
+        user.setLogin("change-password-policy");
+        user.setEmail("change-password-policy@example.com");
+        userRepository.save(user);
+
+        // 8 chars (length-valid) but missing uppercase/special chars -> policy violation (E5)
+        restAccountMockMvc
+            .perform(
+                post("/api/account/change-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "12345678")))
+            )
+            .andExpect(status().isBadRequest());
+
+        User updatedUser = userRepository.findOneByLogin("change-password-policy").orElse(null);
+        assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
+
+        userService.deleteUser("change-password-policy");
+    }
+
+    @Test
+    @WithMockUser("change-password-same")
+    void testChangePasswordSameAsCurrent() throws Exception {
+        User user = new User();
+        user.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        user.setLogin("change-password-same");
+        user.setEmail("change-password-same@example.com");
+        userRepository.save(user);
+
+        // new password equals the current one -> BadRequestAlertException (E6, error.samepassword)
+        restAccountMockMvc
+            .perform(
+                post("/api/account/change-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(VALID_PASSWORD, VALID_PASSWORD)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.samepassword"));
+
+        User updatedUser = userRepository.findOneByLogin("change-password-same").orElse(null);
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("change-password-same");
     }
 
     @Test
@@ -880,13 +954,13 @@ class AccountResourceIT {
             .perform(
                 post("/api/account/change-password")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "new password")))
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "NewPassw0rd!")))
             )
             .andExpect(status().isOk());
 
         User updatedUser = userRepository.findOneByLogin("change-password-must-change").orElse(null);
         assertThat(updatedUser.isMustChangePassword()).isFalse();
-        assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isTrue();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("change-password-must-change");
     }

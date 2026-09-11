@@ -183,6 +183,8 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.validation`             | "Error de validación en el servidor." (mantener; el detalle va por `fieldErrors`).        | Registro y demás formularios.      |
 | `error.badcredentials`         | "Tipo o número de documento o contraseña incorrectos."                                    | Inicio de sesión (UC002-E1).       |
 | `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                     | Inicio de sesión (UC002-E2).       |
+| `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                     | Cambio de contraseña (UC002/UC003-E4). |
+| `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                     | Cambio de contraseña (UC003-E6).   |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo). | Toast de éxito del registro.     |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
