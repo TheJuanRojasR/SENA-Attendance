@@ -134,6 +134,49 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser(TEST_USER_LOGIN)
+    void testGetCurrentUserProfile() throws Exception {
+        // The user's login is fixed (not derived) so the @WithMockUser principal matches.
+        User accountUser = new User();
+        accountUser.setLogin(TEST_USER_LOGIN);
+        accountUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        accountUser.setEmail("john.doe@jhipster.com");
+        accountUser.setLangKey("en");
+        accountUser.setActivated(true);
+        userRepository.save(accountUser);
+
+        userProfileRepository.save(
+            new UserProfile()
+                .firstName("John")
+                .middleName("Michael")
+                .firstLastName("Doe")
+                .secondLastName("Smith")
+                .documentNumber(TEST_USER_LOGIN)
+                .phoneNumber("3000000000")
+                .user(accountUser)
+                .documentType(seededDocumentType())
+        );
+
+        restAccountMockMvc
+            .perform(get("/api/account/profile").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.firstName").value("John"))
+            .andExpect(jsonPath("$.firstLastName").value("Doe"))
+            .andExpect(jsonPath("$.documentNumber").value(TEST_USER_LOGIN))
+            .andExpect(jsonPath("$.phoneNumber").value("3000000000"))
+            .andExpect(jsonPath("$.documentType.id").exists())
+            .andExpect(jsonPath("$.user.login").value(TEST_USER_LOGIN))
+            .andExpect(jsonPath("$.user.email").value("john.doe@jhipster.com"));
+    }
+
+    @Test
+    @WithUnauthenticatedMockUser
+    void testGetCurrentUserProfileUnauthenticated() throws Exception {
+        restAccountMockMvc.perform(get("/api/account/profile").accept(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void testGetUnknownAccount() throws Exception {
         restAccountMockMvc.perform(get("/api/account").accept(MediaType.APPLICATION_PROBLEM_JSON)).andExpect(status().isUnauthorized());
     }

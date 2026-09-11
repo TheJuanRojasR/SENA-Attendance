@@ -172,7 +172,7 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 
 **Errores:** `401 Unauthorized` con cuerpo `{"message": "error.badcredentials"}` para tipo o número de documento inexistente, relación de usuario ausente o contraseña incorrecta (E1; una misma clave para los tres casos, para no revelar cuál falló). `401` con `{"message": "error.accountinactive"}` para una cuenta desactivada (E2). `400 error.validation` si falta un campo obligatorio. Un token inválido o expirado en un endpoint autenticado sigue respondiendo `401` sin clave de negocio (E3); el frontend deriva la expiración del propio token (`WWW-Authenticate` / `exp`).
 
-**Notas / lo que se necesita:** `POST /api/authenticate` ya devuelve `mustChangePassword` en el cuerpo del login, además de exponerlo el `AdminUserDTO` (las cuentas creadas por un Administrador nacen en `true`; el auto-registro de UC001 y el reset de UC005 lo dejan en `false`). El cambio de contraseña (`POST /api/account/change-password` y `PATCH /api/account` cuando cambia la contraseña) limpia el indicador a `false`; el flujo de cambio obligatorio en el primer inicio queda a cargo del frontend. El login ahora distingue credenciales inválidas (`error.badcredentials`, E1) de cuenta inactiva (`error.accountinactive`, E2) mediante la clave de negocio en el cuerpo; la respuesta de E1 es intencionalmente genérica para no filtrar si el documento existe. No hay bloqueo por intentos fallidos ni cierre por inactividad (consistente con el UC). `GET /api/account` devuelve solo datos de la cuenta (`AdminUserDTO`), no nombres, apellidos ni documento del perfil; no hay endpoint "perfil actual" (`por confirmar` cómo lo resuelve el frontend).
+**Notas / lo que se necesita:** `POST /api/authenticate` ya devuelve `mustChangePassword` en el cuerpo del login, además de exponerlo el `AdminUserDTO` (las cuentas creadas por un Administrador nacen en `true`; el auto-registro de UC001 y el reset de UC005 lo dejan en `false`). El cambio de contraseña (`POST /api/account/change-password` y `PATCH /api/account` cuando cambia la contraseña) limpia el indicador a `false`; el flujo de cambio obligatorio en el primer inicio queda a cargo del frontend. El login ahora distingue credenciales inválidas (`error.badcredentials`, E1) de cuenta inactiva (`error.accountinactive`, E2) mediante la clave de negocio en el cuerpo; la respuesta de E1 es intencionalmente genérica para no filtrar si el documento existe. No hay bloqueo por intentos fallidos ni cierre por inactividad (consistente con el UC). `GET /api/account` devuelve solo datos de la cuenta (`AdminUserDTO`), no nombres, apellidos ni documento del perfil; los datos del perfil (nombres, tipo y número de documento, teléfono y correo) se consultan con `GET /api/account/profile` (UC003).
 
 ---
 
@@ -184,10 +184,11 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 
 **Endpoints:**
 
-| Método | Ruta                           | Acceso      | Descripción                                                                   |
-| ------ | ------------------------------ | ----------- | ----------------------------------------------------------------------------- |
-| PATCH  | `/api/account`                 | Autenticado | Actualiza datos del perfil y, opcionalmente, la contraseña. `200` sin cuerpo. |
-| POST   | `/api/account/change-password` | Autenticado | Cambia la contraseña validando la actual. `200` sin cuerpo.                   |
+| Método | Ruta                           | Acceso      | Descripción                                                                                                     |
+| ------ | ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/account/profile`         | Autenticado | Devuelve el perfil del usuario autenticado para precargar el formulario. `200` con el perfil; `404` si no existe. |
+| PATCH  | `/api/account`                 | Autenticado | Actualiza datos del perfil y, opcionalmente, la contraseña. `200` sin cuerpo.                                   |
+| POST   | `/api/account/change-password` | Autenticado | Cambia la contraseña validando la actual. `200` sin cuerpo.                                                     |
 
 **Request — `PATCH /api/account`**
 
@@ -235,9 +236,34 @@ Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o 
 
 **Response:** `200 OK` sin cuerpo en ambos endpoints.
 
+**Response — `GET /api/account/profile`**
+
+```json
+{
+  "id": "6b1d5c...",
+  "firstName": "Ana",
+  "middleName": "María",
+  "firstLastName": "Gómez",
+  "secondLastName": "Ríos",
+  "documentNumber": "1000000001",
+  "phoneNumber": "3001234567",
+  "user": {
+    "id": "5f2a...",
+    "login": "cc_1000000001",
+    "email": "ana.gomez@example.com"
+  },
+  "documentType": {
+    "id": "dt-cc",
+    "name": "Cédula de ciudadanía"
+  }
+}
+```
+
+El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.getCurrentUserLogin()` → usuario → `UserProfileRepository.findOneByUserId`), nunca desde un parámetro de la solicitud. El bloque `user` anida `id`, `login` y `email`. Responde `404` cuando la cuenta autenticada no tiene perfil asociado.
+
 **Errores:** `400 error.currentpasswordinvalid` si la contraseña actual no coincide o está ausente (E4); `400` con tipo `invalid-password` y título "Incorrect password" (`message: error.http.400`) si la nueva no cumple la política de complejidad (E5: 8–20 con mayúscula, minúscula, número y carácter especial); `400 error.samepassword` si la nueva es igual a la actual (E6); `400 error.emailexists` si el correo pertenece a otra cuenta; `400 error.validation` con `fieldErrors`; `401` sin sesión válida.
 
-**Notas / lo que se necesita:** ambas rutas de cambio de contraseña (`POST /api/account/change-password` y el bloque de contraseña de `PATCH /api/account`) validan la contraseña actual (E4), la política completa (E5) y que la nueva sea distinta de la actual (E6). La validación de longitud superficial de la ruta `change-password` se mantiene antes de invocar al servicio. El cambio de contraseña no cierra la sesión (el cierre voluntario del UC depende del cliente) y limpia `mustChangePassword` a `false` tanto en `POST /api/account/change-password` como en `PATCH /api/account` cuando cambia la contraseña. `PATCH /api/account` no devuelve el perfil actualizado.
+**Notas / lo que se necesita:** ambas rutas de cambio de contraseña (`POST /api/account/change-password` y el bloque de contraseña de `PATCH /api/account`) validan la contraseña actual (E4), la política completa (E5) y que la nueva sea distinta de la actual (E6). La validación de longitud superficial de la ruta `change-password` se mantiene antes de invocar al servicio. El cambio de contraseña no cierra la sesión (el cierre voluntario del UC depende del cliente) y limpia `mustChangePassword` a `false` tanto en `POST /api/account/change-password` como en `PATCH /api/account` cuando cambia la contraseña. `PATCH /api/account` no devuelve el perfil actualizado; el frontend precarga el formulario de edición con `GET /api/account/profile`.
 
 ---
 

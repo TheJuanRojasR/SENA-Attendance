@@ -15,6 +15,8 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.UserDTO;
+import com.mycompany.senaattendance.service.dto.UserProfileDTO;
+import com.mycompany.senaattendance.service.mapper.UserProfileMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentNumberAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNotFoundException;
@@ -66,13 +68,16 @@ public class UserService {
 
     private final ClassSectionRepository classSectionRepository;
 
+    private final UserProfileMapper userProfileMapper;
+
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         AuthorityRepository authorityRepository,
         UserProfileRepository userProfileRepository,
         DocumentTypeRepository documentTypeRepository,
-        ClassSectionRepository classSectionRepository
+        ClassSectionRepository classSectionRepository,
+        UserProfileMapper userProfileMapper
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -80,6 +85,7 @@ public class UserService {
         this.userProfileRepository = userProfileRepository;
         this.documentTypeRepository = documentTypeRepository;
         this.classSectionRepository = classSectionRepository;
+        this.userProfileMapper = userProfileMapper;
     }
 
     public Optional<User> activateRegistration(String key) {
@@ -587,6 +593,18 @@ public class UserService {
 
     public Optional<User> getUserWithAuthorities() {
         return SecurityUtils.getCurrentUserLogin().flatMap(userRepository::findOneByLogin);
+    }
+
+    /**
+     * Gets the profile of the current authenticated user.
+     *
+     * @return the current user's profile, or empty when the user or their profile does not exist.
+     */
+    public Optional<UserProfileDTO> getCurrentUserProfile() {
+        LOG.debug("Request to get current user's profile");
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .flatMap(user -> userProfileRepository.findOneByUserId(user.getId()).map(userProfileMapper::toDto));
     }
 
     /**

@@ -138,13 +138,23 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC003 — Modificar datos
+
+**Estado del backend:** parcial. Ver [`docs/api-contracts.md#uc003--modificar-datos`](./api-contracts.md#uc003--modificar-datos).
+
+| #   | Ítem                                                                                                                                                                                                                                                       | Estado      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Precargar el formulario de edición con `GET /api/account/profile`, que devuelve nombres, tipo y número de documento, teléfono y correo del usuario autenticado. `GET /api/account` no incluye esos campos del perfil.                                        | `Pendiente` |
+| 2   | `settings.reducer.ts` envía la actualización con `axios.post('api/account')`; el backend expone `PATCH /api/account`. Cambiar el método a `PATCH`.                                                                                                          | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
 
 | UC    | Nombre                             | Contrato                                              |
 | ----- | ---------------------------------- | ----------------------------------------------------- |
-| UC003 | Modificar datos                    | [`docs/api-contracts.md`](./api-contracts.md) — UC003 |
 | UC004 | Cerrar sesión                      | [`docs/api-contracts.md`](./api-contracts.md) — UC004 |
 | UC005 | Recuperar contraseña               | [`docs/api-contracts.md`](./api-contracts.md) — UC005 |
 | UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006 |

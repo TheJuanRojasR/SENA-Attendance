@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
+import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
@@ -17,7 +18,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing the current user's account.
@@ -92,6 +95,16 @@ public class AccountResource {
             .getUserWithAuthorities()
             .map(AdminUserDTO::new)
             .orElseThrow(() -> new AccountResourceException("User could not be found"));
+    }
+
+    /**
+     * {@code GET  /account/profile} : get the profile of the current authenticated user.
+     *
+     * @return the current user's profile, resolved from the security context.
+     */
+    @GetMapping("/account/profile")
+    public ResponseEntity<UserProfileDTO> getCurrentUserProfile() {
+        return ResponseUtil.wrapOrNotFound(userService.getCurrentUserProfile());
     }
 
     /**
