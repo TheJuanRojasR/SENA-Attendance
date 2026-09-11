@@ -79,7 +79,7 @@ El backend responde `400` con `message: error.<clave>`; para validación de camp
 | `error.validation` + `fieldErrors` | Fallo de validación de uno o más campos.                              | Resaltar el campo específico usando `field` y su `message`.                | `Pendiente` |
 | Error de red (E4)                  | Sin conexión entre el envío y la creación; no se crea perfil parcial. | Mostrar "No se pudo completar el registro, intenta nuevamente".            | `Pendiente` |
 
-Nota: la política de contraseña incumplida responde `400` con tipo `invalid-password` (`message: error.http.400`); la UI debe traducirla a "Contraseña no válida" y no al genérico "Solicitud incorrecta".
+Nota: la política de contraseña incumplida responde `400` con tipo `invalid-password` y `message: error.invalidpassword`; la UI debe traducirla a "Contraseña no válida" y no al genérico "Solicitud incorrecta".
 
 ### e. Éxito
 
@@ -198,6 +198,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                               | Inicio de sesión (UC002-E2).           |
 | `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                               | Cambio de contraseña (UC002/UC003-E4). |
 | `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                               | Cambio de contraseña (UC003-E6).       |
+| `error.invalidpassword`        | "Contraseña no válida."                                                                             | Cambio de contraseña y registro (UC003-E5, UC001-E1). |
 | `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).          |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.           |
 

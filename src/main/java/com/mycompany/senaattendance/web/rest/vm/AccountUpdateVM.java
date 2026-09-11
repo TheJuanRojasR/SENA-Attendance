@@ -37,10 +37,8 @@ public class AccountUpdateVM {
     @Size(min = 5, max = 254)
     private String email;
 
-    @Size(min = 8, max = 20)
     private String currentPassword;
 
-    @Size(min = 8, max = 20)
     private String newPassword;
 
     @Size(max = 256)

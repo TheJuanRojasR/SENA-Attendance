@@ -246,7 +246,8 @@ class AccountResourceIT {
 
         restAccountMockMvc
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
 
         assertThat(userRepository.findOneByLogin(expectedLogin("1000000003"))).isEmpty();
     }
@@ -1019,6 +1020,52 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser("save-account-policy-password")
+    void testSaveAccountChangePasswordPolicyViolation() throws Exception {
+        User user = persistedAccountUser("save-account-policy-password");
+        persistedAccountProfile(user, "SAVEPW4");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword(VALID_PASSWORD);
+        updateVM.setNewPassword("12345678"); // 8 chars (length-valid) but missing classes -> E5
+
+        // the policy failure carries the dedicated business key instead of a generic error
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
+
+        User updatedUser = userRepository.findOneByLogin("save-account-policy-password").orElseThrow();
+        assertThat(passwordEncoder.matches("12345678", updatedUser.getPassword())).isFalse();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-policy-password");
+    }
+
+    @Test
+    @WithMockUser("save-account-short-current-password")
+    void testSaveAccountChangePasswordShortCurrentReachesService() throws Exception {
+        User user = persistedAccountUser("save-account-short-current-password");
+        persistedAccountProfile(user, "SAVEPW5");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword("abc"); // below the old @Size(8) floor -> must reach the service
+        updateVM.setNewPassword("NewPassw0rd!");
+
+        // removing the VM-level @Size turns this into E4 (error.currentpasswordinvalid), not error.validation
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.currentpasswordinvalid"));
+
+        User updatedUser = userRepository.findOneByLogin("save-account-short-current-password").orElseThrow();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-short-current-password");
+    }
+
+    @Test
     @WithMockUser("change-password-wrong-existing-password")
     void testChangePasswordWrongExistingPassword() throws Exception {
         User user = new User();
@@ -1085,7 +1132,8 @@ class AccountResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "12345678")))
             )
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
 
         User updatedUser = userRepository.findOneByLogin("change-password-policy").orElse(null);
         assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
