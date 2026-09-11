@@ -142,14 +142,26 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 **Estado del backend:** parcial. Ver [`docs/api-contracts.md#uc003--modificar-datos`](./api-contracts.md#uc003--modificar-datos).
 
-| #   | Ítem                                                                                                                                                                                                                                                       | Estado      |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Precargar el formulario de edición con `GET /api/account/profile`, que devuelve nombres, tipo y número de documento, teléfono y correo del usuario autenticado. `GET /api/account` no incluye esos campos del perfil.                                        | `Pendiente` |
-| 2   | `settings.reducer.ts` envía la actualización con `axios.post('api/account')`; el backend expone `PATCH /api/account`. Cambiar el método a `PATCH`.                                                                                                          | `Pendiente` |
-| 3   | Validar el teléfono en el cliente como **exactamente 10 dígitos**. El backend responde `400 error.validation` con `fieldErrors` sobre `phoneNumber` si llega con 9/11 dígitos o letras, y no persiste ningún cambio parcial.                                | `Pendiente` |
-| 4   | Para **limpiar** el segundo nombre o el segundo apellido, enviar cadena vacía (`""`): el backend persiste `null`. Omitir el campo lo deja sin cambios.                                                                                                      | `Pendiente` |
-| 5   | El documento (tipo + número) es **inmutable**: **no enviar** `documentTypeId` ni `documentNumber` en el `PATCH`. Si el backend los recibe, responde `400 error.documentimmutable` (E3). Mapear esa clave a "Este dato no puede modificarse".                | `Pendiente` |
-| 6   | `imageUrl` ya **no se acepta** en `PATCH /api/account`: el backend lo **ignora** (no se persiste). No enviarlo en el formulario de autoedición.                                                                                                            | `Pendiente` |
+| #   | Ítem                                                                                                                                                                                                                                         | Estado      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Precargar el formulario de edición con `GET /api/account/profile`, que devuelve nombres, tipo y número de documento, teléfono y correo del usuario autenticado. `GET /api/account` no incluye esos campos del perfil.                        | `Pendiente` |
+| 2   | `settings.reducer.ts` envía la actualización con `axios.post('api/account')`; el backend expone `PATCH /api/account`. Cambiar el método a `PATCH`.                                                                                           | `Pendiente` |
+| 3   | Validar el teléfono en el cliente como **exactamente 10 dígitos**. El backend responde `400 error.validation` con `fieldErrors` sobre `phoneNumber` si llega con 9/11 dígitos o letras, y no persiste ningún cambio parcial.                 | `Pendiente` |
+| 4   | Para **limpiar** el segundo nombre o el segundo apellido, enviar cadena vacía (`""`): el backend persiste `null`. Omitir el campo lo deja sin cambios.                                                                                       | `Pendiente` |
+| 5   | El documento (tipo + número) es **inmutable**: **no enviar** `documentTypeId` ni `documentNumber` en el `PATCH`. Si el backend los recibe, responde `400 error.documentimmutable` (E3). Mapear esa clave a "Este dato no puede modificarse". | `Pendiente` |
+| 6   | `imageUrl` ya **no se acepta** en `PATCH /api/account`: el backend lo **ignora** (no se persiste). No enviarlo en el formulario de autoedición.                                                                                              | `Pendiente` |
+
+---
+
+## UC004 — Cerrar sesión
+
+**Estado del backend:** sin deuda. El backend es **JWT stateless** (`SessionCreationPolicy.STATELESS` + `oauth2ResourceServer.jwt`): no hay sesión de servidor, endpoint `/api/logout` ni revocación de tokens. El cierre de sesión es 100% del frontend (descartar el token); es coherente con UC004 (la invalidación inmediata de una cuenta desactivada queda como mejora futura).
+
+| #   | Ítem                                                                                                                                                                                                                                                                        | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | El logout ya existe (menú de cuenta → `/logout` → thunk `logout` que borra el token de `Storage.local`/`session` y resetea el estado). **Verificar** que el botón esté visible para los 3 roles y que redirija al login (hoy va a `/`, que muestra el login para anónimos). | `Pendiente` |
+| 2   | El texto "Logged out successfully!" está **hardcodeado en inglés** (`modules/login/logout.tsx`); pasarlo a i18n en español.                                                                                                                                                 | `Pendiente` |
+| 3   | E1 (sesión ya expirada) es el mismo caso que UC002-E3: el `401` no trae clave de negocio; el front deriva la expiración del token y redirige con el mensaje.                                                                                                                | `Pendiente` |
 
 ---
 
@@ -159,7 +171,6 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 
 | UC    | Nombre                             | Contrato                                              |
 | ----- | ---------------------------------- | ----------------------------------------------------- |
-| UC004 | Cerrar sesión                      | [`docs/api-contracts.md`](./api-contracts.md) — UC004 |
 | UC005 | Recuperar contraseña               | [`docs/api-contracts.md`](./api-contracts.md) — UC005 |
 | UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006 |
 | UC007 | Gestionar fichas                   | [`docs/api-contracts.md`](./api-contracts.md) — UC007 |
@@ -186,21 +197,21 @@ UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementad
 
 Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Los textos sugeridos son neutrales y deben validarse con el copy final del producto.
 
-| Clave                          | Texto esperado (sugerido)                                                                           | Dónde se usa                           |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `error.documentnumberexists`   | "Este documento ya está registrado en el sistema."                                                  | Registro (UC001-E1).                   |
-| `error.documentnumberinactive` | "La cuenta asociada a este documento está desactivada. Contacta al Administrador para reactivarla." | Registro (UC001-E1).                   |
-| `error.emailexists`            | "Este correo ya está en uso."                                                                       | Registro (UC001-E3). Revisar texto.    |
-| `error.emailrequired`          | "El correo electrónico es obligatorio."                                                             | Registro (UC001-E2).                   |
-| `error.documentTypeNotFound`   | "El tipo de documento no existe."                                                                   | Registro (UC001-E2).                   |
-| `error.documentTypeInactive`   | "El tipo de documento está inactivo y no puede usarse en el registro."                              | Registro (UC001-E2).                   |
-| `error.validation`             | "Error de validación en el servidor." (mantener; el detalle va por `fieldErrors`).                  | Registro y demás formularios.          |
-| `error.badcredentials`         | "Tipo o número de documento o contraseña incorrectos."                                              | Inicio de sesión (UC002-E1).           |
-| `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                               | Inicio de sesión (UC002-E2).           |
-| `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                               | Cambio de contraseña (UC002/UC003-E4). |
-| `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                               | Cambio de contraseña (UC003-E6).       |
+| Clave                          | Texto esperado (sugerido)                                                                           | Dónde se usa                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `error.documentnumberexists`   | "Este documento ya está registrado en el sistema."                                                  | Registro (UC001-E1).                                  |
+| `error.documentnumberinactive` | "La cuenta asociada a este documento está desactivada. Contacta al Administrador para reactivarla." | Registro (UC001-E1).                                  |
+| `error.emailexists`            | "Este correo ya está en uso."                                                                       | Registro (UC001-E3). Revisar texto.                   |
+| `error.emailrequired`          | "El correo electrónico es obligatorio."                                                             | Registro (UC001-E2).                                  |
+| `error.documentTypeNotFound`   | "El tipo de documento no existe."                                                                   | Registro (UC001-E2).                                  |
+| `error.documentTypeInactive`   | "El tipo de documento está inactivo y no puede usarse en el registro."                              | Registro (UC001-E2).                                  |
+| `error.validation`             | "Error de validación en el servidor." (mantener; el detalle va por `fieldErrors`).                  | Registro y demás formularios.                         |
+| `error.badcredentials`         | "Tipo o número de documento o contraseña incorrectos."                                              | Inicio de sesión (UC002-E1).                          |
+| `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                               | Inicio de sesión (UC002-E2).                          |
+| `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                               | Cambio de contraseña (UC002/UC003-E4).                |
+| `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                               | Cambio de contraseña (UC003-E6).                      |
 | `error.invalidpassword`        | "Contraseña no válida."                                                                             | Cambio de contraseña y registro (UC003-E5, UC001-E1). |
-| `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).          |
-| `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.           |
+| `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).                         |
+| `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
