@@ -42,7 +42,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | --------------------------------------------------- | ---------------------------------- | --------------- |
 | [UC001](#uc001--registrarme)                        | Registrarme                        | Implementado    |
 | [UC002](#uc002--iniciar-sesión)                     | Iniciar sesión                     | Implementado    |
-| [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Parcial         |
+| [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Implementado    |
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
 | [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Parcial         |
 | [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Parcial         |
@@ -112,16 +112,16 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 
 **Errores:**
 
-| Código | errorKey (cuerpo `message`)                                             | Causa                                                                                                                      |
-| ------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 400    | `error.emailexists`                                                     | El correo ya está en uso.                                                                                                  |
-| 400    | `error.documentnumberexists`                                            | El par tipo + número de documento ya está registrado en una cuenta **activa**.                                             |
-| 400    | `error.documentnumberinactive`                                          | El par tipo + número pertenece a una cuenta **desactivada**; el aprendiz debe contactar al Administrador para reactivarla. |
-| 400    | `error.documentTypeNotFound`                                            | `documentTypeId` no corresponde a un tipo de documento existente.                                                          |
-| 400    | `error.documentTypeInactive`                                            | El tipo de documento está inactivo y no puede usarse en el registro.                                                       |
-| 400    | `error.emailrequired`                                                   | Correo ausente o en blanco.                                                                                                |
+| Código | errorKey (cuerpo `message`)                                                    | Causa                                                                                                                      |
+| ------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `error.emailexists`                                                            | El correo ya está en uso.                                                                                                  |
+| 400    | `error.documentnumberexists`                                                   | El par tipo + número de documento ya está registrado en una cuenta **activa**.                                             |
+| 400    | `error.documentnumberinactive`                                                 | El par tipo + número pertenece a una cuenta **desactivada**; el aprendiz debe contactar al Administrador para reactivarla. |
+| 400    | `error.documentTypeNotFound`                                                   | `documentTypeId` no corresponde a un tipo de documento existente.                                                          |
+| 400    | `error.documentTypeInactive`                                                   | El tipo de documento está inactivo y no puede usarse en el registro.                                                       |
+| 400    | `error.emailrequired`                                                          | Correo ausente o en blanco.                                                                                                |
 | 400    | `error.invalidpassword` (tipo `invalid-password`, título "Incorrect password") | La contraseña no cumple la política.                                                                                       |
-| 400    | `error.validation`                                                      | Fallo de validación de campos; incluye `fieldErrors`.                                                                      |
+| 400    | `error.validation`                                                             | Fallo de validación de campos; incluye `fieldErrors`.                                                                      |
 
 **Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword`. El documento duplicado sí tiene mensajes diferenciados: `error.documentnumberexists` cuando el par tipo + número pertenece a una cuenta **activa** y `error.documentnumberinactive` cuando pertenece a una cuenta **desactivada**. Todas las validaciones (incluida la del documento duplicado) corren antes de la primera escritura, por lo que un registro rechazado por validación no deja usuario ni perfil parciales. El backend cubre el flujo de UC001; quedan a cargo del frontend el formulario en sí y la traducción de las claves de error (`emailrequired`, `documentnumberexists`, `documentnumberinactive`, `documentTypeInactive`); los tipos se obtienen con `GET /api/document-types` (ver UC022).
 
@@ -178,17 +178,17 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 
 ## UC003 — Modificar datos
 
-**Módulo:** Cuenta y acceso | **Actor:** Usuario | **Estado:** Parcial
+**Módulo:** Cuenta y acceso | **Actor:** Usuario | **Estado:** Implementado
 
 **Feature:** Actualización parcial de los datos personales del usuario autenticado y cambio de contraseña. El documento no es editable.
 
 **Endpoints:**
 
-| Método | Ruta                           | Acceso      | Descripción                                                                                                     |
-| ------ | ------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| Método | Ruta                           | Acceso      | Descripción                                                                                                       |
+| ------ | ------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/account/profile`         | Autenticado | Devuelve el perfil del usuario autenticado para precargar el formulario. `200` con el perfil; `404` si no existe. |
-| PATCH  | `/api/account`                 | Autenticado | Actualiza datos del perfil y, opcionalmente, la contraseña. `200` sin cuerpo.                                   |
-| POST   | `/api/account/change-password` | Autenticado | Cambia la contraseña validando la actual. `200` sin cuerpo.                                                     |
+| PATCH  | `/api/account`                 | Autenticado | Actualiza datos del perfil y, opcionalmente, la contraseña. `200` sin cuerpo.                                     |
+| POST   | `/api/account/change-password` | Autenticado | Cambia la contraseña validando la actual. `200` sin cuerpo.                                                       |
 
 **Request — `PATCH /api/account`**
 
@@ -205,17 +205,17 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 }
 ```
 
-| Campo             | Tipo   | Obligatorio | Reglas                                                                                            |
-| ----------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------- |
-| `firstName`       | string | No          | 1–30; si se envía, actualiza.                                                                     |
-| `middleName`      | string | No          | máximo 30; si se envía vacío o solo espacios, se limpia (queda `null`); si se omite, no cambia.    |
-| `firstLastName`   | string | No          | 1–30; si se envía, actualiza.                                                                     |
-| `secondLastName`  | string | No          | máximo 30; si se envía vacío o solo espacios, se limpia (queda `null`); si se omite, no cambia.    |
-| `phoneNumber`     | string | No          | `@Pattern(\d{10})`: exactamente 10 dígitos; si se omite, no cambia.                               |
-| `email`           | string | No          | `@Email`, 5–254; debe ser único.                                                                  |
+| Campo             | Tipo   | Obligatorio | Reglas                                                                                                                                      |
+| ----------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `firstName`       | string | No          | 1–30; si se envía, actualiza.                                                                                                               |
+| `middleName`      | string | No          | máximo 30; si se envía vacío o solo espacios, se limpia (queda `null`); si se omite, no cambia.                                             |
+| `firstLastName`   | string | No          | 1–30; si se envía, actualiza.                                                                                                               |
+| `secondLastName`  | string | No          | máximo 30; si se envía vacío o solo espacios, se limpia (queda `null`); si se omite, no cambia.                                             |
+| `phoneNumber`     | string | No          | `@Pattern(\d{10})`: exactamente 10 dígitos; si se omite, no cambia.                                                                         |
+| `email`           | string | No          | `@Email`, 5–254; debe ser único.                                                                                                            |
 | `currentPassword` | string | Condicional | Obligatoria si se envía `newPassword`; se compara contra la vigente y un valor incorrecto responde `400 error.currentpasswordinvalid` (E4). |
-| `newPassword`     | string | No          | 8–20; debe cumplir mayúscula, minúscula, número y carácter especial, y ser distinta de la actual. |
-| `langKey`         | string | No          | 2–10.                                                                                             |
+| `newPassword`     | string | No          | 8–20; debe cumplir mayúscula, minúscula, número y carácter especial, y ser distinta de la actual.                                           |
+| `langKey`         | string | No          | 2–10.                                                                                                                                       |
 
 Campos no enviados quedan sin cambios. Los campos opcionales `middleName` y `secondLastName` se **limpian** enviando una cadena vacía (`""`); el servicio los persiste como `null`. El documento (tipo + número) es **inmutable**: el cliente **no debe enviar** `documentTypeId` ni `documentNumber`. Si llega cualquiera de ellos, el backend rechaza la operación con `400 error.documentimmutable` (E3) sin persistir ningún cambio. `imageUrl` ya no forma parte de este contrato: el cliente **no debe enviarlo** y, si llega, el backend lo **ignora** (no se persiste).
 
