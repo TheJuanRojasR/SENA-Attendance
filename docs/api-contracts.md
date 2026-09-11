@@ -40,7 +40,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 
 | UC                                                  | Nombre                             | Estado          |
 | --------------------------------------------------- | ---------------------------------- | --------------- |
-| [UC001](#uc001--registrarme)                        | Registrarme                        | Implementado    |
+| [UC001](#uc001--registrarme)                        | Registrarme                        | Parcial         |
 | [UC002](#uc002--iniciar-sesión)                     | Iniciar sesión                     | Parcial         |
 | [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Parcial         |
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
@@ -68,7 +68,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 
 ## UC001 — Registrarme
 
-**Módulo:** Cuenta y acceso | **Actor:** Aprendiz | **Estado:** Implementado
+**Módulo:** Cuenta y acceso | **Actor:** Aprendiz | **Estado:** Parcial
 
 **Feature:** Autorregistro público de un aprendiz sin exigir ficha. La cuenta nace activa, con rol Aprendiz y login derivado de `<iniciales del tipo de documento>_<número de documento>`.
 
