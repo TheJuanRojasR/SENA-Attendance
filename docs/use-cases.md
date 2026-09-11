@@ -89,7 +89,8 @@
 - **Correo:** debe tener formato válido y ser único en el sistema.
 - **Contraseña:** política completa (igual para todos los roles): 8 a 20 caracteres, con al menos una mayúscula, una minúscula, un número y un carácter especial.
 - La cuenta se crea con **rol Aprendiz** y estado Activo. El nombre de usuario interno se deriva del documento.
-- Si el documento ya está registrado —aunque su cuenta esté desactivada— el registro se bloquea y se informa al aprendiz que debe contactar al Administrador.
+- **Identidad del aprendiz:** la identidad de un aprendiz es el par **tipo de documento + número de documento**. El mismo número puede existir bajo un tipo de documento distinto, y en ese caso se considera un aprendiz diferente.
+- Si el **tipo y número de documento** ya están registrados —aunque su cuenta esté desactivada— el registro se bloquea y se informa al aprendiz que debe contactar al Administrador.
 
 #### Precondiciones
 
@@ -102,7 +103,7 @@
 3. El Aprendiz completa el formulario.
 4. El Aprendiz hace click en "Registrar".
 5. El sistema valida el formato y la obligatoriedad de los datos: número de documento solo dígitos; teléfono de 10 dígitos; correo con formato válido; contraseña conforme a la política.
-6. El sistema verifica que el número de documento no exista previamente y que el correo no esté en uso.
+6. El sistema verifica que el **tipo y número de documento** no existan previamente y que el correo no esté en uso.
 7. El sistema crea el perfil con rol Aprendiz y estado Activo.
 8. El sistema muestra el mensaje de registro exitoso y redirige al inicio de sesión.
 
@@ -112,7 +113,7 @@
 
 #### Excepciones
 
-- **E1 — Documento ya registrado:** en el paso 6, el sistema detecta que el documento ya existe y muestra "Este documento ya está registrado en el sistema". Si la cuenta existente está desactivada, agrega que debe contactar al Administrador para reactivarla. Mantiene el formulario abierto (excepto la contraseña).
+- **E1 — Documento ya registrado:** en el paso 6, el sistema detecta que el **tipo y número de documento** ya existen y muestra "Este documento ya está registrado en el sistema". Si la cuenta existente está desactivada, agrega que debe contactar al Administrador para reactivarla. Mantiene el formulario abierto (excepto la contraseña).
 - **E2 — Formato de datos inválido:** en el paso 5, si el documento no es numérico, el teléfono no tiene 10 dígitos, el correo no tiene formato válido o la contraseña no cumple la política, el sistema resalta el campo específico con el error correspondiente y no envía el formulario.
 - **E3 — Correo ya en uso:** el sistema muestra "Este correo ya está en uso" y no permite continuar.
 - **E4 — Pérdida de conexión durante el envío:** si la conexión se interrumpe entre los pasos 4 y 7, el sistema muestra "No se pudo completar el registro, intenta nuevamente" y no crea ningún perfil parcial.

@@ -114,15 +114,15 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 
 | Código | errorKey (cabecera `X-senaAttendance-error`)                            | Causa                                                             |
 | ------ | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 400    | `error.userexists`                                                      | El login derivado del documento ya existe en una cuenta activa.   |
 | 400    | `error.emailexists`                                                     | El correo ya está en uso.                                         |
-| 400    | `error.documentnumberexists`                                            | El par tipo + número de documento ya tiene perfil.                |
+| 400    | `error.documentnumberexists`                                            | El par tipo + número de documento ya está registrado en una cuenta **activa**. |
+| 400    | `error.documentnumberinactive`                                          | El par tipo + número pertenece a una cuenta **desactivada**; el aprendiz debe contactar al Administrador para reactivarla. |
 | 400    | `error.documentTypeNotFound`                                            | `documentTypeId` no corresponde a un tipo de documento existente. |
 | 400    | `error.emailrequired`                                                   | Correo ausente o en blanco.                                       |
 | 400    | `error.http.400` (tipo `invalid-password`, título "Incorrect password") | La contraseña no cumple la política.                              |
 | 400    | `error.validation`                                                      | Fallo de validación de campos; incluye `fieldErrors`.             |
 
-**Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword` ni mensajes diferenciados para "documento ya registrado / cuenta desactivada": esos casos responden claves genéricas. La comprobación de documento duplicado corre después de guardar el usuario, por lo que una colisión concurrente puede dejar datos parciales. Para el formulario, el frontend obtiene los tipos con `GET /api/document-types` (ver UC022).
+**Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword`. El documento duplicado sí tiene mensajes diferenciados: `error.documentnumberexists` cuando el par tipo + número pertenece a una cuenta **activa** y `error.documentnumberinactive` cuando pertenece a una cuenta **desactivada**. La comprobación de documento duplicado corre después de guardar el usuario, por lo que una colisión concurrente puede dejar datos parciales. Para el formulario, el frontend obtiene los tipos con `GET /api/document-types` (ver UC022).
 
 ---
 
