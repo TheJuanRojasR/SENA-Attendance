@@ -1,0 +1,186 @@
+# Trabajo pendiente del frontend — SENA Attendance
+
+Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfaz debe hacer y consumir para cumplir cada caso de uso, a medida que el backend avanza. La fuente de verdad del contrato HTTP es [`docs/api-contracts.md`](./api-contracts.md); las reglas de negocio y los flujos están en [`docs/use-cases.md`](./use-cases.md). Aquí no se repite el JSON de los contratos: se referencia su sección.
+
+- **Propietario:** el desarrollador de frontend.
+- **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
+- **Estado actual:** UC001 tiene backend implementado y verificado; el frontend sigue en su mayor parte con los formularios stock de JHipster.
+
+## Leyenda de estados
+
+| Estado      | Significado                                                        |
+| ----------- | ------------------------------------------------------------------ |
+| `Pendiente` | No iniciado o sin verificar contra el backend.                     |
+| `En progreso` | Iniciado, todavía sin cerrar el flujo de extremo a extremo.      |
+| `Hecho`     | Implementado y verificado contra el backend y el caso de uso.      |
+
+---
+
+## Cómo consumir la API
+
+Estas convenciones aplican a todo el frontend.
+
+| Tema                | Qué debe hacer el frontend                                                                                                                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Autenticación JWT   | Enviar `Authorization: Bearer <token>` en cada petición autenticada. El login es por **tipo de documento + número de documento + contraseña**. El token dura **24 horas**; `rememberMe` lo extiende a **30 días**. `rememberMe` es una decisión de UI: **no está contemplado en los UCs**. |
+| Errores             | La clave de negocio viaja en el cuerpo como `message: error.<clave>` y el nombre de la entidad afectada en `params`. Los errores de validación agregan `fieldErrors` (`objectName`, `field`, `message`). El backend **no** emite cabeceras `X-...-error` propias: no intentar leer el error desde cabeceras. |
+| Paginación          | Los endpoints paginados devuelven un **arreglo JSON** con la página actual (no un objeto `Page`) y las cabeceras `X-Total-Count` y `Link`. Parámetros `page` (base 0), `size` y `sort=campo,asc\|desc`; tamaño por defecto **20**.                    |
+| Cuenta actual       | `GET /api/account` devuelve solo un `AdminUserDTO` (cuenta: `id`, `login`, `email`, `activated`, `langKey`, `authorities`, auditoría), **sin nombres, apellidos ni documento del perfil**. Queda **por confirmar** cómo obtiene el front el perfil actual. |
+| Roles               | El sistema emite `ROLE_ADMIN`, `ROLE_INSTRUCTOR`, `ROLE_APPRENTICE` y `ROLE_USER` (los tres primeros siempre acompañados de `ROLE_USER`).                                                                                                          |
+| Content-Type        | `application/json`; los `PATCH` aceptan además `application/merge-patch+json`.                                                                                                                                                                      |
+
+---
+
+## UC001 — Registrarme
+
+**Estado del backend:** implementado y verificado. Ver [`docs/api-contracts.md#uc001--registrarme`](./api-contracts.md#uc001--registrarme) y [`docs/use-cases.md`](./use-cases.md) (UC001).
+
+**Estado del frontend:** el formulario sigue siendo el stock de JHipster (`username`, `email`, `firstPassword`, `secondPassword`) y **hoy el registro no funciona de extremo a extremo**.
+
+### a. Formulario `src/main/webapp/app/modules/account/register/register.tsx`
+
+| # | Ítem                                                                                                                                                                                                                                                                                  | Estado      |
+| - | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1 | Reemplazar los campos stock por: **tipo de documento** (select cargado de `GET /api/document-types`, ofreciendo **solo** los que tengan `isActive: true`), **número de documento**, **primer nombre**, **segundo nombre** (opcional), **primer apellido**, **segundo apellido** (opcional), **correo**, **teléfono** y **contraseña**. | `Pendiente` |
+| 2 | Nota de UX: UC001 **no exige confirmación de contraseña**. Decidir si se mantiene el campo de confirmación por usabilidad.                                                                                                                                                              | `Pendiente` |
+| 3 | Quitar el bloque stock de "cuentas por defecto" (`global.messages.info.authenticated`) y el link manual de "si ya tienes perfil": no corresponden al flujo de UC001.                                                                                                                    | `Pendiente` |
+| 4 | El `IDocumentType` del frontend (`src/main/webapp/app/shared/model/document-type.model.ts`) **no declara `isActive`**; agregarlo para poder filtrar los tipos activos que devuelve el backend.                                                                                          | `Pendiente` |
+
+### b. `src/main/webapp/app/modules/account/register/register.reducer.ts`
+
+| # | Ítem                                                                                                                                                                                                                                            | Estado      |
+| - | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1 | El thunk hoy postea `{ login, email, password, langKey }`. Debe enviar `{ documentTypeId, documentNumber, firstName, middleName?, firstLastName, secondLastName?, email, phoneNumber, password }`.                                                 | `Pendiente` |
+| 2 | El estado de rechazo hoy solo guarda `action.error.message`; debe exponer la clave de negocio (`error.<clave>`) recibida del backend para que la vista mapee el mensaje correspondiente.                                                            | `Pendiente` |
+| 3 | Actualizar `register.reducer.spec.ts`: hoy usa el payload viejo `{ login, email, password }` y el mensaje de éxito `register.messages.success`.                                                                                                  | `Pendiente` |
+
+### c. Validaciones de cliente
+
+| # | Regla                                                                                                     | Estado      |
+| - | --------------------------------------------------------------------------------------------------------- | ----------- |
+| 1 | Número de documento: **solo dígitos**.                                                                    | `Pendiente` |
+| 2 | Teléfono: **exactamente 10 dígitos** (celular de Colombia, sin indicativo).                               | `Pendiente` |
+| 3 | Correo: **formato válido** y obligatorio.                                                                 | `Pendiente` |
+| 4 | Contraseña: **8–20 caracteres** con al menos una **mayúscula**, una **minúscula**, un **número** y un **carácter especial**. | `Pendiente` |
+| 5 | Alinear los mensajes de longitud del formulario stock (hoy mínimo 4 y máximo 50) con la política real.    | `Pendiente` |
+
+### d. Manejo de errores (mapear por `message`)
+
+El backend responde `400` con `message: error.<clave>`; para validación de campos, `error.validation` más `fieldErrors`. Mapear cada clave a un mensaje de UI:
+
+| Clave en `message`              | Causa                                                                                  | Comportamiento de UI                                                       | Estado      |
+| ------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------- |
+| `error.documentnumberexists`    | El par tipo + número ya está registrado en una cuenta **activa**.                       | Mostrar el error y mantener el formulario abierto (excepto la contraseña). | `Pendiente` |
+| `error.documentnumberinactive`  | El par tipo + número pertenece a una cuenta **desactivada**.                           | Informar que debe contactar al Administrador para reactivarla.             | `Pendiente` |
+| `error.emailexists`             | El correo ya está en uso.                                                              | Mostrar el error sobre el campo de correo.                                 | `Pendiente` |
+| `error.emailrequired`           | Correo ausente o en blanco.                                                            | Marcar el campo correo como obligatorio.                                   | `Pendiente` |
+| `error.documentTypeNotFound`    | El `documentTypeId` no corresponde a un tipo existente.                                | Invalidar el select de tipo de documento.                                  | `Pendiente` |
+| `error.documentTypeInactive`    | El tipo de documento está inactivo y no puede usarse en el registro.                   | Invalidar el select e indicar que no está disponible.                      | `Pendiente` |
+| `error.validation` + `fieldErrors` | Fallo de validación de uno o más campos.                                            | Resaltar el campo específico usando `field` y su `message`.                | `Pendiente` |
+| Error de red (E4)               | Sin conexión entre el envío y la creación; no se crea perfil parcial.                   | Mostrar "No se pudo completar el registro, intenta nuevamente".            | `Pendiente` |
+
+Nota: la política de contraseña incumplida responde `400` con tipo `invalid-password` (`message: error.http.400`); la UI debe traducirla a "Contraseña no válida" y no al genérico "Solicitud incorrecta".
+
+### e. Éxito
+
+| # | Ítem                                                                                                                                                       | Estado      |
+| - | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1 | Al `201 Created` (sin cuerpo), mostrar el mensaje de registro exitoso y **redirigir al inicio de sesión** (paso 8 de UC001).                                  | `Pendiente` |
+| 2 | Hoy solo hay un link manual y el texto i18n de éxito (`register.messages.success`) menciona confirmación por correo. Corregir ese texto y automatizar la redirección. | `Pendiente` |
+
+### f. Cancelar (flujo A1)
+
+| # | Ítem                                                                                            | Estado      |
+| - | ----------------------------------------------------------------------------------------------- | ----------- |
+| 1 | Botón "Cancelar" que descarta los datos ingresados y vuelve a la página de inicio de sesión.    | `Pendiente` |
+
+### g. i18n (`src/main/webapp/i18n/es/`)
+
+Claves `error.*` verificadas contra los archivos actuales:
+
+| Clave                       | Estado en i18n                                                                 | Verificado | Observación                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------- |
+| `error.documentnumberexists`   | **Falta**                                                                  | Sí         | Usada por el backend en UC001.                                              |
+| `error.documentnumberinactive` | **Falta**                                                                  | Sí         | Debe explicar que contacte al Administrador.                                |
+| `error.emailrequired`          | **Falta**                                                                  | Sí         | Debe marcar el correo como obligatorio.                                     |
+| `error.documentTypeNotFound`   | **Falta**                                                                  | Sí         | La clave viaja con esta capitalización exacta (`documentTypeNotFound`).     |
+| `error.documentTypeInactive`   | **Falta**                                                                  | Sí         | La clave viaja con esta capitalización exacta (`documentTypeInactive`).     |
+| `error.emailexists`            | **Existe** (`global.json`, línea 155)                                      | Sí         | Ya traducible; revisar redacción frente a UC001-E3.                         |
+| `error.validation`             | **Existe** (`error.json`, línea 12)                                        | Sí         | Solo texto genérico; el detalle real viene en `fieldErrors`.                |
+| `error.http.400`               | **Existe** (`error.json`, línea 5)                                         | Sí         | Hoy es "Solicitud incorrecta"; la UI debe priorizar la clave de negocio.    |
+| `register.messages.success`    | **Existe pero es incorrecta** (`register.json`, línea 16)                  | Sí         | Menciona confirmación por correo; UC001 no envía correo de activación.      |
+
+### Checklist de aceptación (flujo básico UC001)
+
+- [ ] 1. Desde el inicio de sesión, el aprendiz llega al formulario de registro (`Pendiente`).
+- [ ] 2. El formulario muestra los 9 campos: tipo de documento, número de documento, primer nombre, segundo nombre (opcional), primer apellido, segundo apellido (opcional), correo, teléfono y contraseña (`Pendiente`).
+- [ ] 3. El aprendiz completa el formulario (`Pendiente`).
+- [ ] 4. El aprendiz hace click en "Registrar" (`Pendiente`).
+- [ ] 5. La UI valida formato y obligatoriedad: documento solo dígitos, teléfono de 10 dígitos, correo válido y contraseña conforme a la política (`Pendiente`).
+- [ ] 6. La UI envía la petición y el sistema verifica que tipo + número de documento y el correo no existan previamente (`Pendiente`).
+- [ ] 7. El sistema crea el perfil con rol Aprendiz y estado Activo (`Pendiente`).
+- [ ] 8. La UI muestra el mensaje de registro exitoso y redirige al inicio de sesión (`Pendiente`).
+
+---
+
+## UC002 — Iniciar sesión
+
+**Estado del backend:** parcial. Ver [`docs/api-contracts.md#uc002--iniciar-sesión`](./api-contracts.md#uc002--iniciar-sesión).
+
+| # | Ítem                                                                                                                                                                                                | Estado      |
+| - | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1 | Cambiar el login de usuario/contraseña a **tipo de documento + número de documento + contraseña**. Hoy `login-modal.tsx` usa un campo `username` y `authentication.ts` postea `{ username, password, rememberMe }`. | `Pendiente` |
+| 2 | Cargar el select de tipo de documento desde `GET /api/document-types` (endpoint público).                                                                                                          | `Pendiente` |
+| 3 | Enviar `{ documentTypeId, documentNumber, password, rememberMe }` a `POST /api/authenticate` y guardar el `id_token` recibido.                                                                     | `Pendiente` |
+| 4 | El flujo de `mustChangePassword` **todavía no existe en el backend**: anotarlo como pendiente de contrato, no bloquear UC002 por eso.                                                              | `Pendiente` |
+| 5 | Los `401` son genéricos: el backend **no distingue** credenciales inválidas de cuenta inactiva. La UI debe mostrar un mensaje genérico (UC002-E1/E2 no se pueden separar hoy).                       | `Pendiente` |
+| 6 | No hay bloqueo por intentos fallidos ni cierre por inactividad; la sesión expira a las 24 h (UC002-E3).                                                                                            | `Pendiente` |
+
+---
+
+## Próximas UCs
+
+Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
+
+| UC    | Nombre                             | Contrato                                                            |
+| ----- | ---------------------------------- | ------------------------------------------------------------------- |
+| UC003 | Modificar datos                    | [`docs/api-contracts.md`](./api-contracts.md) — UC003               |
+| UC004 | Cerrar sesión                      | [`docs/api-contracts.md`](./api-contracts.md) — UC004               |
+| UC005 | Recuperar contraseña               | [`docs/api-contracts.md`](./api-contracts.md) — UC005               |
+| UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006               |
+| UC007 | Gestionar fichas                   | [`docs/api-contracts.md`](./api-contracts.md) — UC007               |
+| UC008 | Gestionar aprendices               | [`docs/api-contracts.md`](./api-contracts.md) — UC008               |
+| UC009 | Gestionar listas de asistencia     | [`docs/api-contracts.md`](./api-contracts.md) — UC009               |
+| UC010 | Gestionar justificaciones          | [`docs/api-contracts.md`](./api-contracts.md) — UC010               |
+| UC011 | Gestionar asistencia (Aprendiz)    | [`docs/api-contracts.md`](./api-contracts.md) — UC011               |
+| UC012 | Gestionar programas de aprendizaje | [`docs/api-contracts.md`](./api-contracts.md) — UC012               |
+| UC014 | Gestionar trimestres académicos    | [`docs/api-contracts.md`](./api-contracts.md) — UC014               |
+| UC015 | Gestionar materias                 | [`docs/api-contracts.md`](./api-contracts.md) — UC015               |
+| UC016 | Gestionar tipos de justificación   | [`docs/api-contracts.md`](./api-contracts.md) — UC016               |
+| UC017 | Consultar mis fichas y materias    | [`docs/api-contracts.md`](./api-contracts.md) — UC017               |
+| UC019 | Gestionar configuración global     | [`docs/api-contracts.md`](./api-contracts.md) — UC019               |
+| UC020 | Gestionar jornadas                 | [`docs/api-contracts.md`](./api-contracts.md) — UC020               |
+| UC021 | Gestionar modalidades              | [`docs/api-contracts.md`](./api-contracts.md) — UC021               |
+| UC022 | Gestionar tipos de documento       | [`docs/api-contracts.md`](./api-contracts.md) — UC022               |
+| UC023 | Consultar dashboard                | [`docs/api-contracts.md`](./api-contracts.md) — UC023               |
+
+UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementadas** en el backend y no se listan aquí hasta que su contrato exista.
+
+---
+
+## Claves i18n pendientes
+
+Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Los textos sugeridos son neutrales y deben validarse con el copy final del producto.
+
+| Clave                          | Texto esperado (sugerido)                                                                 | Dónde se usa                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------- |
+| `error.documentnumberexists`   | "Este documento ya está registrado en el sistema."                                        | Registro (UC001-E1).               |
+| `error.documentnumberinactive` | "La cuenta asociada a este documento está desactivada. Contacta al Administrador para reactivarla." | Registro (UC001-E1).        |
+| `error.emailexists`            | "Este correo ya está en uso."                                                             | Registro (UC001-E3). Revisar texto. |
+| `error.emailrequired`          | "El correo electrónico es obligatorio."                                                   | Registro (UC001-E2).               |
+| `error.documentTypeNotFound`   | "El tipo de documento no existe."                                                         | Registro (UC001-E2).               |
+| `error.documentTypeInactive`   | "El tipo de documento está inactivo y no puede usarse en el registro."                    | Registro (UC001-E2).               |
+| `error.validation`             | "Error de validación en el servidor." (mantener; el detalle va por `fieldErrors`).        | Registro y demás formularios.      |
+| `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo). | Toast de éxito del registro.     |
+
+Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
