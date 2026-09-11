@@ -1,8 +1,8 @@
 # Contratos de API por caso de uso — SENA Attendance
 
-Este documento describe, caso por caso, los contratos HTTP que el backend expone hoy para los casos de uso UC001–UC023 definidos en [`docs/use-cases.md`](./use-cases.md). El contenido se generó a partir del código fuente en la rama `juanma`, commit `00b0371`.
+Este documento describe, caso por caso, los contratos HTTP que el backend expone para los casos de uso UC001–UC023 definidos en [`docs/use-cases.md`](./use-cases.md). Es un **documento vivo**: cada UC se actualiza en el mismo cambio que modifica su contrato, y su estado indica el nivel de implementación. La fuente de verdad es el código en la rama `juanma`.
 
-- **Fecha de generación:** 2026-09-11
+- **Mantenimiento:** cada sección de UC se actualiza en el mismo commit que cambia su contrato.
 
 Fuentes verificadas:
 
