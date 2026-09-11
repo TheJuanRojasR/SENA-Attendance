@@ -133,8 +133,8 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 2 | Cargar el select de tipo de documento desde `GET /api/document-types` (endpoint público).                                                                                                          | `Pendiente` |
 | 3 | Enviar `{ documentTypeId, documentNumber, password, rememberMe }` a `POST /api/authenticate` y guardar el `id_token` recibido.                                                                     | `Pendiente` |
 | 4 | El backend expone `mustChangePassword` en el `AdminUserDTO` (`GET /api/account` y respuestas admin) y ahora también lo devuelve `POST /api/authenticate` en el cuerpo del login; las cuentas creadas por un Administrador nacen en `true`. El cambio de contraseña (`POST /api/account/change-password` y `PATCH /api/account` cuando cambia la contraseña) limpia el indicador. El front puede usar el flag del login para forzar la pantalla de cambio obligatorio; el flujo en sí queda pendiente del frontend. | `Pendiente` |
-| 5 | Los `401` son genéricos: el backend **no distingue** credenciales inválidas de cuenta inactiva. La UI debe mostrar un mensaje genérico (UC002-E1/E2 no se pueden separar hoy).                       | `Pendiente` |
-| 6 | No hay bloqueo por intentos fallidos ni cierre por inactividad; la sesión expira a las 24 h (UC002-E3).                                                                                            | `Pendiente` |
+| 5 | El login fallido responde `401` con la clave de negocio en `message`. Mapear `error.badcredentials` (E1: tipo/número de documento inexistente o contraseña incorrecta; el backend no revela cuál falló) a un mensaje genérico, y `error.accountinactive` (E2) a "Tu cuenta está inactiva, contacta al administrador". No mostrar el detalle de qué credencial falló. | `Pendiente` |
+| 6 | No hay bloqueo por intentos fallidos ni cierre por inactividad; la sesión expira a las 24 h (UC002-E3). El `401` por token expirado no trae clave de negocio: el frontend deriva la expiración del propio token (`exp` / `WWW-Authenticate`) y cierra la sesión. | `Pendiente` |
 
 ---
 
@@ -181,6 +181,8 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.documentTypeNotFound`   | "El tipo de documento no existe."                                                         | Registro (UC001-E2).               |
 | `error.documentTypeInactive`   | "El tipo de documento está inactivo y no puede usarse en el registro."                    | Registro (UC001-E2).               |
 | `error.validation`             | "Error de validación en el servidor." (mantener; el detalle va por `fieldErrors`).        | Registro y demás formularios.      |
+| `error.badcredentials`         | "Tipo o número de documento o contraseña incorrectos."                                    | Inicio de sesión (UC002-E1).       |
+| `error.accountinactive`        | "Tu cuenta está inactiva. Contacta al administrador."                                     | Inicio de sesión (UC002-E2).       |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo). | Toast de éxito del registro.     |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

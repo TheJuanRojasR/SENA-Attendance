@@ -158,6 +158,7 @@ class AuthenticateControllerIT {
         mockMvc
             .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(loginVM)))
             .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("error.badcredentials"))
             .andExpect(jsonPath("$.id_token").doesNotExist())
             .andExpect(header().doesNotExist("Authorization"));
     }
@@ -172,6 +173,7 @@ class AuthenticateControllerIT {
         mockMvc
             .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(loginVM)))
             .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("error.badcredentials"))
             .andExpect(jsonPath("$.id_token").doesNotExist())
             .andExpect(header().doesNotExist("Authorization"));
     }
@@ -194,6 +196,7 @@ class AuthenticateControllerIT {
         mockMvc
             .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(loginVM)))
             .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("error.accountinactive"))
             .andExpect(jsonPath("$.id_token").doesNotExist())
             .andExpect(header().doesNotExist("Authorization"));
     }
@@ -208,6 +211,7 @@ class AuthenticateControllerIT {
         mockMvc
             .perform(post("/api/authenticate").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(loginVM)))
             .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.message").value("error.badcredentials"))
             .andExpect(jsonPath("$.id_token").doesNotExist())
             .andExpect(header().doesNotExist("Authorization"));
     }

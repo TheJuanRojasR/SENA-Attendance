@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,30 +61,30 @@ public class AuthenticateController {
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
+    public ResponseEntity<?> authorize(@Valid @RequestBody LoginVM loginVM) {
         var profileOpt = userProfileRepository.findByDocumentTypeAndDocumentNumber(
             loginVM.getDocumentTypeId(),
             loginVM.getDocumentNumber()
         );
 
         if (profileOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("badcredentials");
         }
 
         UserProfile profile = profileOpt.get();
         User user = profile.getUser();
 
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("badcredentials");
         }
 
         boolean passwordMatches = passwordEncoder.matches(loginVM.getPassword(), user.getPassword());
         if (!passwordMatches) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("badcredentials");
         }
 
         if (!user.isActivated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("accountinactive");
         }
 
         var userDetails = DomainUserDetailsService.UserWithId.fromUser(user);
@@ -97,6 +98,20 @@ public class AuthenticateController {
         httpHeaders.setBearerAuth(jwt);
 
         return new ResponseEntity<>(new JWTToken(jwt, user.isMustChangePassword()), httpHeaders, HttpStatus.OK);
+    }
+
+    /**
+     * Builds the {@code 401 Unauthorized} response for a failed login, carrying the business
+     * error key in the body as {@code message: error.<key>} so the client can tell an invalid
+     * credential from an inactive account. The same {@code badcredentials} key is used for an
+     * unknown document, a missing user relation and a wrong password, so the response never
+     * reveals which part of the credential failed.
+     *
+     * @param errorKey the business error key, without the {@code error.} prefix.
+     * @return the {@link ResponseEntity} with status {@code 401 (Unauthorized)} and the error key.
+     */
+    private ResponseEntity<Object> unauthorized(String errorKey) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.singletonMap("message", "error." + errorKey));
     }
 
     /**
