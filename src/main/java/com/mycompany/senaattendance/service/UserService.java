@@ -140,17 +140,18 @@ public class UserService {
         }
 
         userRepository.findOneByLogin(login).ifPresent(existingUser -> {
-            boolean removed = removeNonActivatedUser(existingUser);
-            if (!removed) {
-                throw new UsernameAlreadyUsedException();
+            if (existingUser.isActivated()) {
+                throw new DocumentNumberAlreadyUsedException("Document number is already in use");
             }
+            throw new BadRequestAlertException(
+                "Document number belongs to a deactivated account",
+                "userManagement",
+                "documentnumberinactive"
+            );
         });
 
-        userRepository.findOneByEmailIgnoreCase(userVM.getEmail()).ifPresent(existingUser -> {
-            boolean removed = removeNonActivatedUser(existingUser);
-            if (!removed) {
-                throw new EmailAlreadyUsedException();
-            }
+        userRepository.findOneByEmailIgnoreCase(userVM.getEmail()).ifPresent(existing -> {
+            throw new EmailAlreadyUsedException();
         });
 
         User newUser = new User();
@@ -197,14 +198,6 @@ public class UserService {
 
         LOG.debug("Created Information for User: {}", newUser);
         return newUser;
-    }
-
-    private boolean removeNonActivatedUser(User existingUser) {
-        if (existingUser.isActivated()) {
-            return false;
-        }
-        userRepository.delete(existingUser);
-        return true;
     }
 
     @Transactional

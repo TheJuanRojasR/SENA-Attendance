@@ -242,11 +242,81 @@ class AccountResourceIT {
 
         restAccountMockMvc
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentnumberexists"));
 
         Optional<User> testUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
         assertThat(testUser).isPresent();
         assertThat(testUser.get().getEmail()).isEqualTo("duplicate-document@example.com");
+    }
+
+    @Test
+    void testRegisterSameDocumentDeactivatedAccountIsNotDeleted() throws Exception {
+        String documentNumber = "1000000017";
+        String login = expectedLogin(documentNumber);
+        String deactivatedEmail = "deactivated-1000000017@example.com";
+
+        // A deactivated account for the same document (type + number) already exists.
+        User deactivatedUser = new User();
+        deactivatedUser.setLogin(login);
+        deactivatedUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        deactivatedUser.setEmail(deactivatedEmail);
+        deactivatedUser.setActivated(false);
+        deactivatedUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(deactivatedUser);
+
+        ManagedUserVM secondUser = validRegisterVM(documentNumber, "re-register-deactivated@example.com");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentnumberinactive"));
+
+        Optional<User> stillThere = userRepository.findOneByLogin(login);
+        assertThat(stillThere).isPresent();
+        assertThat(stillThere.get().isActivated()).isFalse();
+        assertThat(stillThere.get().getEmail()).isEqualTo(deactivatedEmail);
+    }
+
+    @Test
+    void testRegisterDuplicateEmailDeactivatedAccountIsNotDeleted() throws Exception {
+        String deactivatedDocumentNumber = "1000000018";
+        String deactivatedLogin = expectedLogin(deactivatedDocumentNumber);
+        String sharedEmail = "deactivated-shared-email@example.com";
+
+        User deactivatedUser = new User();
+        deactivatedUser.setLogin(deactivatedLogin);
+        deactivatedUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        deactivatedUser.setEmail(sharedEmail);
+        deactivatedUser.setActivated(false);
+        deactivatedUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(deactivatedUser);
+
+        // Different document (1000000019) but the email already belongs to the deactivated account.
+        ManagedUserVM secondUser = validRegisterVM("1000000019", sharedEmail);
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
+            .andExpect(status().isBadRequest());
+
+        Optional<User> stillThere = userRepository.findOneByLogin(deactivatedLogin);
+        assertThat(stillThere).isPresent();
+        assertThat(stillThere.get().getEmail()).isEqualTo(sharedEmail);
+        assertThat(userRepository.findOneByLogin(expectedLogin("1000000019"))).isEmpty();
     }
 
     @Test
