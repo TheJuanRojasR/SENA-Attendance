@@ -7,6 +7,7 @@ import passwordReset from 'app/modules/account/password-reset/password-reset.red
 import register from 'app/modules/account/register/register.reducer';
 import settings from 'app/modules/account/settings/settings.reducer';
 import administration from 'app/modules/administration/administration.reducer';
+import dashboard from 'app/modules/dashboard/dashboard.reducer';
 import userManagement from 'app/modules/administration/user-management/user-management.reducer';
 import loadingBar from 'app/shared/reducers/loading-bar';
 
@@ -22,6 +23,7 @@ const rootReducer: ReducersMapObject = {
   applicationProfile,
   administration,
   userManagement,
+  dashboard,
   register,
   activate,
   passwordReset,

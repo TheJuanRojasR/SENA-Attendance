@@ -1,7 +1,22 @@
 .welcome-text {
-  width: 50%;
+  height: 25%;
+  width: 60%;
 }
 
 .admin-actions {
-  width: 25%;
+  height: 25%;
+  width: 40%;
+  padding: 10px 0;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.card-icon {
+  color: #0e8f1a;
+  background-color: lightgray;
+  font-size: 1.5em;
+  padding: 16px 12px;
+  margin: 0 0 15px 0;
+  border-radius: 6px;
 }
