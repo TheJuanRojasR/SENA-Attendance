@@ -122,6 +122,10 @@ public class UserService {
     }
 
     public User registerUser(ManagedUserVM userVM, String password) {
+        if (userVM.getEmail() == null || userVM.getEmail().isBlank()) {
+            throw new BadRequestAlertException("Email is required", "userManagement", "emailrequired");
+        }
+
         // ------- RESOLVE DOCUMENT TYPE FIRST (login is derived from it) -------
         DocumentType documentType = documentTypeRepository
             .findById(userVM.getDocumentTypeId())
@@ -157,9 +161,7 @@ public class UserService {
         newUser.setLogin(login);
 
         newUser.setPassword(encryptedPassword);
-        if (userVM.getEmail() != null) {
-            newUser.setEmail(userVM.getEmail().toLowerCase());
-        }
+        newUser.setEmail(userVM.getEmail().toLowerCase());
         newUser.setImageUrl(userVM.getImageUrl());
 
         if (userVM.getLangKey() != null) {

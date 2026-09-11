@@ -299,6 +299,35 @@ class AccountResourceIT {
         );
     }
 
+    @Test
+    void testRegisterDocumentNumberNotNumeric() throws Exception {
+        ManagedUserVM invalidUser = validRegisterVM("10000000A1", "register-doc-nonnumeric@example.com");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testRegisterPhoneNumberInvalid() throws Exception {
+        ManagedUserVM invalidUser = validRegisterVM("1000000011", "register-phone-invalid@example.com");
+        invalidUser.setPhoneNumber("300123456"); // 9 digits -> fails @Pattern("\\d{10}")
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testRegisterEmailMissing() throws Exception {
+        ManagedUserVM invalidUser = validRegisterVM("1000000012", "register-email-missing@example.com");
+        invalidUser.setEmail(null);
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+            .andExpect(status().isBadRequest());
+    }
+
     private static ManagedUserVM createInvalidUser(String login, String password, String email, boolean activated) {
         ManagedUserVM invalidUser = new ManagedUserVM();
         invalidUser.setLogin(login);
