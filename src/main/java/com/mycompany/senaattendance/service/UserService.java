@@ -169,10 +169,7 @@ public class UserService {
         newUser.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
 
         newUser.setActivated(true);
-        Set<Authority> authorities = new HashSet<>();
-        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
-        authorityRepository.findById(AuthoritiesConstants.APPRENTICE).ifPresent(authorities::add);
-        newUser.setAuthorities(authorities);
+        newUser.setAuthorities(buildAuthorities(AuthoritiesConstants.APPRENTICE));
         userRepository.save(newUser);
 
         // ------- CREATE USER PROFILE -------

@@ -378,6 +378,31 @@ class AccountResourceIT {
         assertThat(createdProfile.getSecondLastName()).isEqualTo("Gomez");
     }
 
+    @Test
+    void testRegisterFailsWhenApprenticeAuthorityMissing() throws Exception {
+        String documentNumber = "1000000016";
+        String email = "register-missing-apprentice@example.com";
+
+        // The APPRENTICE authority is mandatory for a self-registration. Remove it to prove
+        // registerUser fails fast instead of silently persisting a ROLE_USER-only user.
+        Optional<Authority> apprenticeAuthority = authorityRepository.findById(AuthoritiesConstants.APPRENTICE);
+        assertThat(apprenticeAuthority).isPresent();
+        authorityRepository.deleteById(AuthoritiesConstants.APPRENTICE);
+
+        try {
+            ManagedUserVM validUser = validRegisterVM(documentNumber, email);
+
+            restAccountMockMvc
+                .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+                .andExpect(status().isBadRequest());
+
+            assertThat(userRepository.findOneByLogin(expectedLogin(documentNumber))).isEmpty();
+        } finally {
+            // restore the authority: the @AfterEach of this class only deletes profiles and users
+            authorityRepository.save(apprenticeAuthority.orElseThrow());
+        }
+    }
+
     private static ManagedUserVM createInvalidUser(String login, String password, String email, boolean activated) {
         ManagedUserVM invalidUser = new ManagedUserVM();
         invalidUser.setLogin(login);
