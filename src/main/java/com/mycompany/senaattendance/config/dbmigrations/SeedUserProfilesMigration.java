@@ -53,6 +53,7 @@ public class SeedUserProfilesMigration {
         DocumentType documentType = new DocumentType();
         documentType.setName(name);
         documentType.setInitials(initials);
+        documentType.setIsActive(Boolean.TRUE);
         documentType.setCreatedBy(Constants.SYSTEM);
         documentType.setCreatedDate(Instant.now());
         template.save(documentType, "document_type");

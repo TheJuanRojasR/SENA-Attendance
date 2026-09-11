@@ -37,6 +37,11 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
         LOG.debug("Request to save DocumentType : {}", documentTypeDTO);
         DocumentType documentType = documentTypeMapper.toEntity(documentTypeDTO);
 
+        // Los tipos nuevos nacen activos
+        if (documentType.getIsActive() == null) {
+            documentType.setIsActive(Boolean.TRUE);
+        }
+
         // Inserta la fecha de creación
         documentType.setCreatedDate(Instant.now());
         // Si existe el usuario se inserta quien lo creo
@@ -66,6 +71,12 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
             if (currentUserLogin.isPresent()) {
                 documentType.setCreatedBy(currentUserLogin.get());
             }
+        }
+
+        // El DTO puede no enviar isActive (por ejemplo, el PUT actual del admin):
+        // conserva el estado existente o, si no existe, nace activo.
+        if (documentType.getIsActive() == null) {
+            documentType.setIsActive(optionalDocumentType.map(DocumentType::getIsActive).orElse(Boolean.TRUE));
         }
 
         documentType = documentTypeRepository.save(documentType);

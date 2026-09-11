@@ -64,7 +64,7 @@ class DocumentTypeResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static DocumentType createEntity() {
-        return new DocumentType().name(DEFAULT_NAME).initials(DEFAULT_INITIALS);
+        return new DocumentType().name(DEFAULT_NAME).initials(DEFAULT_INITIALS).isActive(true);
     }
 
     /**
@@ -323,7 +323,7 @@ class DocumentTypeResourceIT {
         DocumentType partialUpdatedDocumentType = new DocumentType();
         partialUpdatedDocumentType.setId(documentType.getId());
 
-        partialUpdatedDocumentType.name(UPDATED_NAME).initials(UPDATED_INITIALS);
+        partialUpdatedDocumentType.name(UPDATED_NAME).initials(UPDATED_INITIALS).isActive(true);
 
         restDocumentTypeMockMvc
             .perform(

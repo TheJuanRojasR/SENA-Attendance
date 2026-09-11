@@ -30,6 +30,9 @@ public class DocumentType extends AbstractAuditingEntity implements Serializable
     @Field("initials")
     private String initials;
 
+    @Field("is_active")
+    private Boolean isActive;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public String getId() {
@@ -71,6 +74,19 @@ public class DocumentType extends AbstractAuditingEntity implements Serializable
         this.initials = initials;
     }
 
+    public Boolean getIsActive() {
+        return this.isActive;
+    }
+
+    public DocumentType isActive(Boolean isActive) {
+        this.setIsActive(isActive);
+        return this;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -97,6 +113,7 @@ public class DocumentType extends AbstractAuditingEntity implements Serializable
             "id=" + getId() +
             ", name='" + getName() + "'" +
             ", initials='" + getInitials() + "'" +
+            ", isActive='" + getIsActive() + "'" +
             "}";
     }
 }
