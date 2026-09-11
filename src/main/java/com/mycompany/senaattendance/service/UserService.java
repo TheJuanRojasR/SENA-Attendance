@@ -178,6 +178,7 @@ public class UserService {
         newUser.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
 
         newUser.setActivated(true);
+        newUser.setMustChangePassword(false);
         newUser.setAuthorities(buildAuthorities(AuthoritiesConstants.APPRENTICE));
         userRepository.save(newUser);
 
@@ -235,6 +236,7 @@ public class UserService {
         user.setImageUrl(null);
         user.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
         user.setActivated(true);
+        user.setMustChangePassword(true);
 
         user.setAuthorities(buildAuthorities(userVM.getRole()));
 

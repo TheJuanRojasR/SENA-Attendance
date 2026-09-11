@@ -154,6 +154,7 @@ class AccountResourceIT {
         assertThat(createdUser.get().getPassword()).isNotEqualTo(VALID_PASSWORD);
         assertThat(passwordEncoder.matches(VALID_PASSWORD, createdUser.get().getPassword())).isTrue();
         assertThat(createdUser.get().isActivated()).isTrue();
+        assertThat(createdUser.get().isMustChangePassword()).isFalse();
         assertThat(createdUser.get().getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
             AuthoritiesConstants.USER,
             AuthoritiesConstants.APPRENTICE

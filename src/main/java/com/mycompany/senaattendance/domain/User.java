@@ -47,6 +47,8 @@ public class User extends AbstractAuditingEntity<String> implements Serializable
 
     private boolean activated = false;
 
+    private boolean mustChangePassword;
+
     @Size(min = 2, max = 10)
     @Field("lang_key")
     private String langKey;
@@ -120,6 +122,19 @@ public class User extends AbstractAuditingEntity<String> implements Serializable
         this.activated = activated;
     }
 
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public User mustChangePassword(boolean mustChangePassword) {
+        this.setMustChangePassword(mustChangePassword);
+        return this;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
+    }
+
     public String getActivationKey() {
         return activationKey;
     }
@@ -185,6 +200,7 @@ public class User extends AbstractAuditingEntity<String> implements Serializable
             ", email='" + email + '\'' +
             ", imageUrl='" + imageUrl + '\'' +
             ", activated='" + activated + '\'' +
+            ", mustChangePassword='" + mustChangePassword + '\'' +
             ", langKey='" + langKey + '\'' +
             ", activationKey='" + activationKey + '\'' +
             "}";

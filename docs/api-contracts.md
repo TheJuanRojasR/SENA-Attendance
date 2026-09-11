@@ -167,11 +167,11 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 }
 ```
 
-La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta; `GET /api/account` responde `200` con un `AdminUserDTO` (campos `id`, `login`, `email`, `activated`, `langKey`, `imageUrl`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `authorities`).
+La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta; `GET /api/account` responde `200` con un `AdminUserDTO` (campos `id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`, `authorities`).
 
 **Errores:** `401 Unauthorized` sin cuerpo para documento inexistente, contraseña incorrecta o cuenta inactiva. `400 error.validation` si falta un campo obligatorio.
 
-**Notas / lo que se necesita:** no existe el indicador `mustChangePassword` ni el flujo de cambio obligatorio del UC; tampoco hay mensajes distintos para "credenciales incorrectas" y "cuenta inactiva": ambos responden `401` genérico. No hay bloqueo por intentos fallidos ni cierre por inactividad (consistente con el UC). `GET /api/account` devuelve solo datos de la cuenta (`AdminUserDTO`), no nombres, apellidos ni documento del perfil; no hay endpoint "perfil actual" (`por confirmar` cómo lo resuelve el frontend).
+**Notas / lo que se necesita:** el `AdminUserDTO` ya expone `mustChangePassword` (las cuentas creadas por un Administrador nacen en `true`; el auto-registro de UC001 y el reset de UC005 lo dejan en `false`), pero `POST /api/authenticate` todavía no lo devuelve ni existe el flujo de cambio obligatorio del UC; tampoco hay mensajes distintos para "credenciales incorrectas" y "cuenta inactiva": ambos responden `401` genérico. No hay bloqueo por intentos fallidos ni cierre por inactividad (consistente con el UC). `GET /api/account` devuelve solo datos de la cuenta (`AdminUserDTO`), no nombres, apellidos ni documento del perfil; no hay endpoint "perfil actual" (`por confirmar` cómo lo resuelve el frontend).
 
 ---
 
@@ -579,7 +579,7 @@ Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o 
 }
 ```
 
-Todos los campos son opcionales: solo se actualizan los presentes. `id` es obligatorio (`400 idmissing`). `login`, `activated` y `authorities` se ignoran. Si cambia `documentNumber` (o `documentTypeId`), el login se recalcula y se validan duplicados. No acepta contraseña. Los campos de perfil tienen las mismas longitudes que en la creación (`firstName`/`firstLastName` 1–30, `documentNumber` 1–15, `phoneNumber` 1–20).
+Todos los campos son opcionales: solo se actualizan los presentes. `id` es obligatorio (`400 idmissing`). `login`, `activated`, `authorities` y `mustChangePassword` se ignoran. Si cambia `documentNumber` (o `documentTypeId`), el login se recalcula y se validan duplicados. No acepta contraseña. Los campos de perfil tienen las mismas longitudes que en la creación (`firstName`/`firstLastName` 1–30, `documentNumber` 1–15, `phoneNumber` 1–20).
 
 **Request — `PATCH /api/admin/users/activated`**
 
@@ -603,6 +603,7 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
   "login": "cc_1029384756",
   "email": "carlos.perez@example.com",
   "activated": true,
+  "mustChangePassword": true,
   "langKey": "es",
   "imageUrl": null,
   "resetDate": null,
@@ -613,11 +614,11 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 }
 ```
 
-`PATCH /api/admin/users` y `PATCH /api/admin/users/activated` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
+`PATCH /api/admin/users` y `PATCH /api/admin/users/activated` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
 
 **Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"; la cuenta `admin` está protegida), `400 error.lastInstructor` (lista las materias sin instructor); `403`; `404`.
 
-**Notas / lo que se necesita:** no existe `mustChangePassword`, así que el cambio obligatorio en el primer inicio no está implementado. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero **no hay endpoint** para listarla o reenviarla (UC018). El borrado sigue disponible. La guarda del instructor único solo considera materias activas, no fichas Pendiente/Activa como pide el UC. Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (cualquier usuario autenticado), que puede crear o eliminar perfiles por fuera de este flujo.
+**Notas / lo que se necesita:** las cuentas creadas por un Administrador nacen con `mustChangePassword = true` en la entidad `User` y el indicador se expone en el `AdminUserDTO`; falta implementar el flujo de cambio obligatorio en el primer inicio. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero **no hay endpoint** para listarla o reenviarla (UC018). El borrado sigue disponible. La guarda del instructor único solo considera materias activas, no fichas Pendiente/Activa como pide el UC. Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (cualquier usuario autenticado), que puede crear o eliminar perfiles por fuera de este flujo.
 
 ---
 
