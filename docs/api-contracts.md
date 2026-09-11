@@ -41,7 +41,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | UC                                                  | Nombre                             | Estado          |
 | --------------------------------------------------- | ---------------------------------- | --------------- |
 | [UC001](#uc001--registrarme)                        | Registrarme                        | Implementado    |
-| [UC002](#uc002--iniciar-sesión)                     | Iniciar sesión                     | Parcial         |
+| [UC002](#uc002--iniciar-sesión)                     | Iniciar sesión                     | Implementado    |
 | [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Parcial         |
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
 | [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Parcial         |
@@ -129,7 +129,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 
 ## UC002 — Iniciar sesión
 
-**Módulo:** Cuenta y acceso | **Actor:** Usuario (Aprendiz, Instructor o Administrador) | **Estado:** Parcial
+**Módulo:** Cuenta y acceso | **Actor:** Usuario (Aprendiz, Instructor o Administrador) | **Estado:** Implementado
 
 **Feature:** Autenticación por tipo y número de documento + contraseña. Emite un JWT de 24 horas y valida el token en cada petición.
 
@@ -204,18 +204,18 @@ La cabecera `Authorization: Bearer <id_token>` viaja también en la respuesta. `
 }
 ```
 
-| Campo             | Tipo   | Obligatorio | Reglas                                                               |
-| ----------------- | ------ | ----------- | -------------------------------------------------------------------- |
-| `firstName`       | string | No          | 1–30; si se envía, actualiza.                                        |
-| `middleName`      | string | No          | 1–30; si se envía, actualiza.                                        |
-| `firstLastName`   | string | No          | 1–30; si se envía, actualiza.                                        |
-| `secondLastName`  | string | No          | 1–30; si se envía, actualiza.                                        |
-| `phoneNumber`     | string | No          | 1–30; el patrón de 10 dígitos no se revalida aquí.                   |
-| `email`           | string | No          | `@Email`, 5–254; debe ser único.                                     |
-| `currentPassword` | string | Condicional | 8–20; obligatoria si se envía `newPassword`.                         |
+| Campo             | Tipo   | Obligatorio | Reglas                                                                                            |
+| ----------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------- |
+| `firstName`       | string | No          | 1–30; si se envía, actualiza.                                                                     |
+| `middleName`      | string | No          | 1–30; si se envía, actualiza.                                                                     |
+| `firstLastName`   | string | No          | 1–30; si se envía, actualiza.                                                                     |
+| `secondLastName`  | string | No          | 1–30; si se envía, actualiza.                                                                     |
+| `phoneNumber`     | string | No          | 1–30; el patrón de 10 dígitos no se revalida aquí.                                                |
+| `email`           | string | No          | `@Email`, 5–254; debe ser único.                                                                  |
+| `currentPassword` | string | Condicional | 8–20; obligatoria si se envía `newPassword`.                                                      |
 | `newPassword`     | string | No          | 8–20; debe cumplir mayúscula, minúscula, número y carácter especial, y ser distinta de la actual. |
-| `imageUrl`        | string | No          | máximo 256.                                                          |
-| `langKey`         | string | No          | 2–10.                                                                |
+| `imageUrl`        | string | No          | máximo 256.                                                                                       |
+| `langKey`         | string | No          | 2–10.                                                                                             |
 
 Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o `documentNumber` no se procesa: el VM no los expone y se descartan como propiedades desconocidas.
 
@@ -228,9 +228,9 @@ Campos no enviados quedan sin cambios. Un intento de incluir `documentTypeId` o 
 }
 ```
 
-| Campo             | Tipo   | Obligatorio | Reglas                                                                             |
-| ----------------- | ------ | ----------- | ---------------------------------------------------------------------------------- |
-| `currentPassword` | string | Sí          | Debe coincidir con la contraseña vigente.                                          |
+| Campo             | Tipo   | Obligatorio | Reglas                                                                                            |
+| ----------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------- |
+| `currentPassword` | string | Sí          | Debe coincidir con la contraseña vigente.                                                         |
 | `newPassword`     | string | Sí          | 8–20; debe cumplir mayúscula, minúscula, número y carácter especial, y ser distinta de la actual. |
 
 **Response:** `200 OK` sin cuerpo en ambos endpoints.
