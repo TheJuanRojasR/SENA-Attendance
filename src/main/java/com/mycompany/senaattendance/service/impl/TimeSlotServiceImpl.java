@@ -10,12 +10,13 @@ import com.mycompany.senaattendance.service.mapper.TimeSlotMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.TimeSlotNameAlreadyUsedException;
 import java.time.Instant;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -102,9 +103,9 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     }
 
     @Override
-    public List<TimeSlotDTO> findAll() {
+    public Page<TimeSlotDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all TimeSlots");
-        return timeSlotRepository.findAll().stream().map(timeSlotMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
+        return timeSlotRepository.findAll(pageable).map(timeSlotMapper::toDto);
     }
 
     @Override

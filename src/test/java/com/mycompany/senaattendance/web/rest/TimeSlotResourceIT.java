@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.TimeSlotAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -308,14 +309,32 @@ class TimeSlotResourceIT {
 
         // Get all the timeSlotList
         restTimeSlotMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(ENTITY_API_URL + "?page=0&size=20&sort=id,desc"))
             .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(timeSlot.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].isActive").value(hasItem(DEFAULT_IS_ACTIVE)))
             .andExpect(jsonPath("$.[*].startTime").value(hasItem(DEFAULT_START_TIME.format(LOCAL_DATE_TIME_FORMAT))))
             .andExpect(jsonPath("$.[*].endTime").value(hasItem(DEFAULT_END_TIME.format(LOCAL_DATE_TIME_FORMAT))));
+    }
+
+    @Test
+    void getAllTimeSlotsWithSizeOneReturnsOnlyOneElementWithTotalCount() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+        TimeSlot other = timeSlotRepository.save(createUpdatedEntity());
+
+        try {
+            restTimeSlotMockMvc
+                .perform(get(ENTITY_API_URL + "?page=0&size=1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$", hasSize(1)));
+        } finally {
+            timeSlotRepository.delete(other);
+        }
     }
 
     @Test

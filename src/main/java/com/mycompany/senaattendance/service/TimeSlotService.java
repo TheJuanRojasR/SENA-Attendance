@@ -3,6 +3,8 @@ package com.mycompany.senaattendance.service;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 /**
  * Service Interface for managing {@link com.mycompany.senaattendance.domain.TimeSlot}.
@@ -35,9 +37,10 @@ public interface TimeSlotService {
     /**
      * Get all the timeSlots.
      *
-     * @return the list of entities.
+     * @param pageable the pagination information.
+     * @return the page of entities.
      */
-    List<TimeSlotDTO> findAll();
+    Page<TimeSlotDTO> findAll(Pageable pageable);
 
     /**
      * Get the "id" timeSlot.
