@@ -105,21 +105,30 @@ public class UserService {
         });
     }
 
-    public Optional<User> completePasswordReset(String newPassword, String key) {
+    public User completePasswordReset(String newPassword, String key) {
         LOG.debug("Reset user password for reset key {}", key);
-        return userRepository
+        User user = userRepository
             .findOneByResetKey(key)
-            .filter(user -> user.getResetDate().isAfter(Instant.now().minus(RESET_KEY_VALIDITY_MINUTES, ChronoUnit.MINUTES)))
-            .map(user -> {
-                if (!PASSWORD_PATTERN.matcher(newPassword).matches()) {
-                    throw new InvalidPasswordException();
-                }
-                user.setPassword(passwordEncoder.encode(newPassword));
-                user.setResetKey(null);
-                user.setResetDate(null);
-                userRepository.save(user);
-                return user;
-            });
+            .orElseThrow(() -> new BadRequestAlertException("Reset link is not valid", "account", "resetlinkinvalid"));
+
+        // A found key with no reset date means the link was already consumed.
+        if (user.getResetDate() == null) {
+            throw new BadRequestAlertException("Reset link has already been used", "account", "resetlinkused");
+        }
+
+        if (!user.getResetDate().isAfter(Instant.now().minus(RESET_KEY_VALIDITY_MINUTES, ChronoUnit.MINUTES))) {
+            throw new BadRequestAlertException("Reset link has expired", "account", "resetlinkexpired");
+        }
+
+        if (!PASSWORD_PATTERN.matcher(newPassword).matches()) {
+            throw new InvalidPasswordException();
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        // Keep the key so a later reuse resolves to "already used" instead of "not valid".
+        user.setResetDate(null);
+        userRepository.save(user);
+        return user;
     }
 
     public Optional<User> requestPasswordReset(String documentTypeId, String documentNumber) {

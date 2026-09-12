@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.DocumentType;
@@ -9,6 +10,7 @@ import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -137,8 +139,9 @@ class UserServiceIT {
         user.setResetKey(resetKey);
         userRepository.save(user);
 
-        Optional<User> maybeUser = userService.completePasswordReset("johndoe2", user.getResetKey());
-        assertThat(maybeUser).isNotPresent();
+        assertThatThrownBy(() -> userService.completePasswordReset("johndoe2", user.getResetKey()))
+            .isInstanceOf(BadRequestAlertException.class)
+            .hasFieldOrPropertyWithValue("errorKey", "resetlinkexpired");
         userRepository.delete(user);
     }
 
@@ -150,8 +153,9 @@ class UserServiceIT {
         user.setResetKey("1234");
         userRepository.save(user);
 
-        Optional<User> maybeUser = userService.completePasswordReset("johndoe2", user.getResetKey());
-        assertThat(maybeUser).isNotPresent();
+        assertThatThrownBy(() -> userService.completePasswordReset("johndoe2", user.getResetKey()))
+            .isInstanceOf(BadRequestAlertException.class)
+            .hasFieldOrPropertyWithValue("errorKey", "resetlinkexpired");
         userRepository.delete(user);
     }
 
@@ -165,11 +169,11 @@ class UserServiceIT {
         user.setResetKey(resetKey);
         userRepository.save(user);
 
-        Optional<User> maybeUser = userService.completePasswordReset("Passw0rd!", user.getResetKey());
-        assertThat(maybeUser).isPresent();
-        assertThat(maybeUser.orElse(null).getResetDate()).isNull();
-        assertThat(maybeUser.orElse(null).getResetKey()).isNull();
-        assertThat(maybeUser.orElse(null).getPassword()).isNotEqualTo(oldPassword);
+        User updatedUser = userService.completePasswordReset("Passw0rd!", user.getResetKey());
+        assertThat(updatedUser.getResetDate()).isNull();
+        // The key is kept (nulled resetDate marks it as consumed) so a later reuse is "used", not "invalid".
+        assertThat(updatedUser.getResetKey()).isEqualTo(resetKey);
+        assertThat(updatedUser.getPassword()).isNotEqualTo(oldPassword);
 
         userRepository.delete(user);
     }

@@ -25,6 +25,7 @@ import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import com.mycompany.senaattendance.web.rest.vm.PasswordResetRequestVM;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -1455,6 +1456,74 @@ class AccountResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(keyAndPassword))
             )
-            .andExpect(status().isInternalServerError());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkinvalid"));
+    }
+
+    @Test
+    void testFinishPasswordResetWithExpiredKey() throws Exception {
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-expired");
+        user.setEmail("finish-password-reset-expired@example.com");
+        user.setResetDate(Instant.now().minus(31, ChronoUnit.MINUTES));
+        user.setResetKey("reset key expired");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setKey(user.getResetKey());
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkexpired"));
+
+        User unchangedUser = userRepository.findOneByLogin(user.getLogin()).orElseThrow();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, unchangedUser.getPassword())).isFalse();
+
+        userService.deleteUser("finish-password-reset-expired");
+    }
+
+    @Test
+    void testFinishPasswordResetWithUsedKey() throws Exception {
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-used");
+        user.setEmail("finish-password-reset-used@example.com");
+        user.setResetDate(Instant.now().plusSeconds(60));
+        user.setResetKey("reset key used");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setKey(user.getResetKey());
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
+
+        // First use consumes the link (resetDate cleared, key kept).
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isOk());
+
+        // Reusing the same link must report "already used" instead of "not valid".
+        KeyAndPasswordVM reuse = new KeyAndPasswordVM();
+        reuse.setKey(user.getResetKey());
+        reuse.setNewPassword("Another#2026");
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(reuse))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkused"));
+
+        userService.deleteUser("finish-password-reset-used");
     }
 }

@@ -325,9 +325,16 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Response:** `200 OK` sin cuerpo en ambos casos. `init` responde `200` aunque el usuario no exista o el correo falle (el envío es asíncrono y los fallos se registran en logs).
 
-**Errores:** `400` con `{"message": "error.invalidpassword"}` si la nueva contraseña no cumple la política completa (8–20 con mayúscula, minúscula, número y carácter especial, E2). `500` si la clave no corresponde a ningún usuario o ya no es válida (la clave se limpia al usarse, así que un segundo intento cae en `500`).
+**Errores:** todos los fallos de `finish` son `400 Bad Request` con una clave de negocio estable en `$.message`:
 
-**Notas / lo que se necesita:** la clave de reset expira a los **30 minutos** (`resetDate > now - 30 minutos` en `UserService.completePasswordReset`), como pide el UC. Es de un solo uso (se limpia al completar). El reset no activa un indicador de cambio obligatorio. El mensaje neutro no se devuelve en el cuerpo: `init` responde `200` vacío y el cliente debe mostrar el texto del UC. Un enlace expirado produce `500`, no un `400` con "El enlace ha expirado" (`por confirmar` el mapeo final en el frontend).
+| Situación                                                       | `$.message`              | Causa                                                                                                                  |
+| -------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Enlace inexistente o manipulado                                | `error.resetlinkinvalid` | La clave no está asociada a ningún usuario.                                                                            |
+| Enlace ya usado (E4)                                            | `error.resetlinkused`    | La clave existe pero su `resetDate` es `null` (el enlace ya se consumió).                                              |
+| Enlace expirado (E3)                                            | `error.resetlinkexpired` | La clave existe pero su `resetDate` es anterior a `now - 30 minutos`.                                                  |
+| Contraseña débil (E2)                                          | `error.invalidpassword`  | La nueva contraseña no cumple la política completa (8–20 con mayúscula, minúscula, número y carácter especial).       |
+
+**Notas / lo que se necesita:** la clave de reset expira a los **30 minutos** (`resetDate > now - 30 minutos` en `UserService.completePasswordReset`), como pide el UC. Es de un solo uso: al completar se limpia `resetDate` pero se **conserva** `resetKey`, de modo que un segundo intento sobre el mismo enlace resuelve como `error.resetlinkused` (E4) y no como enlace inválido. El reset no activa un indicador de cambio obligatorio. El mensaje neutro no se devuelve en el cuerpo: `init` responde `200` vacío y el cliente debe mostrar el texto del UC. El enlace expirado responde `400` con `error.resetlinkexpired` ("El enlace ha expirado, solicita uno nuevo"); el ya usado responde `400` con `error.resetlinkused` ("Este enlace ya no es válido").
 
 ---
 

@@ -171,8 +171,10 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 | #   | Ítem                                                                                                                                                                            | Estado      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | **E3 — Enlace expirado:** si el usuario abre el enlace después de los **30 minutos**, mostrar "El enlace ha expirado, solicita uno nuevo" y redirigirlo al paso 1 (solicitud). | `Pendiente` |
+| 1   | **E3 — Enlace expirado:** si el usuario abre el enlace después de los **30 minutos**, el backend responde `400` con `error.resetlinkexpired`; mostrar "El enlace ha expirado, solicita uno nuevo" y redirigirlo al paso 1 (solicitud). | `Pendiente` |
 | 2   | **E2 — Contraseña débil:** si la nueva contraseña no cumple la política completa (8–20 con mayúscula, minúscula, número y carácter especial), el backend responde `400` con `error.invalidpassword`. Mostrar "Contraseña no válida" y conservar el enlace para reintentar. | `Pendiente` |
+| 3   | **E4 — Enlace ya usado:** al reutilizar un enlace consumido el backend responde `400` con `error.resetlinkused`; mostrar "Este enlace ya no es válido" y redirigir a solicitar uno nuevo. | `Pendiente` |
+| 4   | **E1 — Enlace inválido:** si el enlace no corresponde a ninguna solicitud, el backend responde `400` con `error.resetlinkinvalid`; mostrar "El enlace no es válido. Solicita uno nuevo". | `Pendiente` |
 
 ---
 
@@ -221,6 +223,9 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.currentpasswordinvalid` | "La contraseña actual es incorrecta."                                                               | Cambio de contraseña (UC002/UC003-E4).                |
 | `error.samepassword`           | "La nueva contraseña debe ser diferente a la actual."                                               | Cambio de contraseña (UC003-E6).                      |
 | `error.invalidpassword`        | "Contraseña no válida."                                                                             | Cambio de contraseña y registro (UC003-E5, UC001-E1) y reset (UC005-E2). |
+| `error.resetlinkinvalid`       | "El enlace no es válido. Solicita uno nuevo."                                                       | Recuperación de contraseña (UC005-E1).               |
+| `error.resetlinkexpired`       | "El enlace ha expirado, solicita uno nuevo."                                                        | Recuperación de contraseña (UC005-E3).               |
+| `error.resetlinkused`          | "Este enlace ya no es válido."                                                                      | Recuperación de contraseña (UC005-E4).               |
 | `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).                         |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
