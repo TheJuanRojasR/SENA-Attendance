@@ -56,7 +56,7 @@ public class TimeSlotResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TimeSlotDTO> createTimeSlot(@Valid @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
         LOG.debug("REST request to save TimeSlot : {}", timeSlotDTO);
         if (timeSlotDTO.getId() != null) {
@@ -78,7 +78,7 @@ public class TimeSlotResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TimeSlotDTO> updateTimeSlot(@Valid @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
         String id = timeSlotDTO.getId();
         LOG.debug("REST request to update TimeSlot : {}", timeSlotDTO);
@@ -107,7 +107,7 @@ public class TimeSlotResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TimeSlotDTO> partialUpdateTimeSlot(@NotNull @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
         String id = timeSlotDTO.getId();
         LOG.debug("REST request to partial update TimeSlot partially : {}", timeSlotDTO);
@@ -161,7 +161,7 @@ public class TimeSlotResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteTimeSlot(@PathVariable("id") String id) {
         LOG.debug("REST request to delete TimeSlot : {}", id);
         timeSlotService.delete(id);

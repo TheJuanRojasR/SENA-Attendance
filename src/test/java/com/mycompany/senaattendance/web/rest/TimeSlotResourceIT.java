@@ -643,6 +643,73 @@ class TimeSlotResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createTimeSlotAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+
+        restTimeSlotMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateTimeSlotAsNonAdminReturnsForbidden() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(insertedTimeSlot);
+
+        restTimeSlotMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateTimeSlotAsNonAdminReturnsForbidden() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(insertedTimeSlot);
+
+        restTimeSlotMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(timeSlotDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteTimeSlotAsNonAdminReturnsForbidden() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restTimeSlotMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedTimeSlot.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readTimeSlotsAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        restTimeSlotMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restTimeSlotMockMvc.perform(get(ENTITY_API_URL_ID, insertedTimeSlot.getId())).andExpect(status().isOk());
+        restTimeSlotMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
+    }
+
     protected long getRepositoryCount() {
         return timeSlotRepository.count();
     }
