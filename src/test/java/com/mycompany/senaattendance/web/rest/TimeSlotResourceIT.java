@@ -43,10 +43,10 @@ class TimeSlotResourceIT {
     private static final Boolean UPDATED_IS_ACTIVE = true;
 
     private static final LocalTime DEFAULT_START_TIME = LocalTime.NOON;
-    private static final LocalTime UPDATED_START_TIME = LocalTime.MAX.withNano(0);
+    private static final LocalTime UPDATED_START_TIME = LocalTime.of(6, 0);
 
-    private static final LocalTime DEFAULT_END_TIME = LocalTime.NOON;
-    private static final LocalTime UPDATED_END_TIME = LocalTime.MAX.withNano(0);
+    private static final LocalTime DEFAULT_END_TIME = LocalTime.of(18, 0);
+    private static final LocalTime UPDATED_END_TIME = LocalTime.of(14, 0);
 
     private static final String ENTITY_API_URL = "/api/time-slots";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -138,6 +138,43 @@ class TimeSlotResourceIT {
 
         // Validate the TimeSlot in the database
         assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createTimeSlotWithEqualTimesReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        timeSlot.setStartTime(LocalTime.NOON);
+        timeSlot.setEndTime(LocalTime.NOON);
+
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+
+        restTimeSlotMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.timeSlotSameTime"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createTimeSlotWithEndTimeBeforeStartTimeSucceeds() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        timeSlot.setStartTime(LocalTime.of(22, 0));
+        timeSlot.setEndTime(LocalTime.of(6, 0));
+
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+        var returnedTimeSlotDTO = om.readValue(
+            restTimeSlotMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            TimeSlotDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        insertedTimeSlot = timeSlotMapper.toEntity(returnedTimeSlotDTO);
     }
 
     @Test
@@ -353,6 +390,26 @@ class TimeSlotResourceIT {
     }
 
     @Test
+    void putTimeSlotWithEqualTimesReturnsBadRequest() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(insertedTimeSlot);
+        timeSlotDTO.setEndTime(timeSlotDTO.getStartTime());
+
+        restTimeSlotMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, timeSlotDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(timeSlotDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.timeSlotSameTime"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
     void putNonExistingTimeSlot() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
         timeSlot.setId(UUID.randomUUID().toString());
@@ -436,6 +493,28 @@ class TimeSlotResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertTimeSlotUpdatableFieldsEquals(createUpdateProxyForBean(partialUpdatedTimeSlot, timeSlot), getPersistedTimeSlot(timeSlot));
+    }
+
+    @Test
+    void patchTimeSlotToEqualTimesReturnsBadRequest() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        TimeSlot partialUpdatedTimeSlot = new TimeSlot();
+        partialUpdatedTimeSlot.setId(timeSlot.getId());
+        partialUpdatedTimeSlot.setEndTime(timeSlot.getStartTime());
+
+        restTimeSlotMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedTimeSlot.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedTimeSlot))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.timeSlotSameTime"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
     @Test

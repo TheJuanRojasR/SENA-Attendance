@@ -421,14 +421,14 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | ----------- | ------------------- | ----------- | ----------------------------------------------------------------------------------- |
 | `name`      | string              | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.timeSlotNameAlreadyUsed`. |
 | `startTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`.                                                                         |
-| `endTime`   | string (`HH:mm:ss`) | Sí          | `@NotNull`. No se valida que sea distinta de `startTime` ni el cruce de medianoche. |
+| `endTime`   | string (`HH:mm:ss`) | Sí          | `@NotNull`. Debe ser distinto de `startTime`; si son iguales responde `400 error.timeSlotSameTime` (E2). Se permite el cruce de medianoche (`endTime` menor que `startTime`, p. ej. 22:00:00–06:00:00). |
 | `isActive`  | boolean             | Sí          | `@NotNull`; el cliente define el estado inicial (el UC pide nacer activa).          |
 
 **Response:** `201 Created` con el `TimeSlotDTO` creado (`id`, `name`, `startTime`, `endTime`, `isActive`). Las listas devuelven un arreglo JSON completo.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.timeSlotNameAlreadyUsed` (nombre duplicado, E1); `403` sin rol permitido; `404` en detalle inexistente.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.timeSlotNameAlreadyUsed` (nombre duplicado, E1); `400 error.timeSlotSameTime` (hora de inicio igual a la hora de fin, E2); `403` sin rol permitido; `404` en detalle inexistente.
 
-**Notas / lo que se necesita:** ya está implementado el nombre único (E1). Faltan las horas distintas (E2), el bloqueo de eliminación si está en uso por fichas (E3) y la validación del rango con cruce de medianoche. El estado se cambia con el `PATCH` genérico (`isActive`), sin acciones dedicadas de Desactivar/Reactivar. Los listados de catálogo no usan el estándar de paginación del sistema.
+**Notas / lo que se necesita:** ya están implementados el nombre único (E1) y el rechazo de horas iguales (E2); las jornadas que cruzan medianoche (`endTime` menor que `startTime`) se aceptan. Falta el bloqueo de eliminación si la jornada está en uso por fichas (E3). El estado se cambia con el `PATCH` genérico (`isActive`), sin acciones dedicadas de Desactivar/Reactivar. Los listados de catálogo no usan el estándar de paginación del sistema.
 
 ---
 

@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TimeSlotService;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.TimeSlotMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.TimeSlotNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.LinkedList;
@@ -38,6 +39,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         LOG.debug("Request to save TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
 
+        validateDifferentTimes(timeSlot);
         validateAndNormalizeName(timeSlot, null);
 
         // Insertar fecha de creación
@@ -57,6 +59,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         LOG.debug("Request to update TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
 
+        validateDifferentTimes(timeSlot);
         validateAndNormalizeName(timeSlot, timeSlot.getId());
 
         Optional<TimeSlot> optionalTimeSlot = timeSlotRepository.findById(timeSlot.getId());
@@ -84,6 +87,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
             .findById(timeSlotDTO.getId())
             .map(existingTimeSlot -> {
                 timeSlotMapper.partialUpdate(existingTimeSlot, timeSlotDTO);
+                validateDifferentTimes(existingTimeSlot);
 
                 return existingTimeSlot;
             })
@@ -113,6 +117,19 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public List<TimeSlotDTO> findByIsActiveTrue() {
         LOG.debug("Request to get all active TimeSlots");
         return timeSlotRepository.findTimeSlotByIsActive(true).stream().map(timeSlotMapper::toDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Rejects a time slot whose start and end times are equal. Ranges that cross midnight
+     * (an end time earlier than the start time) are valid and are not rejected here.
+     *
+     * @param timeSlot the time slot whose times are validated.
+     * @throws BadRequestAlertException if both times are set and equal.
+     */
+    private void validateDifferentTimes(TimeSlot timeSlot) {
+        if (timeSlot.getStartTime() != null && timeSlot.getStartTime().equals(timeSlot.getEndTime())) {
+            throw new BadRequestAlertException("Start time and end time cannot be equal", "timeSlot", "timeSlotSameTime");
+        }
     }
 
     /**
