@@ -128,7 +128,9 @@ class TimeSlotResourceIT {
 
         // Validate the TimeSlot in the database
         assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedTimeSlotDTO.getIsActive()).isTrue();
         var returnedTimeSlot = timeSlotMapper.toEntity(returnedTimeSlotDTO);
+        assertThat(getPersistedTimeSlot(returnedTimeSlot).getIsActive()).isTrue();
         assertTimeSlotUpdatableFieldsEquals(returnedTimeSlot, getPersistedTimeSlot(returnedTimeSlot));
 
         insertedTimeSlot = returnedTimeSlot;
@@ -242,19 +244,29 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    void checkIsActiveIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
+    void createTimeSlotWithoutIsActiveIsPersistedActive() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
         // set the field null
         timeSlot.setIsActive(null);
 
-        // Create the TimeSlot, which fails.
         TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+        var returnedTimeSlotDTO = om.readValue(
+            restTimeSlotMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            TimeSlotDTO.class
+        );
 
-        restTimeSlotMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
-            .andExpect(status().isBadRequest());
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedTimeSlotDTO.getIsActive()).isTrue();
 
-        assertSameRepositoryCount(databaseSizeBeforeTest);
+        var returnedTimeSlot = timeSlotMapper.toEntity(returnedTimeSlotDTO);
+        assertThat(getPersistedTimeSlot(returnedTimeSlot).getIsActive()).isTrue();
+
+        insertedTimeSlot = returnedTimeSlot;
     }
 
     @Test

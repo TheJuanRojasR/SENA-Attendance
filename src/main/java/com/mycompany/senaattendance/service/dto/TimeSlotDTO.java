@@ -17,7 +17,6 @@ public class TimeSlotDTO implements Serializable {
     @Size(max = 50)
     private String name;
 
-    @NotNull
     private Boolean isActive;
 
     @NotNull

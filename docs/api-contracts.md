@@ -401,7 +401,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | GET    | `/api/time-slots`        | Autenticado                       | Lista completa (sin paginar) de jornadas.     |
 | GET    | `/api/time-slots/active` | Autenticado                       | Lista de jornadas activas.                    |
 | GET    | `/api/time-slots/{id}`   | Autenticado                       | Detalle de una jornada.                       |
-| POST   | `/api/time-slots`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea la jornada; `201` con el recurso creado. |
+| POST   | `/api/time-slots`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea la jornada (nace Activa); `201` con el recurso creado. |
 | PUT    | `/api/time-slots/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza la jornada; `200` con el recurso.   |
 | PATCH  | `/api/time-slots/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200` con el recurso.  |
 | DELETE | `/api/time-slots/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`. Bloquea la eliminación si la jornada está asignada a fichas (`400 error.timeSlotInUse`). |
@@ -412,8 +412,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 {
   "name": "Diurna",
   "startTime": "06:00:00",
-  "endTime": "18:00:00",
-  "isActive": true
+  "endTime": "18:00:00"
 }
 ```
 
@@ -422,13 +421,13 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | `name`      | string              | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.timeSlotNameAlreadyUsed`. |
 | `startTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`.                                                                         |
 | `endTime`   | string (`HH:mm:ss`) | Sí          | `@NotNull`. Debe ser distinto de `startTime`; si son iguales responde `400 error.timeSlotSameTime` (E2). Se permite el cruce de medianoche (`endTime` menor que `startTime`, p. ej. 22:00:00–06:00:00). |
-| `isActive`  | boolean             | Sí          | `@NotNull`; el cliente define el estado inicial (el UC pide nacer activa).          |
+| `isActive`  | boolean             | No          | Ignorado en la creación: el backend siempre crea la jornada como **Activa** (`isActive = true`). |
 
 **Response:** `201 Created` con el `TimeSlotDTO` creado (`id`, `name`, `startTime`, `endTime`, `isActive`). Las listas devuelven un arreglo JSON completo.
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.timeSlotNameAlreadyUsed` (nombre duplicado, E1); `400 error.timeSlotSameTime` (hora de inicio igual a la hora de fin, E2); `400 error.timeSlotInUse` (la jornada está asignada a una o más fichas y no puede eliminarse, E3); `403` sin rol permitido; `404` en detalle inexistente.
 
-**Notas / lo que se necesita:** ya están implementados el nombre único (E1), el rechazo de horas iguales (E2) y el bloqueo de eliminación cuando la jornada está asignada a fichas (E3). `DELETE /api/time-slots/{id}` responde `400 error.timeSlotInUse` si existe al menos una ficha que referencia la jornada, y `204` cuando ninguna la usa. Una jornada en uso **no se elimina**: la alternativa es **desactivarla** con `PATCH /api/time-slots/{id}` (`isActive: false`), de modo que las fichas existentes la sigan conservando. Las jornadas que cruzan medianoche (`endTime` menor que `startTime`) se aceptan. El estado se cambia con el `PATCH` genérico (`isActive`), sin acciones dedicadas de Desactivar/Reactivar. Los listados de catálogo no usan el estándar de paginación del sistema.
+**Notas / lo que se necesita:** ya están implementados el nombre único (E1), el rechazo de horas iguales (E2) y el bloqueo de eliminación cuando la jornada está asignada a fichas (E3). `DELETE /api/time-slots/{id}` responde `400 error.timeSlotInUse` si existe al menos una ficha que referencia la jornada, y `204` cuando ninguna la usa. Una jornada en uso **no se elimina**: la alternativa es **desactivarla** con `PATCH /api/time-slots/{id}` (`isActive: false`), de modo que las fichas existentes la sigan conservando. Las jornadas que cruzan medianoche (`endTime` menor que `startTime`) se aceptan. El estado se cambia con el `PATCH` genérico (`isActive`), sin acciones dedicadas de Desactivar/Reactivar. Al crear (`POST`) el backend fuerza `isActive = true` (la jornada nace Activa) e ignora el valor enviado; el `PATCH` sí puede cambiar el estado. Los listados de catálogo no usan el estándar de paginación del sistema.
 
 ---
 

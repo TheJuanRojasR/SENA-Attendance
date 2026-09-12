@@ -43,6 +43,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         LOG.debug("Request to save TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
 
+        timeSlot.setIsActive(true);
         validateDifferentTimes(timeSlot);
         validateAndNormalizeName(timeSlot, null);
 

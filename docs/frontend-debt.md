@@ -197,7 +197,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 **Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.timeSlotNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. También está implementado el **rechazo de horas iguales** (E2): si `startTime` y `endTime` son iguales el backend responde `400` con `error.timeSlotSameTime`, mientras que un rango que cruza medianoche (`endTime` menor que `startTime`, p. ej. 22:00–06:00) se permite. También está implementado el **bloqueo de eliminación** (E3): si una o más fichas usan la jornada, `DELETE /api/time-slots/{id}` responde `400` con `error.timeSlotInUse`; en ese caso la jornada no se elimina y debe **desactivarse** con `PATCH /api/time-slots/{id}` (`isActive: false`). Ver [`docs/api-contracts.md#uc020--gestionar-jornadas`](./api-contracts.md#uc020--gestionar-jornadas).
 
-**Estado del frontend:** pendiente. La pantalla de jornadas debe manejar los errores de nombre duplicado y de horas iguales, y evitar enviar nombres en blanco.
+**Estado del frontend:** pendiente. La pantalla de jornadas debe manejar los errores de nombre duplicado y de horas iguales, y evitar enviar nombres en blanco. El formulario de creación solo envía `name`, `startTime` y `endTime`: el backend crea la jornada como Activa e ignora `isActive` en el `POST`; el estado se cambia luego con el `PATCH`.
 
 | #   | Ítem                                                                                                                                                                                                                       | Estado      |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -206,6 +206,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 3   | Validar en el cliente el máximo de 50 caracteres del nombre (el backend responde `400 error.validation` con `name` en `fieldErrors`).                                                                                     | `Pendiente` |
 | 4   | Al crear o editar una jornada, manejar `400 error.timeSlotSameTime` mostrando "La hora de inicio y la hora de fin no pueden ser iguales" (E2); permitir enviar rangos que cruzan medianoche (p. ej. 22:00–06:00).            | `Pendiente` |
 | 5   | Al eliminar una jornada en uso, manejar `400 error.timeSlotInUse` mostrando "No es posible eliminar la jornada: está asignada a fichas. Puedes desactivarla" (E3) y ofrecer **desactivarla** con `PATCH /api/time-slots/{id}` (`isActive: false`) en lugar de reintentar la eliminación. | `Pendiente` |
+| 6   | En el formulario de creación, enviar solo `name`, `startTime` y `endTime` y no ofrecer un control de estado en el alta: el backend crea la jornada como Activa e ignora `isActive` en el `POST`. El estado se cambia después con el `PATCH`. | `Pendiente` |
 
 ---
 
