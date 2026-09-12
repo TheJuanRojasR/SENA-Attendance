@@ -22,6 +22,8 @@ public class SeedGlobalConfigurationMigration {
 
     private static final Integer DEFAULT_STUDENT_JUSTIFICATION_DAYS = 5;
     private static final Integer DEFAULT_INSTRUCTOR_RESPONSE_DAYS = 2;
+    private static final Integer DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD = 3;
+    private static final Integer DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD = 5;
 
     private final MongoTemplate template;
 
@@ -68,6 +70,8 @@ public class SeedGlobalConfigurationMigration {
         GlobalConfiguration configuration = new GlobalConfiguration();
         configuration.setStudentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
         configuration.setInstructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+        configuration.setConsecutiveAbsenceAlertThreshold(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD);
+        configuration.setAccumulatedAbsenceAlertThreshold(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD);
         configuration.setCreatedBy(Constants.SYSTEM);
         configuration.setCreatedDate(Instant.now());
         return configuration;

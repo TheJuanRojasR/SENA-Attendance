@@ -54,6 +54,16 @@ public class GlobalConfigurationAsserts {
             )
             .satisfies(a ->
                 assertThat(a.getInstructorResponseDays()).as("check instructorResponseDays").isEqualTo(expected.getInstructorResponseDays())
+            )
+            .satisfies(a ->
+                assertThat(a.getConsecutiveAbsenceAlertThreshold())
+                    .as("check consecutiveAbsenceAlertThreshold")
+                    .isEqualTo(expected.getConsecutiveAbsenceAlertThreshold())
+            )
+            .satisfies(a ->
+                assertThat(a.getAccumulatedAbsenceAlertThreshold())
+                    .as("check accumulatedAbsenceAlertThreshold")
+                    .isEqualTo(expected.getAccumulatedAbsenceAlertThreshold())
             );
     }
 

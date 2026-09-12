@@ -10,17 +10,29 @@ public class GlobalConfigurationTestSamples {
     private static final AtomicInteger intCount = new AtomicInteger(random.nextInt() + (2 * Short.MAX_VALUE));
 
     public static GlobalConfiguration getGlobalConfigurationSample1() {
-        return new GlobalConfiguration().id("id1").studentJustificationDays(1).instructorResponseDays(1);
+        return new GlobalConfiguration()
+            .id("id1")
+            .studentJustificationDays(1)
+            .instructorResponseDays(1)
+            .consecutiveAbsenceAlertThreshold(1)
+            .accumulatedAbsenceAlertThreshold(1);
     }
 
     public static GlobalConfiguration getGlobalConfigurationSample2() {
-        return new GlobalConfiguration().id("id2").studentJustificationDays(2).instructorResponseDays(2);
+        return new GlobalConfiguration()
+            .id("id2")
+            .studentJustificationDays(2)
+            .instructorResponseDays(2)
+            .consecutiveAbsenceAlertThreshold(2)
+            .accumulatedAbsenceAlertThreshold(2);
     }
 
     public static GlobalConfiguration getGlobalConfigurationRandomSampleGenerator() {
         return new GlobalConfiguration()
             .id(UUID.randomUUID().toString())
             .studentJustificationDays(intCount.incrementAndGet())
-            .instructorResponseDays(intCount.incrementAndGet());
+            .instructorResponseDays(intCount.incrementAndGet())
+            .consecutiveAbsenceAlertThreshold(intCount.incrementAndGet())
+            .accumulatedAbsenceAlertThreshold(intCount.incrementAndGet());
     }
 }

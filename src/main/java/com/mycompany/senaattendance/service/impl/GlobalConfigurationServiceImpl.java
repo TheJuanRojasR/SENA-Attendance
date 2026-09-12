@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
  *
  * <p>The configuration is a single row: reads re-seed it with the default values
  * when it is missing (defensive recovery), and updates are partial merges of the
- * two typed fields. Classification snapshots are never derived from live config.
+ * typed fields. Classification snapshots are never derived from live config.
  */
 @Service
 public class GlobalConfigurationServiceImpl implements GlobalConfigurationService {
@@ -28,6 +28,8 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
 
     public static final Integer DEFAULT_STUDENT_JUSTIFICATION_DAYS = 5;
     public static final Integer DEFAULT_INSTRUCTOR_RESPONSE_DAYS = 2;
+    public static final Integer DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD = 3;
+    public static final Integer DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD = 5;
 
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
@@ -65,19 +67,49 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
     /**
      * Loads the single configuration row, re-seeding it with the default values
      * when it is missing.
+     *
+     * <p>Rows created before a parameter existed are healed in place: any null
+     * parameter is filled with its default and persisted so the legacy row stays
+     * valid (the domain fields are {@code @NotNull}).
      */
     private GlobalConfiguration getSingletonEntity() {
         List<GlobalConfiguration> configurations = globalConfigurationRepository.findAll();
         if (!configurations.isEmpty()) {
-            return configurations.get(0);
+            GlobalConfiguration existing = configurations.get(0);
+            return applyDefaults(existing) ? globalConfigurationRepository.save(existing) : existing;
         }
 
         LOG.warn("GlobalConfiguration row is missing, re-seeding it with the default values");
         GlobalConfiguration globalConfiguration = new GlobalConfiguration();
-        globalConfiguration.setStudentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
-        globalConfiguration.setInstructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+        applyDefaults(globalConfiguration);
         globalConfiguration.setCreatedBy(SecurityUtils.getCurrentUserLogin().orElse(Constants.SYSTEM));
         globalConfiguration.setCreatedDate(Instant.now());
         return globalConfigurationRepository.save(globalConfiguration);
+    }
+
+    /**
+     * Fills every null parameter with its default value.
+     *
+     * @return {@code true} when at least one parameter was filled.
+     */
+    private boolean applyDefaults(GlobalConfiguration globalConfiguration) {
+        boolean changed = false;
+        if (globalConfiguration.getStudentJustificationDays() == null) {
+            globalConfiguration.setStudentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
+            changed = true;
+        }
+        if (globalConfiguration.getInstructorResponseDays() == null) {
+            globalConfiguration.setInstructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+            changed = true;
+        }
+        if (globalConfiguration.getConsecutiveAbsenceAlertThreshold() == null) {
+            globalConfiguration.setConsecutiveAbsenceAlertThreshold(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD);
+            changed = true;
+        }
+        if (globalConfiguration.getAccumulatedAbsenceAlertThreshold() == null) {
+            globalConfiguration.setAccumulatedAbsenceAlertThreshold(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD);
+            changed = true;
+        }
+        return changed;
     }
 }

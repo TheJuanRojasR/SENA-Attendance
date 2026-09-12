@@ -342,7 +342,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
 
-**Feature:** Lectura y actualización parcial de la configuración global (singleton): días para justificar y días de respuesta del instructor. Aplica hacia adelante, sin recalcular datos existentes.
+**Feature:** Lectura y actualización parcial de la configuración global (singleton): días para justificar, días de respuesta del instructor y los umbrales de alerta por fallas consecutivas y acumuladas. Aplica hacia adelante, sin recalcular datos existentes.
 
 **Endpoints:**
 
@@ -357,15 +357,19 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 {
   "id": "64f1c2a9e13b7a1f2c8d9e10",
   "studentJustificationDays": 5,
-  "instructorResponseDays": 2
+  "instructorResponseDays": 2,
+  "consecutiveAbsenceAlertThreshold": 3,
+  "accumulatedAbsenceAlertThreshold": 5
 }
 ```
 
-| Campo                      | Tipo    | Obligatorio | Reglas                                                                    |
-| -------------------------- | ------- | ----------- | ------------------------------------------------------------------------- |
-| `id`                       | string  | Sí          | Id del singleton; si falta: `400 idnull`; si no existe: `400 idnotfound`. |
-| `studentJustificationDays` | integer | No          | `@Min(1)`. Default 5 al sembrar la fila.                                  |
-| `instructorResponseDays`   | integer | No          | `@Min(1)`. Default 2 al sembrar la fila.                                  |
+| Campo                              | Tipo    | Obligatorio | Reglas                                                                          |
+| ---------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------- |
+| `id`                               | string  | Sí          | Id del singleton; si falta: `400 idnull`; si no existe: `400 idnotfound`.       |
+| `studentJustificationDays`         | integer | No          | `@Min(1)`. Default 5 al sembrar la fila.                                        |
+| `instructorResponseDays`           | integer | No          | `@Min(1)`. Default 2 al sembrar la fila.                                        |
+| `consecutiveAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 3 al sembrar la fila (alerta por materia, UC013). |
+| `accumulatedAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 5 al sembrar la fila (alerta por ficha, UC013).   |
 
 **Response:** `200 OK`
 
@@ -373,13 +377,15 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 {
   "id": "64f1c2a9e13b7a1f2c8d9e10",
   "studentJustificationDays": 5,
-  "instructorResponseDays": 2
+  "instructorResponseDays": 2,
+  "consecutiveAbsenceAlertThreshold": 3,
+  "accumulatedAbsenceAlertThreshold": 5
 }
 ```
 
-**Errores:** `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (`@Min(1)`), `403` si no es Administrador, `404` si el servicio no encuentra la fila.
+**Errores:** `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (`@Min(1)`, `@Max(30)`), `403` si no es Administrador, `404` si el servicio no encuentra la fila.
 
-**Notas / lo que se necesita:** faltan los dos umbrales de alerta (`consecutiveAbsenceAlertThreshold` y `accumulatedAbsenceAlertThreshold`) que exige UC013; el modelo solo expone dos parámetros. No hay tope máximo de 30 días (solo mínimo 1). La lectura está disponible para cualquier usuario autenticado; la escritura es solo del Administrador, consistente con E2.
+**Notas / lo que se necesita:** el modelo expone los cuatro parámetros del UC. Los umbrales `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5) los consume UC013 y solo exigen mínimo 1 (el UC no define tope máximo). La lectura está disponible para cualquier usuario autenticado; la escritura es solo del Administrador, consistente con E2.
 
 ---
 

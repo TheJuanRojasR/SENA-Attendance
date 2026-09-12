@@ -18,6 +18,12 @@ public class GlobalConfigurationDTO implements Serializable {
     @Min(1)
     private Integer instructorResponseDays;
 
+    @Min(1)
+    private Integer consecutiveAbsenceAlertThreshold;
+
+    @Min(1)
+    private Integer accumulatedAbsenceAlertThreshold;
+
     public String getId() {
         return id;
     }
@@ -40,6 +46,22 @@ public class GlobalConfigurationDTO implements Serializable {
 
     public void setInstructorResponseDays(Integer instructorResponseDays) {
         this.instructorResponseDays = instructorResponseDays;
+    }
+
+    public Integer getConsecutiveAbsenceAlertThreshold() {
+        return consecutiveAbsenceAlertThreshold;
+    }
+
+    public void setConsecutiveAbsenceAlertThreshold(Integer consecutiveAbsenceAlertThreshold) {
+        this.consecutiveAbsenceAlertThreshold = consecutiveAbsenceAlertThreshold;
+    }
+
+    public Integer getAccumulatedAbsenceAlertThreshold() {
+        return accumulatedAbsenceAlertThreshold;
+    }
+
+    public void setAccumulatedAbsenceAlertThreshold(Integer accumulatedAbsenceAlertThreshold) {
+        this.accumulatedAbsenceAlertThreshold = accumulatedAbsenceAlertThreshold;
     }
 
     @Override
@@ -70,6 +92,8 @@ public class GlobalConfigurationDTO implements Serializable {
             "id='" + getId() + "'" +
             ", studentJustificationDays=" + getStudentJustificationDays() +
             ", instructorResponseDays=" + getInstructorResponseDays() +
+            ", consecutiveAbsenceAlertThreshold=" + getConsecutiveAbsenceAlertThreshold() +
+            ", accumulatedAbsenceAlertThreshold=" + getAccumulatedAbsenceAlertThreshold() +
             "}";
     }
 }

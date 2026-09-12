@@ -41,7 +41,12 @@ class GlobalConfigurationServiceImplTest {
     }
 
     private GlobalConfiguration existingConfiguration() {
-        return new GlobalConfiguration().id(CONFIG_ID).studentJustificationDays(10).instructorResponseDays(4);
+        return new GlobalConfiguration()
+            .id(CONFIG_ID)
+            .studentJustificationDays(10)
+            .instructorResponseDays(4)
+            .consecutiveAbsenceAlertThreshold(8)
+            .accumulatedAbsenceAlertThreshold(9);
     }
 
     @Test
@@ -54,7 +59,36 @@ class GlobalConfigurationServiceImplTest {
         assertThat(result.getId()).isEqualTo(CONFIG_ID);
         assertThat(result.getStudentJustificationDays()).isEqualTo(10);
         assertThat(result.getInstructorResponseDays()).isEqualTo(4);
+        assertThat(result.getConsecutiveAbsenceAlertThreshold()).isEqualTo(8);
+        assertThat(result.getAccumulatedAbsenceAlertThreshold()).isEqualTo(9);
         verify(globalConfigurationRepository, never()).save(any());
+    }
+
+    @Test
+    void getShouldFillMissingFieldsWithDefaultsOnLegacyRow() {
+        GlobalConfiguration legacy = new GlobalConfiguration().id(CONFIG_ID).studentJustificationDays(10).instructorResponseDays(4);
+        when(globalConfigurationRepository.findAll()).thenReturn(List.of(legacy));
+        when(globalConfigurationRepository.save(any(GlobalConfiguration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigurationDTO result = globalConfigurationService.get();
+
+        assertThat(result.getStudentJustificationDays()).isEqualTo(10);
+        assertThat(result.getInstructorResponseDays()).isEqualTo(4);
+        assertThat(result.getConsecutiveAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD
+        );
+        assertThat(result.getAccumulatedAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD
+        );
+
+        ArgumentCaptor<GlobalConfiguration> captor = ArgumentCaptor.forClass(GlobalConfiguration.class);
+        verify(globalConfigurationRepository).save(captor.capture());
+        assertThat(captor.getValue().getConsecutiveAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD
+        );
+        assertThat(captor.getValue().getAccumulatedAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD
+        );
     }
 
     @Test
@@ -71,6 +105,12 @@ class GlobalConfigurationServiceImplTest {
         assertThat(result.getId()).isEqualTo(CONFIG_ID);
         assertThat(result.getStudentJustificationDays()).isEqualTo(GlobalConfigurationServiceImpl.DEFAULT_STUDENT_JUSTIFICATION_DAYS);
         assertThat(result.getInstructorResponseDays()).isEqualTo(GlobalConfigurationServiceImpl.DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+        assertThat(result.getConsecutiveAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD
+        );
+        assertThat(result.getAccumulatedAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD
+        );
 
         ArgumentCaptor<GlobalConfiguration> captor = ArgumentCaptor.forClass(GlobalConfiguration.class);
         verify(globalConfigurationRepository).save(captor.capture());
@@ -79,6 +119,12 @@ class GlobalConfigurationServiceImplTest {
         );
         assertThat(captor.getValue().getInstructorResponseDays()).isEqualTo(
             GlobalConfigurationServiceImpl.DEFAULT_INSTRUCTOR_RESPONSE_DAYS
+        );
+        assertThat(captor.getValue().getConsecutiveAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD
+        );
+        assertThat(captor.getValue().getAccumulatedAbsenceAlertThreshold()).isEqualTo(
+            GlobalConfigurationServiceImpl.DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD
         );
         assertThat(captor.getValue().getCreatedBy()).isEqualTo("system");
     }

@@ -6,7 +6,6 @@ import com.mycompany.senaattendance.service.GlobalConfigurationService;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +55,7 @@ public class GlobalConfigurationResource {
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<GlobalConfigurationDTO> partialUpdateGlobalConfiguration(
-        @Valid @NotNull @RequestBody GlobalConfigurationDTO globalConfigurationDTO
+        @Valid @RequestBody GlobalConfigurationDTO globalConfigurationDTO
     ) {
         LOG.debug("REST request to partially update GlobalConfiguration : {}", globalConfigurationDTO);
         if (globalConfigurationDTO.getId() == null) {

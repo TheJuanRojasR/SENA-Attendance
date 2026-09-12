@@ -33,9 +33,15 @@ class GlobalConfigurationResourceIT {
 
     private static final Integer DEFAULT_STUDENT_JUSTIFICATION_DAYS = GlobalConfigurationServiceImpl.DEFAULT_STUDENT_JUSTIFICATION_DAYS;
     private static final Integer DEFAULT_INSTRUCTOR_RESPONSE_DAYS = GlobalConfigurationServiceImpl.DEFAULT_INSTRUCTOR_RESPONSE_DAYS;
+    private static final Integer DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD =
+        GlobalConfigurationServiceImpl.DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD;
+    private static final Integer DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD =
+        GlobalConfigurationServiceImpl.DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD;
 
     private static final Integer UPDATED_STUDENT_JUSTIFICATION_DAYS = 7;
     private static final Integer UPDATED_INSTRUCTOR_RESPONSE_DAYS = 3;
+    private static final Integer UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD = 4;
+    private static final Integer UPDATED_ACCUMULATED_ABSENCE_ALERT_THRESHOLD = 6;
 
     private static final String ENTITY_API_URL = "/api/global-configurations";
 
@@ -59,7 +65,9 @@ class GlobalConfigurationResourceIT {
     public static GlobalConfiguration createEntity() {
         return new GlobalConfiguration()
             .studentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS)
-            .instructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+            .instructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS)
+            .consecutiveAbsenceAlertThreshold(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD)
+            .accumulatedAbsenceAlertThreshold(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD);
     }
 
     /**
@@ -71,7 +79,9 @@ class GlobalConfigurationResourceIT {
     public static GlobalConfiguration createUpdatedEntity() {
         return new GlobalConfiguration()
             .studentJustificationDays(UPDATED_STUDENT_JUSTIFICATION_DAYS)
-            .instructorResponseDays(UPDATED_INSTRUCTOR_RESPONSE_DAYS);
+            .instructorResponseDays(UPDATED_INSTRUCTOR_RESPONSE_DAYS)
+            .consecutiveAbsenceAlertThreshold(UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD)
+            .accumulatedAbsenceAlertThreshold(UPDATED_ACCUMULATED_ABSENCE_ALERT_THRESHOLD);
     }
 
     @BeforeEach
@@ -94,6 +104,8 @@ class GlobalConfigurationResourceIT {
         GlobalConfiguration configuration = configurations.get(0);
         configuration.setStudentJustificationDays(globalConfiguration.getStudentJustificationDays());
         configuration.setInstructorResponseDays(globalConfiguration.getInstructorResponseDays());
+        configuration.setConsecutiveAbsenceAlertThreshold(globalConfiguration.getConsecutiveAbsenceAlertThreshold());
+        configuration.setAccumulatedAbsenceAlertThreshold(globalConfiguration.getAccumulatedAbsenceAlertThreshold());
         return globalConfigurationRepository.save(configuration);
     }
 
@@ -105,7 +117,9 @@ class GlobalConfigurationResourceIT {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.studentJustificationDays").value(DEFAULT_STUDENT_JUSTIFICATION_DAYS))
-            .andExpect(jsonPath("$.instructorResponseDays").value(DEFAULT_INSTRUCTOR_RESPONSE_DAYS));
+            .andExpect(jsonPath("$.instructorResponseDays").value(DEFAULT_INSTRUCTOR_RESPONSE_DAYS))
+            .andExpect(jsonPath("$.consecutiveAbsenceAlertThreshold").value(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD))
+            .andExpect(jsonPath("$.accumulatedAbsenceAlertThreshold").value(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD));
 
         assertThat(globalConfigurationRepository.count()).isEqualTo(1);
     }
@@ -121,12 +135,16 @@ class GlobalConfigurationResourceIT {
         updatedDTO.setId(globalConfiguration.getId());
         updatedDTO.setStudentJustificationDays(UPDATED_STUDENT_JUSTIFICATION_DAYS);
         updatedDTO.setInstructorResponseDays(UPDATED_INSTRUCTOR_RESPONSE_DAYS);
+        updatedDTO.setConsecutiveAbsenceAlertThreshold(UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD);
+        updatedDTO.setAccumulatedAbsenceAlertThreshold(UPDATED_ACCUMULATED_ABSENCE_ALERT_THRESHOLD);
 
         restGlobalConfigurationMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.studentJustificationDays").value(UPDATED_STUDENT_JUSTIFICATION_DAYS))
-            .andExpect(jsonPath("$.instructorResponseDays").value(UPDATED_INSTRUCTOR_RESPONSE_DAYS));
+            .andExpect(jsonPath("$.instructorResponseDays").value(UPDATED_INSTRUCTOR_RESPONSE_DAYS))
+            .andExpect(jsonPath("$.consecutiveAbsenceAlertThreshold").value(UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD))
+            .andExpect(jsonPath("$.accumulatedAbsenceAlertThreshold").value(UPDATED_ACCUMULATED_ABSENCE_ALERT_THRESHOLD));
 
         // Validate the GlobalConfiguration in the database
         assertThat(globalConfigurationRepository.count()).isEqualTo(databaseSizeBeforeUpdate);
@@ -134,6 +152,70 @@ class GlobalConfigurationResourceIT {
             .findById(globalConfiguration.getId())
             .orElseThrow();
         assertGlobalConfigurationUpdatableFieldsEquals(createUpdatedEntity(), persistedGlobalConfiguration);
+    }
+
+    @Test
+    void patchGlobalConfigurationUpdatingOnlyThresholdLeavesRestUnchanged() throws Exception {
+        // Initialize the database
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setConsecutiveAbsenceAlertThreshold(UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.studentJustificationDays").value(DEFAULT_STUDENT_JUSTIFICATION_DAYS))
+            .andExpect(jsonPath("$.instructorResponseDays").value(DEFAULT_INSTRUCTOR_RESPONSE_DAYS))
+            .andExpect(jsonPath("$.consecutiveAbsenceAlertThreshold").value(UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD))
+            .andExpect(jsonPath("$.accumulatedAbsenceAlertThreshold").value(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD));
+
+        GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
+            .findById(globalConfiguration.getId())
+            .orElseThrow();
+        assertThat(persistedGlobalConfiguration.getStudentJustificationDays()).isEqualTo(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
+        assertThat(persistedGlobalConfiguration.getInstructorResponseDays()).isEqualTo(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+        assertThat(persistedGlobalConfiguration.getConsecutiveAbsenceAlertThreshold()).isEqualTo(
+            UPDATED_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD
+        );
+        assertThat(persistedGlobalConfiguration.getAccumulatedAbsenceAlertThreshold()).isEqualTo(
+            DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD
+        );
+    }
+
+    @Test
+    void patchGlobalConfigurationWithZeroThresholdReturnsValidationError() throws Exception {
+        // Initialize the database
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setConsecutiveAbsenceAlertThreshold(0);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("consecutiveAbsenceAlertThreshold"));
+    }
+
+    @Test
+    void patchGlobalConfigurationWithNegativeThresholdReturnsValidationError() throws Exception {
+        // Initialize the database
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setAccumulatedAbsenceAlertThreshold(-1);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("accumulatedAbsenceAlertThreshold"));
     }
 
     @Test

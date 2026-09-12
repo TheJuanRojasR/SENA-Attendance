@@ -32,6 +32,16 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
     @Max(value = 30)
     private Integer instructorResponseDays;
 
+    @NotNull
+    @Field("consecutive_absence_alert_threshold")
+    @Min(value = 1)
+    private Integer consecutiveAbsenceAlertThreshold;
+
+    @NotNull
+    @Field("accumulated_absence_alert_threshold")
+    @Min(value = 1)
+    private Integer accumulatedAbsenceAlertThreshold;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public String getId() {
@@ -73,6 +83,32 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
         this.instructorResponseDays = instructorResponseDays;
     }
 
+    public Integer getConsecutiveAbsenceAlertThreshold() {
+        return this.consecutiveAbsenceAlertThreshold;
+    }
+
+    public GlobalConfiguration consecutiveAbsenceAlertThreshold(Integer consecutiveAbsenceAlertThreshold) {
+        this.setConsecutiveAbsenceAlertThreshold(consecutiveAbsenceAlertThreshold);
+        return this;
+    }
+
+    public void setConsecutiveAbsenceAlertThreshold(Integer consecutiveAbsenceAlertThreshold) {
+        this.consecutiveAbsenceAlertThreshold = consecutiveAbsenceAlertThreshold;
+    }
+
+    public Integer getAccumulatedAbsenceAlertThreshold() {
+        return this.accumulatedAbsenceAlertThreshold;
+    }
+
+    public GlobalConfiguration accumulatedAbsenceAlertThreshold(Integer accumulatedAbsenceAlertThreshold) {
+        this.setAccumulatedAbsenceAlertThreshold(accumulatedAbsenceAlertThreshold);
+        return this;
+    }
+
+    public void setAccumulatedAbsenceAlertThreshold(Integer accumulatedAbsenceAlertThreshold) {
+        this.accumulatedAbsenceAlertThreshold = accumulatedAbsenceAlertThreshold;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override
@@ -99,6 +135,8 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
             "id=" + getId() +
             ", studentJustificationDays=" + getStudentJustificationDays() +
             ", instructorResponseDays=" + getInstructorResponseDays() +
+            ", consecutiveAbsenceAlertThreshold=" + getConsecutiveAbsenceAlertThreshold() +
+            ", accumulatedAbsenceAlertThreshold=" + getAccumulatedAbsenceAlertThreshold() +
             "}";
     }
 }
