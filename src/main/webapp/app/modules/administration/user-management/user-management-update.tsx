@@ -32,7 +32,7 @@ export const UserManagementUpdate = () => {
   }, [login]);
 
   const handleClose = () => {
-    navigate('/admin/user-management');
+    navigate('/admin/users');
   };
 
   const saveUser = values => {

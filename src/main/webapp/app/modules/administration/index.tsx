@@ -13,7 +13,7 @@ import UserManagement from './user-management';
 const AdministrationRoutes = () => (
   <div>
     <ErrorBoundaryRoutes>
-      <Route path="user-management/*" element={<UserManagement />} />
+      <Route path="users/*" element={<UserManagement />} />
       <Route path="health" element={<Health />} />
       <Route path="metrics" element={<Metrics />} />
       <Route path="configuration" element={<Configuration />} />
