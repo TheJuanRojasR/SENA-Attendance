@@ -59,7 +59,19 @@ export const App = () => {
             />
           </ErrorBoundary>
           <div className="container-fluid view-container flex-grow-1" id="app-view-container">
-            <Card className="jh-card">
+            {!isAuthenticated ? (
+              <Card className="jh-card">
+                <ErrorBoundary>
+                  <AppRoutes
+                    isAuthenticated={isAuthenticated}
+                    isAdmin={isAdmin}
+                    isCoordinator={isCoordinator}
+                    isInstructor={isInstructor}
+                    isAprentice={isAprentice}
+                  />
+                </ErrorBoundary>
+              </Card>
+            ) : (
               <ErrorBoundary>
                 <AppRoutes
                   isAuthenticated={isAuthenticated}
@@ -69,8 +81,8 @@ export const App = () => {
                   isAprentice={isAprentice}
                 />
               </ErrorBoundary>
-            </Card>
-            <Footer />
+            )}
+            <Footer isAuthenticated={isAuthenticated} />
           </div>
         </div>
       </div>

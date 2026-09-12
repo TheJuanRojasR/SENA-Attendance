@@ -3,7 +3,7 @@ import './sidebar.scss';
 import React from 'react';
 import { Navbar } from 'react-bootstrap';
 
-import { AdminMenu, EntitiesMenu } from '../menus';
+import { AdminMenu, AccountMenuItemsAuthenticated, EntitiesMenu } from '../menus';
 import { Brand } from '../header/header-components';
 
 export interface IHeaderProps {
@@ -23,6 +23,7 @@ const Sidebar = (props: IHeaderProps) => {
           {props.isAuthenticated && props.isAdmin && <AdminMenu showOpenAPI={props.isOpenAPIEnabled} variant="accordion" />}
           <EntitiesMenu variant="accordion" />
         </div>
+        <div className="sidebar-footer">{props.isAuthenticated && AccountMenuItemsAuthenticated()}</div>
       </Navbar>
     );
   }
