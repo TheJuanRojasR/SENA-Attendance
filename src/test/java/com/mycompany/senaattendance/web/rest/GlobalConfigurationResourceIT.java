@@ -125,6 +125,13 @@ class GlobalConfigurationResourceIT {
     }
 
     @Test
+    @WithMockUser(authorities = AuthoritiesConstants.USER)
+    void getGlobalConfigurationForbiddenForNonAdmin() throws Exception {
+        // Reading the global configuration is restricted to admins (least privilege).
+        restGlobalConfigurationMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
     void patchGlobalConfigurationWithAdmin() throws Exception {
         // Initialize the database
         globalConfiguration = saveSingleton();

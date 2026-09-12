@@ -78,9 +78,11 @@ public class GlobalConfigurationResource {
      * {@code GET  /global-configurations} : get the global configuration. Returns the singleton object directly,
      * re-seeding it with the default values when it is missing.
      *
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the globalConfiguration in body.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the globalConfiguration in body,
+     * or with status {@code 403 (Forbidden)} if the current user is not an admin.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public GlobalConfigurationDTO getAllGlobalConfigurations() {
         LOG.debug("REST request to get the GlobalConfiguration");
         return globalConfigurationService.get();

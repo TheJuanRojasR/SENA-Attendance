@@ -348,7 +348,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Método | Ruta                         | Acceso       | Descripción                                                              |
 | ------ | ---------------------------- | ------------ | ------------------------------------------------------------------------ |
-| GET    | `/api/global-configurations` | Autenticado  | Devuelve la configuración vigente; la re-crea con defaults si no existe. |
+| GET    | `/api/global-configurations` | `ROLE_ADMIN` | Lectura usada por la pantalla de configuración; devuelve la vigente o la re-crea con defaults. |
 | PATCH  | `/api/global-configurations` | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el cuerpo.                       |
 
 **Request — `PATCH /api/global-configurations`**

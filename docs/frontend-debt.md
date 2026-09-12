@@ -182,7 +182,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 **Estado del backend:** parcial. La configuración global ya expone los **cuatro** parámetros del UC: `studentJustificationDays` (default 5), `instructorResponseDays` (default 2), `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5). Ver [`docs/api-contracts.md#uc019--gestionar-configuración-global`](./api-contracts.md#uc019--gestionar-configuración-global).
 
-**Estado del frontend:** pendiente. La pantalla de configuración debe editar y guardar los cuatro parámetros.
+**Estado del frontend:** pendiente. La pantalla de configuración debe editar y guardar los cuatro parámetros. Los endpoints de configuración (`GET` y `PATCH /api/global-configurations`) requieren el rol `ROLE_ADMIN`.
 
 | #   | Ítem                                                                                                                                                                                                                                              | Estado      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
