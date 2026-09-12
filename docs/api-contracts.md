@@ -45,7 +45,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Implementado    |
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
 | [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Implementado    |
-| [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Parcial         |
+| [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Implementado    |
 | [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Parcial         |
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Parcial         |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Parcial         |
@@ -340,16 +340,16 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC019 — Gestionar configuración global
 
-**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** Lectura y actualización parcial de la configuración global (singleton): días para justificar, días de respuesta del instructor y los umbrales de alerta por fallas consecutivas y acumuladas. Aplica hacia adelante, sin recalcular datos existentes.
 
 **Endpoints:**
 
-| Método | Ruta                         | Acceso       | Descripción                                                              |
-| ------ | ---------------------------- | ------------ | ------------------------------------------------------------------------ |
+| Método | Ruta                         | Acceso       | Descripción                                                                                                                                                     |
+| ------ | ---------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/global-configurations` | `ROLE_ADMIN` | Lectura usada por la pantalla de configuración; devuelve la vigente o la re-crea con defaults. Siempre devuelve el singleton con `id = "global-configuration"`. |
-| PATCH  | `/api/global-configurations` | `ROLE_ADMIN` | Actualización parcial del singleton; el `id` es opcional. Si falta, se actualiza el singleton; si viaja, debe ser `global-configuration`. |
+| PATCH  | `/api/global-configurations` | `ROLE_ADMIN` | Actualización parcial del singleton; el `id` es opcional. Si falta, se actualiza el singleton; si viaja, debe ser `global-configuration`.                       |
 
 **Request — `PATCH /api/global-configurations`**
 
@@ -362,13 +362,13 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 }
 ```
 
-| Campo                              | Tipo    | Obligatorio | Reglas                                                                          |
-| ---------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------- |
+| Campo                              | Tipo    | Obligatorio | Reglas                                                                                                                     |
+| ---------------------------------- | ------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `id`                               | string  | No          | Opcional. Si falta, se actualiza el singleton con `id = "global-configuration"`; si viaja con otro valor: `400 idinvalid`. |
-| `studentJustificationDays`         | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 5 al sembrar la fila. |
-| `instructorResponseDays`           | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 2 al sembrar la fila. |
-| `consecutiveAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 3 al sembrar la fila (alerta por materia, UC013). |
-| `accumulatedAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 5 al sembrar la fila (alerta por ficha, UC013).   |
+| `studentJustificationDays`         | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 5 al sembrar la fila.                                  |
+| `instructorResponseDays`           | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 2 al sembrar la fila.                                  |
+| `consecutiveAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 3 al sembrar la fila (alerta por materia, UC013).                                           |
+| `accumulatedAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 5 al sembrar la fila (alerta por ficha, UC013).                                             |
 
 **Response:** `200 OK`
 
