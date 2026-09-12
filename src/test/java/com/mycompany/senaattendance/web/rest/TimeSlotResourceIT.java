@@ -354,11 +354,7 @@ class TimeSlotResourceIT {
         TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(updatedTimeSlot);
 
         restTimeSlotMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, timeSlotDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
             .andExpect(status().isOk());
 
         // Validate the TimeSlot in the database
@@ -378,11 +374,7 @@ class TimeSlotResourceIT {
             timeSlotDTO.setName(DEFAULT_NAME);
 
             restTimeSlotMockMvc
-                .perform(
-                    put(ENTITY_API_URL_ID, timeSlotDTO.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(timeSlotDTO))
-                )
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.timeSlotNameAlreadyUsed"));
 
@@ -401,11 +393,7 @@ class TimeSlotResourceIT {
         TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(insertedTimeSlot);
 
         restTimeSlotMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, timeSlotDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
             .andExpect(status().isOk());
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -421,11 +409,7 @@ class TimeSlotResourceIT {
         timeSlotDTO.setEndTime(timeSlotDTO.getStartTime());
 
         restTimeSlotMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, timeSlotDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.timeSlotSameTime"));
 
@@ -442,11 +426,7 @@ class TimeSlotResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restTimeSlotMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, timeSlotDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the TimeSlot in the database
@@ -454,40 +434,17 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    void putWithIdMismatchTimeSlot() throws Exception {
+    void putTimeSlotWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        timeSlot.setId(UUID.randomUUID().toString());
+        timeSlot.setId(null);
 
-        // Create the TimeSlot
         TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restTimeSlotMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the TimeSlot in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamTimeSlot() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        timeSlot.setId(UUID.randomUUID().toString());
-
-        // Create the TimeSlot
-        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restTimeSlotMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
-        // Validate the TimeSlot in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
@@ -506,9 +463,7 @@ class TimeSlotResourceIT {
 
         restTimeSlotMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedTimeSlot.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedTimeSlot))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedTimeSlot))
             )
             .andExpect(status().isOk());
 
@@ -530,9 +485,7 @@ class TimeSlotResourceIT {
 
         restTimeSlotMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedTimeSlot.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedTimeSlot))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedTimeSlot))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.timeSlotSameTime"));
@@ -555,9 +508,7 @@ class TimeSlotResourceIT {
 
         restTimeSlotMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedTimeSlot.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedTimeSlot))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedTimeSlot))
             )
             .andExpect(status().isOk());
 
@@ -577,11 +528,7 @@ class TimeSlotResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restTimeSlotMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, timeSlotDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(timeSlotDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the TimeSlot in the database
@@ -589,40 +536,44 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchTimeSlot() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        timeSlot.setId(UUID.randomUUID().toString());
+    void patchTimeSlotWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
 
-        // Create the TimeSlot
-        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+        TimeSlot other = timeSlotRepository.save(createUpdatedEntity());
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restTimeSlotMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(timeSlotDTO))
-            )
-            .andExpect(status().isBadRequest());
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
 
-        // Validate the TimeSlot in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            TimeSlot partialUpdatedTimeSlot = new TimeSlot();
+            partialUpdatedTimeSlot.setId(other.getId());
+            partialUpdatedTimeSlot.setName(DEFAULT_NAME);
+
+            restTimeSlotMockMvc
+                .perform(
+                    patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedTimeSlot))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.timeSlotNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedTimeSlot(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            timeSlotRepository.delete(other);
+        }
     }
 
     @Test
-    void patchWithMissingIdPathParamTimeSlot() throws Exception {
+    void patchTimeSlotWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        timeSlot.setId(UUID.randomUUID().toString());
+        timeSlot.setId(null);
 
-        // Create the TimeSlot
         TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restTimeSlotMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(timeSlotDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
-        // Validate the TimeSlot in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 

@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,27 +64,21 @@ public class TimeSlotResource {
     }
 
     /**
-     * {@code PUT  /time-slots/:id} : Updates an existing timeSlot.
+     * {@code PUT  /time-slots} : Updates an existing timeSlot; the id is taken from the request body.
      *
-     * @param id the id of the timeSlotDTO to save.
      * @param timeSlotDTO the timeSlotDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated timeSlotDTO,
      * or with status {@code 400 (Bad Request)} if the timeSlotDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the timeSlotDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TimeSlotDTO> updateTimeSlot(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody TimeSlotDTO timeSlotDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update TimeSlot : {}, {}", id, timeSlotDTO);
-        if (timeSlotDTO.getId() == null) {
+    public ResponseEntity<TimeSlotDTO> updateTimeSlot(@Valid @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
+        String id = timeSlotDTO.getId();
+        LOG.debug("REST request to update TimeSlot : {}", timeSlotDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, timeSlotDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!timeSlotRepository.existsById(id)) {
@@ -99,9 +92,8 @@ public class TimeSlotResource {
     }
 
     /**
-     * {@code PATCH  /time-slots/:id} : Partial updates given fields of an existing timeSlot, field will ignore if it is null
+     * {@code PATCH  /time-slots} : Partial updates given fields of an existing timeSlot; the id is taken from the request body.
      *
-     * @param id the id of the timeSlotDTO to save.
      * @param timeSlotDTO the timeSlotDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated timeSlotDTO,
      * or with status {@code 400 (Bad Request)} if the timeSlotDTO is not valid,
@@ -109,18 +101,13 @@ public class TimeSlotResource {
      * or with status {@code 500 (Internal Server Error)} if the timeSlotDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TimeSlotDTO> partialUpdateTimeSlot(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody TimeSlotDTO timeSlotDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update TimeSlot partially : {}, {}", id, timeSlotDTO);
-        if (timeSlotDTO.getId() == null) {
+    public ResponseEntity<TimeSlotDTO> partialUpdateTimeSlot(@NotNull @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
+        String id = timeSlotDTO.getId();
+        LOG.debug("REST request to partial update TimeSlot partially : {}", timeSlotDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, timeSlotDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!timeSlotRepository.existsById(id)) {

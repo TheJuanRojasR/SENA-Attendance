@@ -93,6 +93,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
             .map(existingTimeSlot -> {
                 timeSlotMapper.partialUpdate(existingTimeSlot, timeSlotDTO);
                 validateDifferentTimes(existingTimeSlot);
+                validateAndNormalizeName(existingTimeSlot, existingTimeSlot.getId());
 
                 return existingTimeSlot;
             })
