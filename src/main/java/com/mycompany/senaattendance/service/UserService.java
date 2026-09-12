@@ -125,6 +125,8 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
+        // The user chose their own password, so any forced-change flag no longer applies.
+        user.setMustChangePassword(false);
         // Keep the key so a later reuse resolves to "already used" instead of "not valid".
         user.setResetDate(null);
         userRepository.save(user);

@@ -1364,6 +1364,7 @@ class AccountResourceIT {
         user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
         user.setLogin("finish-password-reset");
         user.setEmail("finish-password-reset@example.com");
+        user.setMustChangePassword(true);
         user.setResetDate(Instant.now().plusSeconds(60));
         user.setResetKey("reset key");
         userRepository.save(user);
@@ -1382,6 +1383,8 @@ class AccountResourceIT {
 
         User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
         assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isTrue();
+        // The user chose their own password, so the forced-change flag is cleared.
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
 
         userService.deleteUser("finish-password-reset");
     }

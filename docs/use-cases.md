@@ -136,7 +136,7 @@ El aprendiz cuenta con una cuenta activa con rol Aprendiz. Si no tiene fichas as
 - **Cambio obligatorio de contraseña:** si la cuenta tiene activo el indicador `mustChangePassword`, después de validar las credenciales el sistema **obliga** al usuario a cambiar la contraseña antes de permitir cualquier otra pantalla.
 - **Vigencia de la sesión:** el token dura **24 horas**. Al expirar, el sistema pide iniciar sesión nuevamente.
 - **No hay bloqueo por intentos fallidos** ni **cierre de sesión por inactividad**. El cierre de sesión es manual (UC004); una cuenta desactivada no puede volver a iniciar sesión y su sesión ya abierta deja de ser válida al expirar el token.
-- Las cuentas creadas por el Administrador nacen con `mustChangePassword` activo; el autorregistro (UC001) y el reset autoservicio (UC005) **no** lo activan, porque en esos casos la contraseña la eligió el propio usuario.
+- Las cuentas creadas por el Administrador nacen con `mustChangePassword` activo; el autorregistro (UC001) y el reset autoservicio (UC005) **no** lo activan, y el reset además **limpia** el indicador si estaba activo, porque en esos casos la contraseña la eligió el propio usuario.
 
 #### Precondiciones
 
@@ -264,7 +264,7 @@ La sesión del dispositivo actual queda cerrada y el usuario debe autenticarse n
 - Si el usuario existe y está activo, el sistema envía a su correo registrado un **enlace de recuperación** válido por **30 minutos** y de **un solo uso**.
 - **No hay límite** de solicitudes de recuperación.
 - La nueva contraseña debe cumplir la política completa (8–20, mayúscula, minúscula, número y carácter especial).
-- El reset autoservicio **no** activa `mustChangePassword`: el usuario eligió su propia contraseña.
+- El reset autoservicio **no** activa `mustChangePassword` y, si estaba activo, lo **limpia**: el usuario eligió su propia contraseña.
 - Al completar el cambio, el sistema redirige al inicio de sesión.
 
 #### Precondiciones

@@ -165,6 +165,7 @@ class UserServiceIT {
         Instant minutesAgo = Instant.now().minus(5, ChronoUnit.MINUTES);
         String resetKey = RandomUtil.generateResetKey();
         user.setActivated(true);
+        user.setMustChangePassword(true);
         user.setResetDate(minutesAgo);
         user.setResetKey(resetKey);
         userRepository.save(user);
@@ -174,6 +175,8 @@ class UserServiceIT {
         // The key is kept (nulled resetDate marks it as consumed) so a later reuse is "used", not "invalid".
         assertThat(updatedUser.getResetKey()).isEqualTo(resetKey);
         assertThat(updatedUser.getPassword()).isNotEqualTo(oldPassword);
+        // The user chose their own password, so the forced-change flag is cleared.
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
 
         userRepository.delete(user);
     }
