@@ -13,9 +13,11 @@ public class GlobalConfigurationDTO implements Serializable {
     private String id;
 
     @Min(1)
+    @Max(30)
     private Integer studentJustificationDays;
 
     @Min(1)
+    @Max(30)
     private Integer instructorResponseDays;
 
     @Min(1)

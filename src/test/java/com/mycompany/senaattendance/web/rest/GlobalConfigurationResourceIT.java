@@ -288,6 +288,92 @@ class GlobalConfigurationResourceIT {
     }
 
     @Test
+    void patchGlobalConfigurationWithJustificationDaysAboveMaxReturnsValidationError() throws Exception {
+        // Initialize the database
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setStudentJustificationDays(31);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("studentJustificationDays"));
+
+        // The out-of-range value must not be persisted.
+        GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
+            .findById(globalConfiguration.getId())
+            .orElseThrow();
+        assertThat(persistedGlobalConfiguration.getStudentJustificationDays()).isEqualTo(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
+    }
+
+    @Test
+    void patchGlobalConfigurationWithInstructorResponseDaysAboveMaxReturnsValidationError() throws Exception {
+        // Initialize the database
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setInstructorResponseDays(31);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("instructorResponseDays"));
+
+        // The out-of-range value must not be persisted.
+        GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
+            .findById(globalConfiguration.getId())
+            .orElseThrow();
+        assertThat(persistedGlobalConfiguration.getInstructorResponseDays()).isEqualTo(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+    }
+
+    @Test
+    void patchGlobalConfigurationWithNegativeJustificationDaysReturnsValidationError() throws Exception {
+        // Initialize the database
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setStudentJustificationDays(-1);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("studentJustificationDays"));
+    }
+
+    @Test
+    void patchGlobalConfigurationWithHighThresholdIsAccepted() throws Exception {
+        // Thresholds only require a minimum of 1: there is no upper bound to enforce.
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setId(globalConfiguration.getId());
+        updatedDTO.setConsecutiveAbsenceAlertThreshold(100);
+        updatedDTO.setAccumulatedAbsenceAlertThreshold(100);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.consecutiveAbsenceAlertThreshold").value(100))
+            .andExpect(jsonPath("$.accumulatedAbsenceAlertThreshold").value(100));
+
+        GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
+            .findById(globalConfiguration.getId())
+            .orElseThrow();
+        assertThat(persistedGlobalConfiguration.getConsecutiveAbsenceAlertThreshold()).isEqualTo(100);
+        assertThat(persistedGlobalConfiguration.getAccumulatedAbsenceAlertThreshold()).isEqualTo(100);
+    }
+
+    @Test
     void patchNonExistingGlobalConfiguration() throws Exception {
         long databaseSizeBeforeUpdate = globalConfigurationRepository.count();
         globalConfiguration.setId(UUID.randomUUID().toString());

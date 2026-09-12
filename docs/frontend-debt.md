@@ -187,8 +187,9 @@ Claves `error.*` verificadas contra los archivos actuales:
 | #   | Ítem                                                                                                                                                                                                                                              | Estado      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | 1   | La pantalla de configuración global debe mostrar los **dos umbrales de alerta de inasistencia** (`consecutiveAbsenceAlertThreshold`, default 3; `accumulatedAbsenceAlertThreshold`, default 5), además de `studentJustificationDays` e `instructorResponseDays`. | `Pendiente` |
-| 2   | Validar en el cliente que cada umbral sea un entero `>= 1`; si no lo es, el backend responde `400 error.validation` con una entrada en `fieldErrors` y no persiste el cambio.                                                                     | `Pendiente` |
-| 3   | El `PATCH /api/global-configurations` es parcial: enviar el `id` del singleton y solo los campos que cambian; los campos omitidos quedan igual.                                                                                                    | `Pendiente` |
+| 2   | Validar en el cliente que los plazos `studentJustificationDays` e `instructorResponseDays` sean enteros entre **1 y 30 días**; fuera de ese rango el backend responde `400 error.validation` con una entrada en `fieldErrors` y no persiste el cambio. | `Pendiente` |
+| 3   | Validar en el cliente que cada umbral (`consecutiveAbsenceAlertThreshold`, `accumulatedAbsenceAlertThreshold`) sea un entero `>= 1` (sin máximo); si no lo es, el backend responde `400 error.validation` con una entrada en `fieldErrors` y no persiste el cambio. | `Pendiente` |
+| 4   | El `PATCH /api/global-configurations` es parcial: enviar el `id` del singleton y solo los campos que cambian; los campos omitidos quedan igual.                                                                                                    | `Pendiente` |
 
 ---
 

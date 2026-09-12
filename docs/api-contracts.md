@@ -366,8 +366,8 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | Campo                              | Tipo    | Obligatorio | Reglas                                                                          |
 | ---------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------- |
 | `id`                               | string  | Sí          | Id del singleton; si falta: `400 idnull`; si no existe: `400 idnotfound`.       |
-| `studentJustificationDays`         | integer | No          | `@Min(1)`. Default 5 al sembrar la fila.                                        |
-| `instructorResponseDays`           | integer | No          | `@Min(1)`. Default 2 al sembrar la fila.                                        |
+| `studentJustificationDays`         | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 5 al sembrar la fila. |
+| `instructorResponseDays`           | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 2 al sembrar la fila. |
 | `consecutiveAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 3 al sembrar la fila (alerta por materia, UC013). |
 | `accumulatedAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 5 al sembrar la fila (alerta por ficha, UC013).   |
 
@@ -383,9 +383,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 }
 ```
 
-**Errores:** `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (`@Min(1)`, `@Max(30)`), `403` si no es Administrador, `404` si el servicio no encuentra la fila.
+**Errores:** `400 error.idnull`, `400 error.idnotfound`, `400 error.validation`, `403` si no es Administrador, `404` si el servicio no encuentra la fila. Un plazo fuera de 1–30 o un umbral menor a 1 no se guarda: responde `400 error.validation` con una entrada por campo en `fieldErrors` (campo y mensaje).
 
-**Notas / lo que se necesita:** el modelo expone los cuatro parámetros del UC. Los umbrales `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5) los consume UC013 y solo exigen mínimo 1 (el UC no define tope máximo). La lectura está disponible para cualquier usuario autenticado; la escritura es solo del Administrador, consistente con E2.
+**Notas / lo que se necesita:** el modelo expone los cuatro parámetros del UC. Los plazos `studentJustificationDays` e `instructorResponseDays` se validan en el borde de la API con rango **1–30 días** (`@Min(1)` + `@Max(30)`), de modo que un valor fuera de rango produce un error por campo y nunca llega a la persistencia. Los umbrales `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5) los consume UC013 y solo exigen **mínimo 1** (sin máximo, el UC no define tope). La lectura está disponible para cualquier usuario autenticado; la escritura es solo del Administrador, consistente con E2.
 
 ---
 
