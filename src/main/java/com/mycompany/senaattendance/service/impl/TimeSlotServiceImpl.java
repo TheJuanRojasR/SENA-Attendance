@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TimeSlotService;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.TimeSlotMapper;
+import com.mycompany.senaattendance.web.rest.errors.TimeSlotNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,6 +38,8 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         LOG.debug("Request to save TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
 
+        validateAndNormalizeName(timeSlot, null);
+
         // Insertar fecha de creación
         timeSlot.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -53,6 +56,8 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public TimeSlotDTO update(TimeSlotDTO timeSlotDTO) {
         LOG.debug("Request to update TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
+
+        validateAndNormalizeName(timeSlot, timeSlot.getId());
 
         Optional<TimeSlot> optionalTimeSlot = timeSlotRepository.findById(timeSlot.getId());
         if (optionalTimeSlot.isPresent()) {
@@ -108,5 +113,32 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public List<TimeSlotDTO> findByIsActiveTrue() {
         LOG.debug("Request to get all active TimeSlots");
         return timeSlotRepository.findTimeSlotByIsActive(true).stream().map(timeSlotMapper::toDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Trims the time slot name and enforces its uniqueness case-insensitively.
+     * <p>
+     * When {@code excludeId} is not {@code null}, the time slot with that id is ignored so an
+     * update that keeps the same name does not collide with itself. On create {@code excludeId}
+     * is {@code null} and every existing time slot is considered. The trimmed name is written
+     * back onto the entity so the stored value is consistent.
+     *
+     * @param timeSlot the time slot whose name is normalized and validated.
+     * @param excludeId the id to exclude from the uniqueness check, or {@code null} on create.
+     * @throws TimeSlotNameAlreadyUsedException if another time slot with the same name exists.
+     */
+    private void validateAndNormalizeName(TimeSlot timeSlot, String excludeId) {
+        if (timeSlot.getName() == null) {
+            return;
+        }
+        String name = timeSlot.getName().trim();
+        timeSlot.setName(name);
+        boolean duplicate =
+            excludeId == null
+                ? timeSlotRepository.existsByNameIgnoreCase(name)
+                : timeSlotRepository.existsByNameIgnoreCaseAndIdNot(name, excludeId);
+        if (duplicate) {
+            throw new TimeSlotNameAlreadyUsedException();
+        }
     }
 }

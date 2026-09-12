@@ -419,16 +419,16 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Campo       | Tipo                | Obligatorio | Reglas                                                                              |
 | ----------- | ------------------- | ----------- | ----------------------------------------------------------------------------------- |
-| `name`      | string              | Sí          | `@NotNull`, máximo 50. No se valida unicidad en el backend.                         |
+| `name`      | string              | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.timeSlotNameAlreadyUsed`. |
 | `startTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`.                                                                         |
 | `endTime`   | string (`HH:mm:ss`) | Sí          | `@NotNull`. No se valida que sea distinta de `startTime` ni el cruce de medianoche. |
 | `isActive`  | boolean             | Sí          | `@NotNull`; el cliente define el estado inicial (el UC pide nacer activa).          |
 
 **Response:** `201 Created` con el `TimeSlotDTO` creado (`id`, `name`, `startTime`, `endTime`, `isActive`). Las listas devuelven un arreglo JSON completo.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403` sin rol permitido; `404` en detalle inexistente.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.timeSlotNameAlreadyUsed` (nombre duplicado, E1); `403` sin rol permitido; `404` en detalle inexistente.
 
-**Notas / lo que se necesita:** no están implementadas las reglas del UC: nombre único (E1), horas distintas (E2), bloqueo de eliminación si está en uso por fichas (E3) ni la validación de rango con cruce de medianoche. El estado se cambia con el `PATCH` genérico (`isActive`), sin acciones dedicadas de Desactivar/Reactivar. Los listados de catálogo no usan el estándar de paginación del sistema.
+**Notas / lo que se necesita:** ya está implementado el nombre único (E1). Faltan las horas distintas (E2), el bloqueo de eliminación si está en uso por fichas (E3) y la validación del rango con cruce de medianoche. El estado se cambia con el `PATCH` genérico (`isActive`), sin acciones dedicadas de Desactivar/Reactivar. Los listados de catálogo no usan el estándar de paginación del sistema.
 
 ---
 

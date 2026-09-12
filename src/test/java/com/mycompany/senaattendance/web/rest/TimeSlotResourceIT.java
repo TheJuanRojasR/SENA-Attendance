@@ -141,6 +141,43 @@ class TimeSlotResourceIT {
     }
 
     @Test
+    void createTimeSlotWithDuplicateNameReturnsBadRequest() throws Exception {
+        // Persist a time slot with DEFAULT_NAME so the upcoming POST collides on name only
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+        timeSlotDTO.setId(null);
+        timeSlotDTO.setName("aaaaaaaaaa");
+
+        restTimeSlotMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.timeSlotNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createTimeSlotWithBlankNameReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field blank
+        timeSlot.setName("   ");
+
+        // Create the TimeSlot, which fails.
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
+
+        restTimeSlotMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(timeSlotDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkNameIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
@@ -267,6 +304,52 @@ class TimeSlotResourceIT {
         // Validate the TimeSlot in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertPersistedTimeSlotToMatchAllProperties(updatedTimeSlot);
+    }
+
+    @Test
+    void putTimeSlotWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        TimeSlot other = timeSlotRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(other);
+            timeSlotDTO.setName(DEFAULT_NAME);
+
+            restTimeSlotMockMvc
+                .perform(
+                    put(ENTITY_API_URL_ID, timeSlotDTO.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsBytes(timeSlotDTO))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.timeSlotNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedTimeSlot(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            timeSlotRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putTimeSlotKeepingOwnNameSucceeds() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(insertedTimeSlot);
+
+        restTimeSlotMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, timeSlotDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(timeSlotDTO))
+            )
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedTimeSlot(insertedTimeSlot).getName()).isEqualTo(DEFAULT_NAME);
     }
 
     @Test
