@@ -14,7 +14,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
  * the field existed have no value, and the registration flow treats those legacy documents as active,
  * so this migration makes that state explicit by setting {@code is_active} to {@code true}.
  */
-@ChangeUnit(id = "document-type-active-state", order = "004")
+@ChangeUnit(id = "document-type-active-state", order = "005")
 public class MigrateDocumentTypeActiveState {
 
     private static final String COLLECTION = "document_type";
