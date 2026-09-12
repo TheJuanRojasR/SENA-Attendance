@@ -46,7 +46,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
 | [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Implementado    |
 | [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Implementado    |
-| [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Parcial         |
+| [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Implementado    |
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Parcial         |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Parcial         |
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Parcial         |
@@ -390,21 +390,21 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC020 — Gestionar jornadas
 
-**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD del catálogo de jornadas (nombre y rango horario) que define la disponibilidad horaria de las fichas. En el código la jornada se llama `TimeSlot`.
 
 **Endpoints:**
 
-| Método | Ruta                     | Acceso                            | Descripción                                   |
-| ------ | ------------------------ | --------------------------------- | --------------------------------------------- |
-| GET    | `/api/time-slots`        | Autenticado                       | Lista **paginada** de jornadas (20 por página por defecto). |
-| GET    | `/api/time-slots/active` | Autenticado                       | Lista de jornadas activas.                    |
-| GET    | `/api/time-slots/{id}`   | Autenticado                       | Detalle de una jornada.                       |
-| POST   | `/api/time-slots`        | `ROLE_ADMIN`                      | Crea la jornada (nace Activa); `201` con el recurso creado. |
-| PUT    | `/api/time-slots`        | `ROLE_ADMIN`                      | Reemplaza la jornada; el `id` va en el body; `200` con el recurso. |
-| PATCH  | `/api/time-slots`        | `ROLE_ADMIN`                      | Actualización parcial; el `id` va en el body; `200` con el recurso. |
-| DELETE | `/api/time-slots/{id}`   | `ROLE_ADMIN`                      | Elimina; `204`. Bloquea la eliminación si la jornada está asignada a fichas (`400 error.timeSlotInUse`). |
+| Método | Ruta                     | Acceso       | Descripción                                                                                              |
+| ------ | ------------------------ | ------------ | -------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/time-slots`        | Autenticado  | Lista **paginada** de jornadas (20 por página por defecto).                                              |
+| GET    | `/api/time-slots/active` | Autenticado  | Lista de jornadas activas.                                                                               |
+| GET    | `/api/time-slots/{id}`   | Autenticado  | Detalle de una jornada.                                                                                  |
+| POST   | `/api/time-slots`        | `ROLE_ADMIN` | Crea la jornada (nace Activa); `201` con el recurso creado.                                              |
+| PUT    | `/api/time-slots`        | `ROLE_ADMIN` | Reemplaza la jornada; el `id` va en el body; `200` con el recurso.                                       |
+| PATCH  | `/api/time-slots`        | `ROLE_ADMIN` | Actualización parcial; el `id` va en el body; `200` con el recurso.                                      |
+| DELETE | `/api/time-slots/{id}`   | `ROLE_ADMIN` | Elimina; `204`. Bloquea la eliminación si la jornada está asignada a fichas (`400 error.timeSlotInUse`). |
 
 **Request — `POST /api/time-slots`**
 
@@ -416,12 +416,12 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 }
 ```
 
-| Campo       | Tipo                | Obligatorio | Reglas                                                                              |
-| ----------- | ------------------- | ----------- | ----------------------------------------------------------------------------------- |
-| `name`      | string              | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.timeSlotNameAlreadyUsed`. |
-| `startTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`.                                                                         |
+| Campo       | Tipo                | Obligatorio | Reglas                                                                                                                                                                                                  |
+| ----------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`      | string              | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.timeSlotNameAlreadyUsed`.                                                             |
+| `startTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`.                                                                                                                                                                                             |
 | `endTime`   | string (`HH:mm:ss`) | Sí          | `@NotNull`. Debe ser distinto de `startTime`; si son iguales responde `400 error.timeSlotSameTime` (E2). Se permite el cruce de medianoche (`endTime` menor que `startTime`, p. ej. 22:00:00–06:00:00). |
-| `isActive`  | boolean             | No          | Ignorado en la creación: el backend siempre crea la jornada como **Activa** (`isActive = true`). |
+| `isActive`  | boolean             | No          | Ignorado en la creación: el backend siempre crea la jornada como **Activa** (`isActive = true`).                                                                                                        |
 
 **Response:** `201 Created` con el `TimeSlotDTO` creado (`id`, `name`, `startTime`, `endTime`, `isActive`). `GET /api/time-slots` es **paginado**: acepta `page` (base 0), `size` y `sort=campo,asc|desc` (20 por defecto) y devuelve un arreglo JSON con la página actual más las cabeceras `X-Total-Count` y `Link`. `GET /api/time-slots/active` sigue devolviendo el arreglo completo sin paginar (selector).
 
