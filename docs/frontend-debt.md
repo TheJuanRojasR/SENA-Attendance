@@ -195,7 +195,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC020 — Gestionar jornadas
 
-**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.timeSlotNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. También está implementado el **rechazo de horas iguales** (E2): si `startTime` y `endTime` son iguales el backend responde `400` con `error.timeSlotSameTime`, mientras que un rango que cruza medianoche (`endTime` menor que `startTime`, p. ej. 22:00–06:00) se permite. Falta el bloqueo de eliminación si la jornada está en uso (E3). Ver [`docs/api-contracts.md#uc020--gestionar-jornadas`](./api-contracts.md#uc020--gestionar-jornadas).
+**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.timeSlotNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. También está implementado el **rechazo de horas iguales** (E2): si `startTime` y `endTime` son iguales el backend responde `400` con `error.timeSlotSameTime`, mientras que un rango que cruza medianoche (`endTime` menor que `startTime`, p. ej. 22:00–06:00) se permite. También está implementado el **bloqueo de eliminación** (E3): si una o más fichas usan la jornada, `DELETE /api/time-slots/{id}` responde `400` con `error.timeSlotInUse`; en ese caso la jornada no se elimina y debe **desactivarse** con `PATCH /api/time-slots/{id}` (`isActive: false`). Ver [`docs/api-contracts.md#uc020--gestionar-jornadas`](./api-contracts.md#uc020--gestionar-jornadas).
 
 **Estado del frontend:** pendiente. La pantalla de jornadas debe manejar los errores de nombre duplicado y de horas iguales, y evitar enviar nombres en blanco.
 
@@ -205,6 +205,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 2   | Al crear o editar una jornada, manejar `400 error.timeSlotNameAlreadyUsed` mostrando "Ya existe una jornada con este nombre" (E1) y conservar los datos del formulario.                                                    | `Pendiente` |
 | 3   | Validar en el cliente el máximo de 50 caracteres del nombre (el backend responde `400 error.validation` con `name` en `fieldErrors`).                                                                                     | `Pendiente` |
 | 4   | Al crear o editar una jornada, manejar `400 error.timeSlotSameTime` mostrando "La hora de inicio y la hora de fin no pueden ser iguales" (E2); permitir enviar rangos que cruzan medianoche (p. ej. 22:00–06:00).            | `Pendiente` |
+| 5   | Al eliminar una jornada en uso, manejar `400 error.timeSlotInUse` mostrando "No es posible eliminar la jornada: está asignada a fichas. Puedes desactivarla" (E3) y ofrecer **desactivarla** con `PATCH /api/time-slots/{id}` (`isActive: false`) en lugar de reintentar la eliminación. | `Pendiente` |
 
 ---
 
@@ -259,6 +260,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.documentimmutable`      | "Este dato no puede modificarse."                                                                   | Edición de perfil (UC003-E3).                         |
 | `error.timeSlotNameAlreadyUsed` | "Ya existe una jornada con este nombre."                                                           | Alta/edición de jornada (UC020-E1).                   |
 | `error.timeSlotSameTime`       | "La hora de inicio y la hora de fin no pueden ser iguales."                                        | Alta/edición de jornada (UC020-E2).                   |
+| `error.timeSlotInUse`          | "No es posible eliminar la jornada: está asignada a fichas. Puedes desactivarla."                  | Eliminación de jornada (UC020-E3).                    |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

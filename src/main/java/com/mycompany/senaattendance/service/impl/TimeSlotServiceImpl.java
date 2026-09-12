@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TimeSlotService;
@@ -29,9 +30,12 @@ public class TimeSlotServiceImpl implements TimeSlotService {
 
     private final TimeSlotMapper timeSlotMapper;
 
-    public TimeSlotServiceImpl(TimeSlotRepository timeSlotRepository, TimeSlotMapper timeSlotMapper) {
+    private final GradeRepository gradeRepository;
+
+    public TimeSlotServiceImpl(TimeSlotRepository timeSlotRepository, TimeSlotMapper timeSlotMapper, GradeRepository gradeRepository) {
         this.timeSlotRepository = timeSlotRepository;
         this.timeSlotMapper = timeSlotMapper;
+        this.gradeRepository = gradeRepository;
     }
 
     @Override
@@ -110,6 +114,9 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete TimeSlot : {}", id);
+        if (gradeRepository.existsByTimeSlotId(id)) {
+            throw new BadRequestAlertException("This jornada is assigned to fichas and cannot be deleted", "timeSlot", "timeSlotInUse");
+        }
         timeSlotRepository.deleteById(id);
     }
 

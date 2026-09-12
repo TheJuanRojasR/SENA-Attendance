@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
@@ -58,6 +60,9 @@ class TimeSlotResourceIT {
     private TimeSlotRepository timeSlotRepository;
 
     @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
     private TimeSlotMapper timeSlotMapper;
 
     @Autowired
@@ -66,6 +71,8 @@ class TimeSlotResourceIT {
     private TimeSlot timeSlot;
 
     private TimeSlot insertedTimeSlot;
+
+    private Grade insertedGrade;
 
     /**
      * Create an entity for this test.
@@ -94,6 +101,10 @@ class TimeSlotResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedGrade != null) {
+            gradeRepository.delete(insertedGrade);
+            insertedGrade = null;
+        }
         if (insertedTimeSlot != null) {
             timeSlotRepository.delete(insertedTimeSlot);
             insertedTimeSlot = null;
@@ -616,6 +627,37 @@ class TimeSlotResourceIT {
             .andExpect(status().isNoContent());
 
         // Validate the database contains one less item
+        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteTimeSlotAssignedToGradeReturnsBadRequest() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        Grade grade = GradeResourceIT.createEntity();
+        grade.setTimeSlot(insertedTimeSlot);
+        insertedGrade = gradeRepository.save(grade);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restTimeSlotMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedTimeSlot.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.timeSlotInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteUnusedTimeSlotSucceeds() throws Exception {
+        insertedTimeSlot = timeSlotRepository.save(timeSlot);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restTimeSlotMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedTimeSlot.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 

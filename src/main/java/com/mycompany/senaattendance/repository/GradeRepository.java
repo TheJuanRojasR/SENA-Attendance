@@ -32,4 +32,13 @@ public interface GradeRepository extends MongoRepository<Grade, String> {
 
     // ------- COUNT ACTIVE GRADES BY PROGRAM -------
     long countByProgram_IdAndState(String programId, StateGrade state);
+
+    /**
+     * Returns whether any ficha (grade) references the given time slot.
+     * Used to block deleting a time slot that is still in use.
+     *
+     * @param timeSlotId the time slot id to check.
+     * @return {@code true} if at least one grade references this time slot.
+     */
+    boolean existsByTimeSlotId(String timeSlotId);
 }
