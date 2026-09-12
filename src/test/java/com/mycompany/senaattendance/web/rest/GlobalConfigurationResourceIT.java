@@ -12,7 +12,6 @@ import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.service.impl.GlobalConfigurationServiceImpl;
-import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +63,7 @@ class GlobalConfigurationResourceIT {
      */
     public static GlobalConfiguration createEntity() {
         return new GlobalConfiguration()
+            .id(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
             .studentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS)
             .instructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS)
             .consecutiveAbsenceAlertThreshold(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD)
@@ -97,16 +97,7 @@ class GlobalConfigurationResourceIT {
     }
 
     private GlobalConfiguration saveSingleton() {
-        List<GlobalConfiguration> configurations = globalConfigurationRepository.findAll();
-        if (configurations.isEmpty()) {
-            return globalConfigurationRepository.save(globalConfiguration);
-        }
-        GlobalConfiguration configuration = configurations.get(0);
-        configuration.setStudentJustificationDays(globalConfiguration.getStudentJustificationDays());
-        configuration.setInstructorResponseDays(globalConfiguration.getInstructorResponseDays());
-        configuration.setConsecutiveAbsenceAlertThreshold(globalConfiguration.getConsecutiveAbsenceAlertThreshold());
-        configuration.setAccumulatedAbsenceAlertThreshold(globalConfiguration.getAccumulatedAbsenceAlertThreshold());
-        return globalConfigurationRepository.save(configuration);
+        return globalConfigurationRepository.save(globalConfiguration);
     }
 
     @Test
@@ -116,6 +107,7 @@ class GlobalConfigurationResourceIT {
             .perform(get(ENTITY_API_URL))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.id").value(GlobalConfiguration.GLOBAL_CONFIGURATION_ID))
             .andExpect(jsonPath("$.studentJustificationDays").value(DEFAULT_STUDENT_JUSTIFICATION_DAYS))
             .andExpect(jsonPath("$.instructorResponseDays").value(DEFAULT_INSTRUCTOR_RESPONSE_DAYS))
             .andExpect(jsonPath("$.consecutiveAbsenceAlertThreshold").value(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD))
@@ -129,6 +121,32 @@ class GlobalConfigurationResourceIT {
     void getGlobalConfigurationForbiddenForNonAdmin() throws Exception {
         // Reading the global configuration is restricted to admins (least privilege).
         restGlobalConfigurationMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void patchGlobalConfigurationWithoutIdUpdatesSingleton() throws Exception {
+        // The singleton can be updated while omitting the id in the body.
+        globalConfiguration = saveSingleton();
+
+        GlobalConfigurationDTO updatedDTO = new GlobalConfigurationDTO();
+        updatedDTO.setStudentJustificationDays(UPDATED_STUDENT_JUSTIFICATION_DAYS);
+        updatedDTO.setInstructorResponseDays(UPDATED_INSTRUCTOR_RESPONSE_DAYS);
+
+        restGlobalConfigurationMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(updatedDTO)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(GlobalConfiguration.GLOBAL_CONFIGURATION_ID))
+            .andExpect(jsonPath("$.studentJustificationDays").value(UPDATED_STUDENT_JUSTIFICATION_DAYS))
+            .andExpect(jsonPath("$.instructorResponseDays").value(UPDATED_INSTRUCTOR_RESPONSE_DAYS))
+            .andExpect(jsonPath("$.consecutiveAbsenceAlertThreshold").value(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD))
+            .andExpect(jsonPath("$.accumulatedAbsenceAlertThreshold").value(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD));
+
+        assertThat(globalConfigurationRepository.count()).isEqualTo(1);
+        GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+            .orElseThrow();
+        assertThat(persistedGlobalConfiguration.getStudentJustificationDays()).isEqualTo(UPDATED_STUDENT_JUSTIFICATION_DAYS);
+        assertThat(persistedGlobalConfiguration.getInstructorResponseDays()).isEqualTo(UPDATED_INSTRUCTOR_RESPONSE_DAYS);
     }
 
     @Test
@@ -154,9 +172,10 @@ class GlobalConfigurationResourceIT {
             .andExpect(jsonPath("$.accumulatedAbsenceAlertThreshold").value(UPDATED_ACCUMULATED_ABSENCE_ALERT_THRESHOLD));
 
         // Validate the GlobalConfiguration in the database
-        assertThat(globalConfigurationRepository.count()).isEqualTo(databaseSizeBeforeUpdate);
+        assertThat(databaseSizeBeforeUpdate).isEqualTo(1);
+        assertThat(globalConfigurationRepository.count()).isEqualTo(1);
         GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
-            .findById(globalConfiguration.getId())
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
             .orElseThrow();
         assertGlobalConfigurationUpdatableFieldsEquals(createUpdatedEntity(), persistedGlobalConfiguration);
     }
@@ -381,24 +400,29 @@ class GlobalConfigurationResourceIT {
     }
 
     @Test
-    void patchNonExistingGlobalConfiguration() throws Exception {
+    void patchGlobalConfigurationWithDifferentIdReturnsInvalidId() throws Exception {
+        // Only the singleton id is accepted; a foreign id is rejected before touching the row.
+        globalConfiguration = saveSingleton();
         long databaseSizeBeforeUpdate = globalConfigurationRepository.count();
-        globalConfiguration.setId(UUID.randomUUID().toString());
 
-        // Create the GlobalConfiguration
         GlobalConfigurationDTO globalConfigurationDTO = new GlobalConfigurationDTO();
-        globalConfigurationDTO.setId(globalConfiguration.getId());
+        globalConfigurationDTO.setId(UUID.randomUUID().toString());
         globalConfigurationDTO.setStudentJustificationDays(UPDATED_STUDENT_JUSTIFICATION_DAYS);
         globalConfigurationDTO.setInstructorResponseDays(UPDATED_INSTRUCTOR_RESPONSE_DAYS);
 
-        // If the entity doesn't exist, it will throw BadRequestAlertException
         restGlobalConfigurationMockMvc
             .perform(
                 patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(globalConfigurationDTO))
             )
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idinvalid"));
 
         // Validate the GlobalConfiguration in the database
-        assertThat(globalConfigurationRepository.count()).isEqualTo(databaseSizeBeforeUpdate);
+        assertThat(databaseSizeBeforeUpdate).isEqualTo(1);
+        assertThat(globalConfigurationRepository.count()).isEqualTo(1);
+        GlobalConfiguration persistedGlobalConfiguration = globalConfigurationRepository
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+            .orElseThrow();
+        assertThat(persistedGlobalConfiguration.getStudentJustificationDays()).isEqualTo(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
     }
 }

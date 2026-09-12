@@ -1,6 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
-import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
+import com.mycompany.senaattendance.domain.GlobalConfiguration;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GlobalConfigurationService;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
@@ -32,23 +32,18 @@ public class GlobalConfigurationResource {
 
     private final GlobalConfigurationService globalConfigurationService;
 
-    private final GlobalConfigurationRepository globalConfigurationRepository;
-
-    public GlobalConfigurationResource(
-        GlobalConfigurationService globalConfigurationService,
-        GlobalConfigurationRepository globalConfigurationRepository
-    ) {
+    public GlobalConfigurationResource(GlobalConfigurationService globalConfigurationService) {
         this.globalConfigurationService = globalConfigurationService;
-        this.globalConfigurationRepository = globalConfigurationRepository;
     }
 
     /**
-     * {@code PATCH  /global-configurations} : Partially updates the global configuration. The id is given only in the
-     * request body.
+     * {@code PATCH  /global-configurations} : Partially updates the global configuration. The id is optional in the
+     * request body: the endpoint always targets the singleton, so the id may be omitted or, when present, it must be
+     * the fixed singleton id.
      *
      * @param globalConfigurationDTO the globalConfigurationDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated globalConfigurationDTO,
-     * or with status {@code 400 (Bad Request)} if the globalConfigurationDTO is not valid,
+     * or with status {@code 400 (Bad Request)} if the globalConfigurationDTO is not valid or carries a foreign id,
      * or with status {@code 403 (Forbidden)} if the current user is not an admin,
      * or with status {@code 404 (Not Found)} if the globalConfigurationDTO is not found.
      */
@@ -58,19 +53,15 @@ public class GlobalConfigurationResource {
         @Valid @RequestBody GlobalConfigurationDTO globalConfigurationDTO
     ) {
         LOG.debug("REST request to partially update GlobalConfiguration : {}", globalConfigurationDTO);
-        if (globalConfigurationDTO.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-
-        if (!globalConfigurationRepository.existsById(globalConfigurationDTO.getId())) {
-            throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
+        if (globalConfigurationDTO.getId() != null && !GlobalConfiguration.GLOBAL_CONFIGURATION_ID.equals(globalConfigurationDTO.getId())) {
+            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idinvalid");
         }
 
         Optional<GlobalConfigurationDTO> result = globalConfigurationService.partialUpdate(globalConfigurationDTO);
 
         return ResponseUtil.wrapOrNotFound(
             result,
-            HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, globalConfigurationDTO.getId())
+            HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
         );
     }
 

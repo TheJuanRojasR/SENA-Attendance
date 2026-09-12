@@ -348,14 +348,13 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Método | Ruta                         | Acceso       | Descripción                                                              |
 | ------ | ---------------------------- | ------------ | ------------------------------------------------------------------------ |
-| GET    | `/api/global-configurations` | `ROLE_ADMIN` | Lectura usada por la pantalla de configuración; devuelve la vigente o la re-crea con defaults. |
-| PATCH  | `/api/global-configurations` | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el cuerpo.                       |
+| GET    | `/api/global-configurations` | `ROLE_ADMIN` | Lectura usada por la pantalla de configuración; devuelve la vigente o la re-crea con defaults. Siempre devuelve el singleton con `id = "global-configuration"`. |
+| PATCH  | `/api/global-configurations` | `ROLE_ADMIN` | Actualización parcial del singleton; el `id` es opcional. Si falta, se actualiza el singleton; si viaja, debe ser `global-configuration`. |
 
 **Request — `PATCH /api/global-configurations`**
 
 ```json
 {
-  "id": "64f1c2a9e13b7a1f2c8d9e10",
   "studentJustificationDays": 5,
   "instructorResponseDays": 2,
   "consecutiveAbsenceAlertThreshold": 3,
@@ -365,7 +364,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Campo                              | Tipo    | Obligatorio | Reglas                                                                          |
 | ---------------------------------- | ------- | ----------- | ------------------------------------------------------------------------------- |
-| `id`                               | string  | Sí          | Id del singleton; si falta: `400 idnull`; si no existe: `400 idnotfound`.       |
+| `id`                               | string  | No          | Opcional. Si falta, se actualiza el singleton con `id = "global-configuration"`; si viaja con otro valor: `400 idinvalid`. |
 | `studentJustificationDays`         | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 5 al sembrar la fila. |
 | `instructorResponseDays`           | integer | No          | Plazo en días hábiles: `@Min(1)` y `@Max(30)` (rango 1–30). Default 2 al sembrar la fila. |
 | `consecutiveAbsenceAlertThreshold` | integer | No          | `@Min(1)`, sin máximo. Default 3 al sembrar la fila (alerta por materia, UC013). |
@@ -375,7 +374,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ```json
 {
-  "id": "64f1c2a9e13b7a1f2c8d9e10",
+  "id": "global-configuration",
   "studentJustificationDays": 5,
   "instructorResponseDays": 2,
   "consecutiveAbsenceAlertThreshold": 3,
@@ -383,9 +382,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 }
 ```
 
-**Errores:** `400 error.idnull`, `400 error.idnotfound`, `400 error.validation`, `403` si no es Administrador, `404` si el servicio no encuentra la fila. Un plazo fuera de 1–30 o un umbral menor a 1 no se guarda: responde `400 error.validation` con una entrada por campo en `fieldErrors` (campo y mensaje).
+**Errores:** `400 error.idinvalid`, `400 error.validation`, `403` si no es Administrador, `404` si el servicio no encuentra la fila. Un plazo fuera de 1–30 o un umbral menor a 1 no se guarda: responde `400 error.validation` con una entrada por campo en `fieldErrors` (campo y mensaje).
 
-**Notas / lo que se necesita:** el modelo expone los cuatro parámetros del UC. Los plazos `studentJustificationDays` e `instructorResponseDays` se validan en el borde de la API con rango **1–30 días** (`@Min(1)` + `@Max(30)`), de modo que un valor fuera de rango produce un error por campo y nunca llega a la persistencia. Los umbrales `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5) los consume UC013 y solo exigen **mínimo 1** (sin máximo, el UC no define tope). La lectura está disponible para cualquier usuario autenticado; la escritura es solo del Administrador, consistente con E2.
+**Notas / lo que se necesita:** la configuración global es un **singleton** con `id` fijo `global-configuration`. La lectura y la escritura siempre operan sobre ese documento: `GET` lo devuelve (y lo re-crea con defaults si falta) y `PATCH` lo actualiza aunque el cuerpo no envíe `id`; un `id` distinto responde `400 error.idinvalid`. El modelo expone los cuatro parámetros del UC. Los plazos `studentJustificationDays` e `instructorResponseDays` se validan en el borde de la API con rango **1–30 días** (`@Min(1)` + `@Max(30)`), de modo que un valor fuera de rango produce un error por campo y nunca llega a la persistencia. Los umbrales `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5) los consume UC013 y solo exigen **mínimo 1** (sin máximo, el UC no define tope). La lectura está disponible para cualquier usuario autenticado; la escritura es solo del Administrador, consistente con E2.
 
 ---
 

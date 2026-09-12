@@ -68,6 +68,7 @@ public class SeedGlobalConfigurationMigration {
 
     private GlobalConfiguration createDefaultConfiguration() {
         GlobalConfiguration configuration = new GlobalConfiguration();
+        configuration.setId(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
         configuration.setStudentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
         configuration.setInstructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
         configuration.setConsecutiveAbsenceAlertThreshold(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD);

@@ -8,7 +8,6 @@ import com.mycompany.senaattendance.service.GlobalConfigurationService;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.service.mapper.GlobalConfigurationMapper;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,9 +53,11 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
         LOG.debug("Request to partially update GlobalConfiguration : {}", globalConfigurationDTO);
 
         return globalConfigurationRepository
-            .findById(globalConfigurationDTO.getId())
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
             .map(existingGlobalConfiguration -> {
                 globalConfigurationMapper.partialUpdate(existingGlobalConfiguration, globalConfigurationDTO);
+                // The configuration is a singleton: keep its fixed identity even if the body carries another id.
+                existingGlobalConfiguration.setId(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
 
                 return existingGlobalConfiguration;
             })
@@ -65,26 +66,26 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
     }
 
     /**
-     * Loads the single configuration row, re-seeding it with the default values
-     * when it is missing.
+     * Loads the single configuration row by its fixed id, re-seeding it with the
+     * default values when it is missing.
      *
      * <p>Rows created before a parameter existed are healed in place: any null
      * parameter is filled with its default and persisted so the legacy row stays
      * valid (the domain fields are {@code @NotNull}).
      */
     private GlobalConfiguration getSingletonEntity() {
-        List<GlobalConfiguration> configurations = globalConfigurationRepository.findAll();
-        if (!configurations.isEmpty()) {
-            GlobalConfiguration existing = configurations.get(0);
-            return applyDefaults(existing) ? globalConfigurationRepository.save(existing) : existing;
-        }
-
-        LOG.warn("GlobalConfiguration row is missing, re-seeding it with the default values");
-        GlobalConfiguration globalConfiguration = new GlobalConfiguration();
-        applyDefaults(globalConfiguration);
-        globalConfiguration.setCreatedBy(SecurityUtils.getCurrentUserLogin().orElse(Constants.SYSTEM));
-        globalConfiguration.setCreatedDate(Instant.now());
-        return globalConfigurationRepository.save(globalConfiguration);
+        return globalConfigurationRepository
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+            .map(existing -> applyDefaults(existing) ? globalConfigurationRepository.save(existing) : existing)
+            .orElseGet(() -> {
+                LOG.warn("GlobalConfiguration row is missing, re-seeding it with the default values");
+                GlobalConfiguration globalConfiguration = new GlobalConfiguration();
+                globalConfiguration.setId(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+                applyDefaults(globalConfiguration);
+                globalConfiguration.setCreatedBy(SecurityUtils.getCurrentUserLogin().orElse(Constants.SYSTEM));
+                globalConfiguration.setCreatedDate(Instant.now());
+                return globalConfigurationRepository.save(globalConfiguration);
+            });
     }
 
     /**

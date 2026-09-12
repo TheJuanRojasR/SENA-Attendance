@@ -14,6 +14,12 @@ import org.springframework.data.mongodb.core.mapping.Field;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class GlobalConfiguration extends AbstractAuditingEntity implements Serializable {
 
+    /**
+     * Fixed document id of the single global configuration row. The configuration is a
+     * singleton, so every read and write must target this exact id.
+     */
+    public static final String GLOBAL_CONFIGURATION_ID = "global-configuration";
+
     @Serial
     private static final long serialVersionUID = 1L;
 

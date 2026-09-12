@@ -180,7 +180,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC019 — Gestionar configuración global
 
-**Estado del backend:** parcial. La configuración global ya expone los **cuatro** parámetros del UC: `studentJustificationDays` (default 5), `instructorResponseDays` (default 2), `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5). Ver [`docs/api-contracts.md#uc019--gestionar-configuración-global`](./api-contracts.md#uc019--gestionar-configuración-global).
+**Estado del backend:** parcial. La configuración global es un **singleton** con `id` fijo `global-configuration` y ya expone los **cuatro** parámetros del UC: `studentJustificationDays` (default 5), `instructorResponseDays` (default 2), `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5). Ver [`docs/api-contracts.md#uc019--gestionar-configuración-global`](./api-contracts.md#uc019--gestionar-configuración-global).
 
 **Estado del frontend:** pendiente. La pantalla de configuración debe editar y guardar los cuatro parámetros. Los endpoints de configuración (`GET` y `PATCH /api/global-configurations`) requieren el rol `ROLE_ADMIN`.
 
@@ -189,7 +189,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 1   | La pantalla de configuración global debe mostrar los **dos umbrales de alerta de inasistencia** (`consecutiveAbsenceAlertThreshold`, default 3; `accumulatedAbsenceAlertThreshold`, default 5), además de `studentJustificationDays` e `instructorResponseDays`. | `Pendiente` |
 | 2   | Validar en el cliente que los plazos `studentJustificationDays` e `instructorResponseDays` sean enteros entre **1 y 30 días**; fuera de ese rango el backend responde `400 error.validation` con una entrada en `fieldErrors` y no persiste el cambio. | `Pendiente` |
 | 3   | Validar en el cliente que cada umbral (`consecutiveAbsenceAlertThreshold`, `accumulatedAbsenceAlertThreshold`) sea un entero `>= 1` (sin máximo); si no lo es, el backend responde `400 error.validation` con una entrada en `fieldErrors` y no persiste el cambio. | `Pendiente` |
-| 4   | El `PATCH /api/global-configurations` es parcial: enviar el `id` del singleton y solo los campos que cambian; los campos omitidos quedan igual.                                                                                                    | `Pendiente` |
+| 4   | El `PATCH /api/global-configurations` es parcial: se puede enviar solo los campos que cambian, **sin `id`** (el backend siempre apunta al singleton `global-configuration`); los campos omitidos quedan igual. Si se envía un `id` distinto, responde `400 error.idinvalid`. | `Pendiente` |
 
 ---
 

@@ -10,7 +10,7 @@ import com.mycompany.senaattendance.domain.GlobalConfiguration;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.service.mapper.GlobalConfigurationMapperImpl;
-import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @ExtendWith(MockitoExtension.class)
 class GlobalConfigurationServiceImplTest {
 
-    private static final String CONFIG_ID = "config-id";
+    private static final String CONFIG_ID = GlobalConfiguration.GLOBAL_CONFIGURATION_ID;
 
     @Mock
     private GlobalConfigurationRepository globalConfigurationRepository;
@@ -52,7 +52,7 @@ class GlobalConfigurationServiceImplTest {
     @Test
     void getShouldReturnSingletonRowWhenPresent() {
         GlobalConfiguration configuration = existingConfiguration();
-        when(globalConfigurationRepository.findAll()).thenReturn(List.of(configuration));
+        when(globalConfigurationRepository.findById(CONFIG_ID)).thenReturn(Optional.of(configuration));
 
         GlobalConfigurationDTO result = globalConfigurationService.get();
 
@@ -67,7 +67,7 @@ class GlobalConfigurationServiceImplTest {
     @Test
     void getShouldFillMissingFieldsWithDefaultsOnLegacyRow() {
         GlobalConfiguration legacy = new GlobalConfiguration().id(CONFIG_ID).studentJustificationDays(10).instructorResponseDays(4);
-        when(globalConfigurationRepository.findAll()).thenReturn(List.of(legacy));
+        when(globalConfigurationRepository.findById(CONFIG_ID)).thenReturn(Optional.of(legacy));
         when(globalConfigurationRepository.save(any(GlobalConfiguration.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         GlobalConfigurationDTO result = globalConfigurationService.get();
@@ -93,12 +93,8 @@ class GlobalConfigurationServiceImplTest {
 
     @Test
     void getShouldReseedWithDefaultsWhenMissing() {
-        when(globalConfigurationRepository.findAll()).thenReturn(List.of());
-        when(globalConfigurationRepository.save(any(GlobalConfiguration.class))).thenAnswer(invocation -> {
-            GlobalConfiguration saved = invocation.getArgument(0);
-            saved.setId(CONFIG_ID);
-            return saved;
-        });
+        when(globalConfigurationRepository.findById(CONFIG_ID)).thenReturn(Optional.empty());
+        when(globalConfigurationRepository.save(any(GlobalConfiguration.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         GlobalConfigurationDTO result = globalConfigurationService.get();
 
@@ -127,5 +123,25 @@ class GlobalConfigurationServiceImplTest {
             GlobalConfigurationServiceImpl.DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD
         );
         assertThat(captor.getValue().getCreatedBy()).isEqualTo("system");
+    }
+
+    @Test
+    void partialUpdateShouldLoadSingletonByIdAndKeepFixedIdentity() {
+        GlobalConfiguration existing = existingConfiguration();
+        when(globalConfigurationRepository.findById(CONFIG_ID)).thenReturn(Optional.of(existing));
+        when(globalConfigurationRepository.save(any(GlobalConfiguration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigurationDTO dto = new GlobalConfigurationDTO();
+        dto.setId("some-foreign-id");
+        dto.setStudentJustificationDays(7);
+
+        Optional<GlobalConfigurationDTO> result = globalConfigurationService.partialUpdate(dto);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(CONFIG_ID);
+        assertThat(result.get().getStudentJustificationDays()).isEqualTo(7);
+        // Omitted fields are left unchanged.
+        assertThat(result.get().getInstructorResponseDays()).isEqualTo(4);
+        verify(globalConfigurationRepository).findById(CONFIG_ID);
     }
 }
