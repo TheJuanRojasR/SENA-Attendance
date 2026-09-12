@@ -44,7 +44,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC002](#uc002--iniciar-sesión)                     | Iniciar sesión                     | Implementado    |
 | [UC003](#uc003--modificar-datos)                    | Modificar datos                    | Implementado    |
 | [UC004](#uc004--cerrar-sesión)                      | Cerrar sesión                      | Parcial         |
-| [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Parcial         |
+| [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Implementado    |
 | [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Parcial         |
 | [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Parcial         |
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Parcial         |
@@ -284,7 +284,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC005 — Recuperar contraseña
 
-**Módulo:** Cuenta y acceso | **Actor:** Usuario | **Estado:** Parcial
+**Módulo:** Cuenta y acceso | **Actor:** Usuario | **Estado:** Implementado
 
 **Feature:** Solicitud de restablecimiento por tipo y número de documento, con enlace de un solo uso enviado al correo registrado. El sistema responde siempre el mismo mensaje neutro, exista o no la cuenta.
 
@@ -327,12 +327,12 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Errores:** todos los fallos de `finish` son `400 Bad Request` con una clave de negocio estable en `$.message`:
 
-| Situación                                                       | `$.message`              | Causa                                                                                                                  |
-| -------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Enlace inexistente o manipulado                                | `error.resetlinkinvalid` | La clave no está asociada a ningún usuario.                                                                            |
-| Enlace ya usado (E4)                                            | `error.resetlinkused`    | La clave existe pero su `resetDate` es `null` (el enlace ya se consumió).                                              |
-| Enlace expirado (E3)                                            | `error.resetlinkexpired` | La clave existe pero su `resetDate` es anterior a `now - 30 minutos`.                                                  |
-| Contraseña débil (E2)                                          | `error.invalidpassword`  | La nueva contraseña no cumple la política completa (8–20 con mayúscula, minúscula, número y carácter especial).       |
+| Situación                       | `$.message`              | Causa                                                                                                           |
+| ------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Enlace inexistente o manipulado | `error.resetlinkinvalid` | La clave no está asociada a ningún usuario.                                                                     |
+| Enlace ya usado (E4)            | `error.resetlinkused`    | La clave existe pero su `resetDate` es `null` (el enlace ya se consumió).                                       |
+| Enlace expirado (E3)            | `error.resetlinkexpired` | La clave existe pero su `resetDate` es anterior a `now - 30 minutos`.                                           |
+| Contraseña débil (E2)           | `error.invalidpassword`  | La nueva contraseña no cumple la política completa (8–20 con mayúscula, minúscula, número y carácter especial). |
 
 **Notas / lo que se necesita:** la clave de reset expira a los **30 minutos** (`resetDate > now - 30 minutos` en `UserService.completePasswordReset`), como pide el UC. Es de un solo uso: al completar se limpia `resetDate` pero se **conserva** `resetKey`, de modo que un segundo intento sobre el mismo enlace resuelve como `error.resetlinkused` (E4) y no como enlace inválido. El reset no activa un indicador de cambio obligatorio y, si `mustChangePassword` estaba activo, lo **limpia** (el usuario eligió su propia contraseña). El mensaje neutro no se devuelve en el cuerpo: `init` responde `200` vacío y el cliente debe mostrar el texto del UC. El enlace expirado responde `400` con `error.resetlinkexpired` ("El enlace ha expirado, solicita uno nuevo"); el ya usado responde `400` con `error.resetlinkused` ("Este enlace ya no es válido").
 
