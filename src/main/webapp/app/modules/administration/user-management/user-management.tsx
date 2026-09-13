@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, TextFormat, Translate, getPaginationState } from 'react-jhipster';
+import { Badge, Button, Col, Table } from 'react-bootstrap';
+import { JhiItemCount, JhiPagination, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
+import './user-management.scss';
 
-import { faEye, faPencilAlt, faPlus, faSort, faSortDown, faSortUp, faSync, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPencilAlt, faPlus, faSearch, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-import { APP_DATE_FORMAT } from 'app/config/constants';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
 import { getUsersAsAdmin, updateUser } from './user-management.reducer';
+import LinkButton from 'app/shared/components/link-button';
 
 export const UserManagement = () => {
   const dispatch = useAppDispatch();
@@ -84,76 +85,79 @@ export const UserManagement = () => {
 
   const account = useAppSelector(state => state.authentication.account);
   const users = useAppSelector(state => state.userManagement.users);
+  const authorities = useAppSelector(state => state.userManagement.authorities);
   const totalItems = useAppSelector(state => state.userManagement.totalItems);
-  const loading = useAppSelector(state => state.userManagement.loading);
-  const getSortIconByFieldName = (fieldName: string) => {
-    const sortFieldName = pagination.sort;
-    const { order } = pagination;
-    if (sortFieldName !== fieldName) {
-      return faSort;
-    }
-    return order === ASC ? faSortUp : faSortDown;
-  };
+  {
+    /*
+    const getSortIconByFieldName = (fieldName: string) => {
+      const sortFieldName = pagination.sort;
+      const {order} = pagination;
+      if (sortFieldName !== fieldName) {
+        return faSort;
+      }
+      return order === ASC ? faSortUp : faSortDown;
+    };
+  */
+  }
 
   return (
     <div>
       <h2 id="user-management-page-heading" data-cy="UserManagementHeading">
-        <Translate contentKey="userManagement.home.title">Users</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon={faSync} spin={loading} />{' '}
-            <Translate contentKey="userManagement.home.refreshListLabel">Refresh List</Translate>
-          </Button>
-          <Link to="new" className="btn btn-primary jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon={faPlus} /> <Translate contentKey="userManagement.home.createLabel">Create a new user</Translate>
-          </Link>
-        </div>
+        <Translate contentKey="userManagement.home.title">User Management</Translate>
       </h2>
+      <p>
+        Administra el acceso y roles de los usuarios del sistema. Crea, edita o desactiva cuentas según los requerimientos institucionales.
+      </p>
+      <Col className="d-flex justify-content-between align-items-center" md="12">
+        <div className="d-flex align-items-center searchBar">
+          <div className="d-flex align-items-center w-50">
+            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+            <ValidatedInput name="search" placeholder="Buscar por nombre, email o documento..." />
+          </div>
+          <ValidatedInput type="select" name="state" className="w-25">
+            {authorities.map(rol => (
+              <option value={rol} key={rol}>
+                {rol}
+              </option>
+            ))}
+          </ValidatedInput>
+        </div>
+        <LinkButton to="new" data-cy="entityCreateButton">
+          <FontAwesomeIcon icon={faPlus} /> <Translate contentKey="userManagement.home.createLabel">Create a new user</Translate>
+        </LinkButton>
+      </Col>
       <Table responsive striped>
         <thead>
           <tr>
             <th className="hand" onClick={sort('id')}>
-              <Translate contentKey="global.field.id">ID</Translate> <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
+              Nombre
             </th>
-            <th className="hand" onClick={sort('login')}>
-              <Translate contentKey="userManagement.login">Login</Translate> <FontAwesomeIcon icon={getSortIconByFieldName('login')} />
+            <th className="hand" onClick={sort('id')}>
+              Documento
             </th>
             <th className="hand" onClick={sort('email')}>
-              <Translate contentKey="userManagement.email">Email</Translate> <FontAwesomeIcon icon={getSortIconByFieldName('email')} />
+              Email
             </th>
-            <th />
-            <th className="hand" onClick={sort('langKey')}>
-              <Translate contentKey="userManagement.langKey">Lang Key</Translate>{' '}
-              <FontAwesomeIcon icon={getSortIconByFieldName('langKey')} />
+            <th>Rol</th>
+            <th>Estado</th>
+            <th id="modified-date-sort" className="hand">
+              Acciones
             </th>
-            <th>
-              <Translate contentKey="userManagement.profiles">Profiles</Translate>
-            </th>
-            <th className="hand" onClick={sort('createdDate')}>
-              <Translate contentKey="userManagement.createdDate">Created Date</Translate>{' '}
-              <FontAwesomeIcon icon={getSortIconByFieldName('createdDate')} />
-            </th>
-            <th className="hand" onClick={sort('lastModifiedBy')}>
-              <Translate contentKey="userManagement.lastModifiedBy">Last Modified By</Translate>{' '}
-              <FontAwesomeIcon icon={getSortIconByFieldName('lastModifiedBy')} />
-            </th>
-            <th id="modified-date-sort" className="hand" onClick={sort('lastModifiedDate')}>
-              <Translate contentKey="userManagement.lastModifiedDate">Last Modified Date</Translate>{' '}
-              <FontAwesomeIcon icon={getSortIconByFieldName('lastModifiedDate')} />
-            </th>
-            <th />
           </tr>
         </thead>
         <tbody>
           {users.map((user, i) => (
             <tr id={user.login} key={`user-${i}`} data-cy="entityTable">
-              <td>
-                <Button as={Link as any} to={user.login} variant="link" size="sm">
-                  {user.id}
-                </Button>
-              </td>
-              <td>{user.login}</td>
+              <td>{user.fullName}</td>
+              <td>{user.documentNumber}</td>
               <td>{user.email}</td>
+              <td>
+                {user.authorities?.map((authority, j) => (
+                  <div key={`user-auth-${i}-${j}`}>
+                    <Badge bg="info">{authority}</Badge>
+                  </div>
+                ))}
+              </td>
               <td>
                 {user.activated ? (
                   <Button variant="success" onClick={toggleActive(user)}>
@@ -165,27 +169,14 @@ export const UserManagement = () => {
                   </Button>
                 )}
               </td>
-              <td>{user.langKey}</td>
-              <td>
-                {user.authorities?.map((authority, j) => (
-                  <div key={`user-auth-${i}-${j}`}>
-                    <Badge bg="info">{authority}</Badge>
-                  </div>
-                ))}
-              </td>
-              <td>{user.createdDate && <TextFormat value={user.createdDate} type="date" format={APP_DATE_FORMAT} blankOnInvalid />}</td>
-              <td>{user.lastModifiedBy}</td>
-              <td>
-                {user.lastModifiedDate && <TextFormat value={user.lastModifiedDate} type="date" format={APP_DATE_FORMAT} blankOnInvalid />}
-              </td>
               <td className="text-end">
                 <div className="btn-group flex-btn-group-container">
-                  <Button as={Link as any} to={user.login} variant="info" size="sm" data-cy="entityDetailsButton">
-                    <FontAwesomeIcon icon={faEye} />{' '}
+                  {/*<Button as={Link as any} to={user.login} variant="info" size="sm" data-cy="entityDetailsButton">
+                    <FontAwesomeIcon icon={faEye}/>{' '}
                     <span className="d-none d-md-inline">
                       <Translate contentKey="entity.action.view">View</Translate>
                     </span>
-                  </Button>
+                  </Button>*/}
                   <Button as={Link as any} to={`${user.login}/edit`} variant="primary" size="sm" data-cy="entityEditButton">
                     <FontAwesomeIcon icon={faPencilAlt} />{' '}
                     <span className="d-none d-md-inline">

@@ -7,7 +7,7 @@ import { AccordionNavItem, NavDropdown } from './menu-components';
 
 const adminMenuItems = () => (
   <>
-    <MenuItem icon="users" to="/admin/user-management">
+    <MenuItem icon="users" to="/admin/users">
       <Translate contentKey="global.menu.admin.userManagement">User management</Translate>
     </MenuItem>
     <MenuItem icon="tachometer-alt" to="/admin/metrics">
