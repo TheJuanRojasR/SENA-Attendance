@@ -7,7 +7,9 @@
       "lastname": "Apellidos",
       "lastname.placeholder": "Sus apellidos",
       "language": "Idioma",
-      "button": "Guardar"
+      "editbutton": "Editar",
+      "savebutton": "Guardar",
+      "cancelbutton": "Cancelar"
     },
     "messages": {
       "error": {

@@ -7,7 +7,6 @@ import { toast } from 'react-toastify';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { handlePasswordResetInit, reset } from '../password-reset.reducer';
 import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
-import type { FieldError } from 'react-hook-form';
 
 export interface IPasswordResetInitModalProps {
   showModal?: boolean;

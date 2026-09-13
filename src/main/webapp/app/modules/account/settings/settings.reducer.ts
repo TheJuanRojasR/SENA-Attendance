@@ -20,6 +20,11 @@ export type SettingsState = Readonly<typeof initialState>;
 // Actions
 const apiUrl = 'api/account';
 
+export const getAccountSettings = createAsyncThunk('settings/get_account_settings', async () => {
+  const requestUrl = `${apiUrl}`;
+  return axios.get<any>(requestUrl);
+});
+
 export const saveAccountSettings: (account: any) => AppThunk = account => async dispatch => {
   await dispatch(updateAccount(account));
 
@@ -30,7 +35,7 @@ export const saveAccountSettings: (account: any) => AppThunk = account => async 
   dispatch(getSession());
 };
 
-export const updateAccount = createAsyncThunk('settings/update_account', async (account: any) => axios.post<any>(apiUrl, account), {
+export const updateAccount = createAsyncThunk('settings/update_account', async (account: any) => axios.patch<any>(apiUrl, account), {
   serializeError: serializeAxiosError,
 });
 
