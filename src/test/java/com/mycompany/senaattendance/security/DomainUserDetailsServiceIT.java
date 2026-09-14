@@ -79,9 +79,9 @@ class DomainUserDetailsServiceIT {
 
     @AfterEach
     void cleanup() {
-        userService.deleteUser(USER_ONE_LOGIN);
-        userService.deleteUser(USER_TWO_LOGIN);
-        userService.deleteUser(USER_THREE_LOGIN);
+        userRepository.findOneByLogin(USER_ONE_LOGIN).ifPresent(userRepository::delete);
+        userRepository.findOneByLogin(USER_TWO_LOGIN).ifPresent(userRepository::delete);
+        userRepository.findOneByLogin(USER_THREE_LOGIN).ifPresent(userRepository::delete);
     }
 
     @Test

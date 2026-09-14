@@ -796,15 +796,16 @@ class UserResourceIT {
     }
 
     @Test
-    void deleteUser() throws Exception {
-        userRepository.save(user);
+    void deleteUserEndpointIsNotAvailable() throws Exception {
+        // Users are never deleted (UC006 postcondition): the endpoint was removed.
+        User target = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
         int databaseSizeBeforeDelete = userRepository.findAll().size();
 
         restUserMockMvc
-            .perform(delete("/api/admin/users/{login}", user.getLogin()).accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNoContent());
+            .perform(delete("/api/admin/users/{login}", target.getLogin()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isMethodNotAllowed());
 
-        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeDelete - 1));
+        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeDelete));
     }
 
     @Test

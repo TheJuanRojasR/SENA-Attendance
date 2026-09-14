@@ -214,22 +214,6 @@ public class UserResource {
     }
 
     /**
-     * {@code DELETE /admin/users/:login} : delete the "login" User.
-     *
-     * @param login the login of the user to delete.
-     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
-     */
-    @DeleteMapping("/users/{login}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<Void> deleteUser(@PathVariable("login") @Pattern(regexp = Constants.LOGIN_REGEX) String login) {
-        LOG.debug("REST request to delete User: {}", login);
-        userService.deleteUser(login);
-        return ResponseEntity.noContent()
-            .headers(HeaderUtil.createAlert(applicationName, "userManagement.deleted", login))
-            .build();
-    }
-
-    /**
      * {@code PATCH /admin/users/activated} : Set the activation status of the user account
      * identified by the given document number (activate or deactivate).
      *

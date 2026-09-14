@@ -479,13 +479,6 @@ public class UserService {
             });
     }
 
-    public void deleteUser(String login) {
-        userRepository.findOneByLogin(login).ifPresent(user -> {
-            userRepository.delete(user);
-            LOG.debug("Deleted User: {}", user);
-        });
-    }
-
     /**
      * Set the activation status of the user account associated with the given document number.
      *

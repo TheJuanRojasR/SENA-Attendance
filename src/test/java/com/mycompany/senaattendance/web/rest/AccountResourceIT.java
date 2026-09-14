@@ -131,7 +131,7 @@ class AccountResourceIT {
             .andExpect(jsonPath("$.langKey").value("en"))
             .andExpect(jsonPath("$.authorities").value(containsInAnyOrder(AuthoritiesConstants.USER, AuthoritiesConstants.ADMIN)));
 
-        userService.deleteUser(TEST_USER_LOGIN);
+        userRepository.findOneByLogin(TEST_USER_LOGIN).ifPresent(userRepository::delete);
     }
 
     @Test
@@ -716,7 +716,7 @@ class AccountResourceIT {
         user = userRepository.findOneByLogin(user.getLogin()).orElse(null);
         assertThat(user.isActivated()).isTrue();
 
-        userService.deleteUser("activate-account");
+        userRepository.findOneByLogin("activate-account").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -751,7 +751,7 @@ class AccountResourceIT {
         assertThat(updatedProfile.getFirstName()).isEqualTo("UpdatedFirst");
         assertThat(updatedProfile.getPhoneNumber()).isEqualTo("3105551234");
 
-        userService.deleteUser("save-account-user");
+        userRepository.findOneByLogin("save-account-user").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -776,7 +776,7 @@ class AccountResourceIT {
         User unchangedUser = userRepository.findOneByLogin("save-account-image-url-ignored").orElseThrow();
         assertThat(unchangedUser.getImageUrl()).isEqualTo(originalImageUrl);
 
-        userService.deleteUser("save-account-image-url-ignored");
+        userRepository.findOneByLogin("save-account-image-url-ignored").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -801,7 +801,7 @@ class AccountResourceIT {
         assertThat(unchangedProfile.getDocumentNumber()).isEqualTo("SAVEDOCN1");
         assertThat(unchangedProfile.getFirstName()).isEqualTo("Juan");
 
-        userService.deleteUser("save-account-document-number");
+        userRepository.findOneByLogin("save-account-document-number").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -827,7 +827,7 @@ class AccountResourceIT {
         assertThat(unchangedProfile.getDocumentType().getId()).isEqualTo(originalDocumentTypeId);
         assertThat(unchangedProfile.getFirstName()).isEqualTo("Juan");
 
-        userService.deleteUser("save-account-document-type");
+        userRepository.findOneByLogin("save-account-document-type").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -846,7 +846,7 @@ class AccountResourceIT {
         UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
         assertThat(updatedProfile.getPhoneNumber()).isEqualTo("3105551234");
 
-        userService.deleteUser("save-account-valid-phone");
+        userRepository.findOneByLogin("save-account-valid-phone").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -868,7 +868,7 @@ class AccountResourceIT {
         UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
         assertThat(unchangedProfile.getPhoneNumber()).isEqualTo("3001234567");
 
-        userService.deleteUser("save-account-short-phone");
+        userRepository.findOneByLogin("save-account-short-phone").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -889,7 +889,7 @@ class AccountResourceIT {
         UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
         assertThat(unchangedProfile.getPhoneNumber()).isEqualTo("3001234567");
 
-        userService.deleteUser("save-account-nonnumeric-phone");
+        userRepository.findOneByLogin("save-account-nonnumeric-phone").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -912,7 +912,7 @@ class AccountResourceIT {
         assertThat(updatedProfile.getMiddleName()).isNull();
         assertThat(updatedProfile.getSecondLastName()).isNull();
 
-        userService.deleteUser("save-account-clear-optional-names");
+        userRepository.findOneByLogin("save-account-clear-optional-names").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -931,7 +931,7 @@ class AccountResourceIT {
 
         assertThat(userRepository.findOneByEmailIgnoreCase("invalid email")).isNotPresent();
 
-        userService.deleteUser("save-invalid-email-user");
+        userRepository.findOneByLogin("save-invalid-email-user").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -953,8 +953,8 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("save-existing-email-a").orElseThrow();
         assertThat(updatedUser.getEmail()).isEqualTo("save-existing-email-a@example.com");
 
-        userService.deleteUser("save-existing-email-a");
-        userService.deleteUser("save-existing-email-b");
+        userRepository.findOneByLogin("save-existing-email-a").ifPresent(userRepository::delete);
+        userRepository.findOneByLogin("save-existing-email-b").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -974,7 +974,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("save-existing-email-and-login").orElseThrow();
         assertThat(updatedUser.getEmail()).isEqualTo("save-existing-email-and-login@example.com");
 
-        userService.deleteUser("save-existing-email-and-login");
+        userRepository.findOneByLogin("save-existing-email-and-login").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -997,7 +997,7 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
         assertThat(updatedUser.isMustChangePassword()).isFalse();
 
-        userService.deleteUser("save-account-change-password");
+        userRepository.findOneByLogin("save-account-change-password").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1020,7 +1020,7 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("save-account-change-password-wrong");
+        userRepository.findOneByLogin("save-account-change-password-wrong").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1042,7 +1042,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("save-account-change-password-same").orElseThrow();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("save-account-change-password-same");
+        userRepository.findOneByLogin("save-account-change-password-same").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1065,7 +1065,7 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches("12345678", updatedUser.getPassword())).isFalse();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("save-account-policy-password");
+        userRepository.findOneByLogin("save-account-policy-password").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1088,7 +1088,7 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("save-account-short-current-password");
+        userRepository.findOneByLogin("save-account-short-current-password").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1114,7 +1114,7 @@ class AccountResourceIT {
         assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isFalse();
         assertThat(passwordEncoder.matches(currentPassword, updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("change-password-wrong-existing-password");
+        userRepository.findOneByLogin("change-password-wrong-existing-password").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1138,7 +1138,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("change-password").orElse(null);
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("change-password");
+        userRepository.findOneByLogin("change-password").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1164,7 +1164,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("change-password-policy").orElse(null);
         assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
 
-        userService.deleteUser("change-password-policy");
+        userRepository.findOneByLogin("change-password-policy").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1189,7 +1189,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("change-password-same").orElse(null);
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("change-password-same");
+        userRepository.findOneByLogin("change-password-same").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1215,7 +1215,7 @@ class AccountResourceIT {
         assertThat(updatedUser.isMustChangePassword()).isFalse();
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
 
-        userService.deleteUser("change-password-must-change");
+        userRepository.findOneByLogin("change-password-must-change").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1241,7 +1241,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("change-password-too-small").orElse(null);
         assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
 
-        userService.deleteUser("change-password-too-small");
+        userRepository.findOneByLogin("change-password-too-small").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1267,7 +1267,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("change-password-too-long").orElse(null);
         assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
 
-        userService.deleteUser("change-password-too-long");
+        userRepository.findOneByLogin("change-password-too-long").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1291,7 +1291,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin("change-password-empty").orElse(null);
         assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
 
-        userService.deleteUser("change-password-empty");
+        userRepository.findOneByLogin("change-password-empty").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1316,7 +1316,7 @@ class AccountResourceIT {
         assertThat(updatedUser.getResetKey()).isNotBlank();
         assertThat(updatedUser.getResetDate()).isNotNull();
 
-        userService.deleteUser(login);
+        userRepository.findOneByLogin(login).ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1342,7 +1342,7 @@ class AccountResourceIT {
         assertThat(unchangedUser.getResetKey()).isNull();
         assertThat(unchangedUser.getResetDate()).isNull();
 
-        userService.deleteUser(login);
+        userRepository.findOneByLogin(login).ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1386,7 +1386,7 @@ class AccountResourceIT {
         // The user chose their own password, so the forced-change flag is cleared.
         assertThat(updatedUser.isMustChangePassword()).isFalse();
 
-        userService.deleteUser("finish-password-reset");
+        userRepository.findOneByLogin("finish-password-reset").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1416,7 +1416,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
         assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isFalse();
 
-        userService.deleteUser("finish-password-reset-weak");
+        userRepository.findOneByLogin("finish-password-reset-weak").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1444,7 +1444,7 @@ class AccountResourceIT {
         User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
         assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isFalse();
 
-        userService.deleteUser("finish-password-reset-too-small");
+        userRepository.findOneByLogin("finish-password-reset-too-small").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1511,7 +1511,7 @@ class AccountResourceIT {
         User unchangedUser = userRepository.findOneByLogin(user.getLogin()).orElseThrow();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, unchangedUser.getPassword())).isFalse();
 
-        userService.deleteUser("finish-password-reset-expired");
+        userRepository.findOneByLogin("finish-password-reset-expired").ifPresent(userRepository::delete);
     }
 
     @Test
@@ -1549,6 +1549,6 @@ class AccountResourceIT {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.resetlinkused"));
 
-        userService.deleteUser("finish-password-reset-used");
+        userRepository.findOneByLogin("finish-password-reset-used").ifPresent(userRepository::delete);
     }
 }
