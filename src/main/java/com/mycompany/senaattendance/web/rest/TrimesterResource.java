@@ -58,7 +58,7 @@ public class TrimesterResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> createTrimester(@Valid @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
         LOG.debug("REST request to save Trimester : {}", trimesterDTO);
         if (trimesterDTO.getId() != null) {
@@ -81,7 +81,7 @@ public class TrimesterResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> updateTrimester(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody TrimesterDTO trimesterDTO
@@ -115,7 +115,7 @@ public class TrimesterResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> partialUpdateTrimester(@NotNull @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
         String id = trimesterDTO.getId();
         LOG.debug("REST request to partial update Trimester partially : {}", trimesterDTO);
@@ -198,7 +198,7 @@ public class TrimesterResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteTrimester(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Trimester : {}", id);
         trimesterService.delete(id);
