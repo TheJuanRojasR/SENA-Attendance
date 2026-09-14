@@ -52,7 +52,7 @@ public class UserService {
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,20}$");
 
     /**
-     * Login of the protected super admin. This account can NEVER be deactivated (rule E3).
+     * Login of the protected super admin. This account can NEVER be deactivated (rule E6).
      */
     private static final String PROTECTED_ADMIN_LOGIN = "admin";
 
@@ -346,11 +346,25 @@ public class UserService {
             .map(user -> {
                 String documentNumber = null;
                 String newLogin = null;
+                String originalLogin = user.getLogin();
 
                 // ----- USER PROFILE (fetch first so we can read the existing documentType for login) -----
                 UserProfile userProfile = userProfileRepository
                     .findOneByUserId(user.getId())
                     .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
+
+                // The protected admin's identity document cannot change, because its login is the
+                // stable identifier used to protect the account.
+                if (
+                    StringUtils.equals(originalLogin, PROTECTED_ADMIN_LOGIN) &&
+                    (vm.getDocumentNumber() != null || vm.getDocumentTypeId() != null)
+                ) {
+                    throw new BadRequestAlertException(
+                        "La cuenta admin está protegida y no puede modificarse su documento",
+                        "userManagement",
+                        "adminprotected"
+                    );
+                }
 
                 // ----- CONDITIONAL documentNumber / login re-derivation -----
                 if (vm.getDocumentNumber() != null) {
@@ -399,7 +413,21 @@ public class UserService {
 
                 // ----- CONDITIONAL role (authorities only rebuilt when provided) -----
                 if (vm.getRole() != null) {
-                    user.setAuthorities(buildAuthorities(vm.getRole()));
+                    Set<Authority> newAuthorities = buildAuthorities(vm.getRole());
+                    boolean losesAdmin =
+                        hasAuthority(user.getAuthorities(), AuthoritiesConstants.ADMIN) &&
+                        !hasAuthority(newAuthorities, AuthoritiesConstants.ADMIN);
+                    boolean losesInstructor =
+                        hasAuthority(user.getAuthorities(), AuthoritiesConstants.INSTRUCTOR) &&
+                        !hasAuthority(newAuthorities, AuthoritiesConstants.INSTRUCTOR);
+                    if (losesAdmin) {
+                        validateProtectedAdmin(user, originalLogin);
+                        validateLastActiveAdmin(user);
+                    }
+                    if (losesInstructor) {
+                        validateLastInstructor(userProfile);
+                    }
+                    user.setAuthorities(newAuthorities);
                 }
 
                 // ----- USER PROFILE (only provided fields are touched) -----
@@ -472,7 +500,8 @@ public class UserService {
         }
 
         if (!activated) {
-            validateLastAdmin(user);
+            validateProtectedAdmin(user, user.getLogin());
+            validateLastActiveAdmin(user);
             validateLastInstructor(profile);
         }
 
@@ -483,33 +512,43 @@ public class UserService {
     }
 
     /**
-     * A user deactivation must never leave the system without any active
-     * administrator, and the protected super admin (login {@code "admin"}) can never be deactivated.
+     * The protected super admin (login {@code "admin"}) is never deactivated nor demoted.
      *
-     * @param user the user being deactivated.
-     * @throws BadRequestAlertException with key {@code lastAdmin} when the rule is violated.
+     * @param user the user targeted by the operation.
+     * @throws BadRequestAlertException with key {@code adminprotected} when the rule is violated.
      */
-    private void validateLastAdmin(User user) {
-        if (StringUtils.equals(user.getLogin(), PROTECTED_ADMIN_LOGIN)) {
-            throw new BadRequestAlertException("Debe existir al menos un Administrador activo", "userManagement", "lastAdmin");
+    private void validateProtectedAdmin(User user, String login) {
+        if (StringUtils.equals(login, PROTECTED_ADMIN_LOGIN)) {
+            throw new BadRequestAlertException(
+                "La cuenta admin está protegida y no puede desactivarse",
+                "userManagement",
+                "adminprotected"
+            );
         }
+    }
 
-        boolean targetIsActiveAdmin =
-            user.isActivated() &&
-            user
-                .getAuthorities()
-                .stream()
-                .anyMatch(a -> StringUtils.equals(a.getName(), AuthoritiesConstants.ADMIN));
-
+    /**
+     * Deactivating or demoting an active administrator must never leave the system without any
+     * active administrator.
+     *
+     * @param user the user losing the administrator role.
+     * @throws BadRequestAlertException with key {@code lastAdmin} when no active administrator would remain.
+     */
+    private void validateLastActiveAdmin(User user) {
+        boolean targetIsActiveAdmin = user.isActivated() && hasAuthority(user.getAuthorities(), AuthoritiesConstants.ADMIN);
         if (!targetIsActiveAdmin) {
             return;
         }
 
-        // Count active admins EXCLUDING the user being deactivated. If none remain, block.
+        // Count active admins EXCLUDING the target. If none remain, block.
         long remainingActiveAdmins = userRepository.countByActivatedTrueAndAuthorities_Name(AuthoritiesConstants.ADMIN) - 1;
         if (remainingActiveAdmins == 0) {
             throw new BadRequestAlertException("Debe existir al menos un Administrador activo", "userManagement", "lastAdmin");
         }
+    }
+
+    private static boolean hasAuthority(Collection<Authority> authorities, String role) {
+        return authorities.stream().anyMatch(a -> StringUtils.equals(a.getName(), role));
     }
 
     /**

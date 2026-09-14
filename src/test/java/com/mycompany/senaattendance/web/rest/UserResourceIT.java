@@ -803,9 +803,109 @@ class UserResourceIT {
         restUserMockMvc
             .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("error.lastAdmin"));
+            .andExpect(jsonPath("$.message").value("error.adminprotected"));
 
         assertThat(userRepository.findById(adminUser.getId()).orElseThrow().isActivated()).isTrue();
+    }
+
+    @Test
+    void updateUserLastAdminRoleChangeBlocked() throws Exception {
+        // Make the target the ONLY active admin so losing its role would leave the system without one.
+        User target = freshAdmin("role.last.admin", "role.last.admin@example.com");
+        persistedProfile(target, "ROLELAST01");
+        for (User u : userRepository.findAll()) {
+            if (u.getId().equals(target.getId()) || !u.isActivated()) {
+                continue;
+            }
+            if (hasAuthority(u, AuthoritiesConstants.ADMIN)) {
+                u.setActivated(false);
+                userRepository.save(u);
+            }
+        }
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            target.getId(),
+            "ROLELAST01",
+            "role.last.admin@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastAdmin"));
+
+        assertThat(hasAuthority(userRepository.findById(target.getId()).orElseThrow(), AuthoritiesConstants.ADMIN)).isTrue();
+    }
+
+    @Test
+    void updateUserProtectedAdminRoleChangeBlocked() throws Exception {
+        User adminUser = protectedAdmin();
+        persistedProfile(adminUser, "ROLEPROT01");
+
+        // Keep the document untouched so the role-change guard (not the document guard) is the one under test.
+        AdminUpdateUserVM vm = buildUpdateVM(
+            adminUser.getId(),
+            null,
+            "protected.admin@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+        vm.setDocumentNumber(null);
+        vm.setDocumentTypeId(null);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.adminprotected"));
+
+        assertThat(hasAuthority(userRepository.findById(adminUser.getId()).orElseThrow(), AuthoritiesConstants.ADMIN)).isTrue();
+    }
+
+    @Test
+    void updateUserOnlyInstructorRoleChangeBlocked() throws Exception {
+        User instructor = instructorUser("role.only.instr", "role.only.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "ROLEINSTR01");
+        classSectionRepository.save(new ClassSection().subjectName("E5 Rol Ficha Activa").isActive(true).instructor(profile));
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            instructor.getId(),
+            "ROLEINSTR01",
+            "role.only.instr@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(hasAuthority(userRepository.findById(instructor.getId()).orElseThrow(), AuthoritiesConstants.INSTRUCTOR)).isTrue();
+    }
+
+    @Test
+    void updateUserInstructorRoleChangeWithNoSectionsOk() throws Exception {
+        User instructor = instructorUser("role.noact.instr", "role.noact.instr@example.com");
+        persistedProfile(instructor, "ROLEOK01");
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            instructor.getId(),
+            "ROLEOK01",
+            "role.noact.instr@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.authorities").value(hasItem("ROLE_APPRENTICE")));
     }
 
     @Test
