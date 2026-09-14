@@ -458,16 +458,16 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 }
 ```
 
-| Campo      | Tipo    | Obligatorio | Reglas                                           |
-| ---------- | ------- | ----------- | ------------------------------------------------ |
-| `name`     | string  | Sí          | `@NotNull`, máximo 50. No se valida unicidad.    |
-| `isActive` | boolean | Sí          | `@NotNull`; el cliente define el estado inicial. |
+| Campo      | Tipo    | Obligatorio | Reglas                                                                                                                       |
+| ---------- | ------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `name`     | string  | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.modalityNameAlreadyUsed`. |
+| `isActive` | boolean | Sí          | `@NotNull`; el cliente define el estado inicial.                                                                             |
 
 **Response:** `201 Created` con el `ModalityDTO` (`id`, `name`, `isActive`). Listas como arreglo JSON completo.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.modalityNameAlreadyUsed` (nombre duplicado, E1); `403`; `404`.
 
-**Notas / lo que se necesita:** faltan la unicidad de nombre (E1) y el bloqueo de eliminación si la modalidad está en uso por fichas (E2). El estado se maneja con `isActive` en lugar de las acciones Desactivar/Reactivar.
+**Notas / lo que se necesita:** está implementada la unicidad de nombre (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400 error.modalityNameAlreadyUsed` y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Falta el bloqueo de eliminación si la modalidad está en uso por fichas (E2). El estado se maneja con `isActive` en lugar de las acciones Desactivar/Reactivar.
 
 ---
 

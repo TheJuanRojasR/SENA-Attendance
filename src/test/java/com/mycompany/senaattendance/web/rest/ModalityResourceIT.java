@@ -131,6 +131,43 @@ class ModalityResourceIT {
     }
 
     @Test
+    void createModalityWithDuplicateNameReturnsBadRequest() throws Exception {
+        // Persist a modality with DEFAULT_NAME so the upcoming POST collides on name only
+        insertedModality = modalityRepository.save(modality);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        ModalityDTO modalityDTO = modalityMapper.toDto(modality);
+        modalityDTO.setId(null);
+        modalityDTO.setName("aaaaaaaaaa");
+
+        restModalityMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.modalityNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createModalityWithBlankNameReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field blank
+        modality.setName("   ");
+
+        // Create the Modality, which fails.
+        ModalityDTO modalityDTO = modalityMapper.toDto(modality);
+
+        restModalityMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkNameIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
@@ -221,6 +258,52 @@ class ModalityResourceIT {
         // Validate the Modality in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertPersistedModalityToMatchAllProperties(updatedModality);
+    }
+
+    @Test
+    void putModalityWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        Modality other = modalityRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            ModalityDTO modalityDTO = modalityMapper.toDto(other);
+            modalityDTO.setName(DEFAULT_NAME);
+
+            restModalityMockMvc
+                .perform(
+                    put(ENTITY_API_URL_ID, modalityDTO.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsBytes(modalityDTO))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.modalityNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedModality(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            modalityRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putModalityKeepingOwnNameSucceeds() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ModalityDTO modalityDTO = modalityMapper.toDto(insertedModality);
+
+        restModalityMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, modalityDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(modalityDTO))
+            )
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedModality(insertedModality).getName()).isEqualTo(DEFAULT_NAME);
     }
 
     @Test

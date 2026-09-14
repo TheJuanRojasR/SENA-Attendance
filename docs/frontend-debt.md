@@ -213,6 +213,20 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC021 — Gestionar modalidades
+
+**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Falta el bloqueo de eliminación si la modalidad está en uso por fichas (E2). Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
+
+**Estado del frontend:** pendiente. La pantalla de modalidades debe manejar el error de nombre duplicado y evitar enviar nombres en blanco.
+
+| #   | Ítem                                                                                                                                                                        | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Validar en el cliente que el nombre no esté vacío ni compuesto solo por espacios antes de enviar; el backend responde `400 error.validation` con `name` en `fieldErrors`.   | `Pendiente` |
+| 2   | Al crear o editar una modalidad, manejar `400 error.modalityNameAlreadyUsed` mostrando "Ya existe una modalidad con este nombre" (E1) y conservar los datos del formulario. | `Pendiente` |
+| 3   | Validar en el cliente el máximo de 50 caracteres del nombre (el backend responde `400 error.validation` con `name` en `fieldErrors`).                                      | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -265,6 +279,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.timeSlotNameAlreadyUsed` | "Ya existe una jornada con este nombre."                                                           | Alta/edición de jornada (UC020-E1).                   |
 | `error.timeSlotSameTime`       | "La hora de inicio y la hora de fin no pueden ser iguales."                                        | Alta/edición de jornada (UC020-E2).                   |
 | `error.timeSlotInUse`          | "No es posible eliminar la jornada: está asignada a fichas. Puedes desactivarla."                  | Eliminación de jornada (UC020-E3).                    |
+| `error.modalityNameAlreadyUsed` | "Ya existe una modalidad con este nombre."                                                          | Alta/edición de modalidad (UC021-E1).                 |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
