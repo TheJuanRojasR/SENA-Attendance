@@ -635,6 +635,21 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void deleteDocumentTypeInUseReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restDocumentTypeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedDocumentType.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
     void deleteDocumentType() throws Exception {
         // Initialize the database
         insertedDocumentType = documentTypeRepository.save(documentType);

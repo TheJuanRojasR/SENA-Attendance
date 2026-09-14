@@ -133,6 +133,13 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete DocumentType : {}", id);
+        if (userProfileRepository.existsByDocumentTypeId(id)) {
+            throw new BadRequestAlertException(
+                "This document type is in use by users and cannot be deleted",
+                "documentType",
+                "documentTypeInUse"
+            );
+        }
         documentTypeRepository.deleteById(id);
     }
 
