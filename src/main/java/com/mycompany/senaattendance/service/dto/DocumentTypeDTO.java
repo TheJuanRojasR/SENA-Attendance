@@ -12,7 +12,7 @@ public class DocumentTypeDTO implements Serializable {
 
     private String id;
 
-    @NotNull
+    @NotBlank
     @Size(max = 30)
     private String name;
 

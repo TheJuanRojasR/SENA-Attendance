@@ -131,6 +131,42 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void createDocumentTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        // Persist a document type with DEFAULT_NAME so the upcoming POST collides on name only
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        documentTypeDTO.setId(null);
+        documentTypeDTO.setName("aaaaaaaaaa");
+        documentTypeDTO.setInitials("ZZ");
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createDocumentTypeWithBlankNameReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        documentType.setName("   ");
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkNameIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
@@ -253,6 +289,44 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void putDocumentTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(other);
+            documentTypeDTO.setName(DEFAULT_NAME);
+
+            restDocumentTypeMockMvc
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putDocumentTypeKeepingOwnNameSucceeds() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(insertedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedDocumentType(insertedDocumentType).getName()).isEqualTo(DEFAULT_NAME);
+    }
+
+    @Test
     void partialUpdateDocumentTypeWithPatch() throws Exception {
         // Initialize the database
         insertedDocumentType = documentTypeRepository.save(documentType);
@@ -336,6 +410,35 @@ class DocumentTypeResourceIT {
 
         // Validate the DocumentType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    void patchDocumentTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+
+            DocumentType partialUpdatedDocumentType = new DocumentType();
+            partialUpdatedDocumentType.setId(other.getId());
+            partialUpdatedDocumentType.setName(DEFAULT_NAME);
+
+            restDocumentTypeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL)
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
     }
 
     @Test
