@@ -11,11 +11,14 @@ import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Authority;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
@@ -24,6 +27,7 @@ import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.SetUserActivatedVM;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Consumer;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -81,6 +85,9 @@ class UserResourceIT {
     @Autowired
     private ClassSectionRepository classSectionRepository;
 
+    @Autowired
+    private GradeRepository gradeRepository;
+
     @MockitoBean
     private MailService mailService;
 
@@ -118,8 +125,13 @@ class UserResourceIT {
     @AfterEach
     void cleanupAndCheck() {
         classSectionRepository.deleteAll();
+        gradeRepository.deleteAll();
         userProfileRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    private Grade persistedGrade(String code, StateGrade state) {
+        return gradeRepository.save(new Grade().code(code).state(state).startDate(LocalDate.now()).endDate(LocalDate.now().plusMonths(3)));
     }
 
     private String seededDocumentTypeId() {
@@ -869,7 +881,8 @@ class UserResourceIT {
     void updateUserOnlyInstructorRoleChangeBlocked() throws Exception {
         User instructor = instructorUser("role.only.instr", "role.only.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "ROLEINSTR01");
-        classSectionRepository.save(new ClassSection().subjectName("E5 Rol Ficha Activa").isActive(true).instructor(profile));
+        Grade activeGrade = persistedGrade("E5-ROL-FICHA-ACTIVA", StateGrade.ACTIVA);
+        classSectionRepository.save(new ClassSection().subjectName("E5 Rol Materia").isActive(true).instructor(profile).grade(activeGrade));
 
         AdminUpdateUserVM vm = buildUpdateVM(
             instructor.getId(),
@@ -941,7 +954,8 @@ class UserResourceIT {
         User instructor = instructorUser("only.instr", "only.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "E5INSTR01");
 
-        ClassSection activeSection = new ClassSection().subjectName("E5 Ficha Activa").isActive(true).instructor(profile);
+        Grade activeGrade = persistedGrade("E5-FICHA-ACTIVA", StateGrade.ACTIVA);
+        ClassSection activeSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(activeGrade);
         classSectionRepository.save(activeSection);
 
         SetUserActivatedVM vm = new SetUserActivatedVM();
@@ -958,12 +972,13 @@ class UserResourceIT {
 
     @Test
     void setUserActivatedInstructorNoActiveSectionsOk() throws Exception {
-        // Instructor has NO active class section (or only inactive ones): deactivation must succeed.
+        // The instructor's sections belong to fichas that are not operational: deactivation must succeed.
         User instructor = instructorUser("noact.instr", "noact.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "E5OK01");
 
-        // A single INACTIVE section does not trigger the E5 rule.
-        ClassSection inactiveSection = new ClassSection().subjectName("E5 Ficha Inactiva").isActive(false).instructor(profile);
+        // A section on a non-active ficha does not trigger the E5 rule.
+        Grade inactiveGrade = persistedGrade("E5-FICHA-INACTIVA", StateGrade.INACTIVA);
+        ClassSection inactiveSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(inactiveGrade);
         classSectionRepository.save(inactiveSection);
 
         SetUserActivatedVM vm = new SetUserActivatedVM();

@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
@@ -571,25 +572,31 @@ public class UserService {
             return;
         }
 
-        List<ClassSection> activeSections = classSectionRepository.findByInstructorIdAndIsActiveTrue(profile.getId());
-        if (activeSections.isEmpty()) {
+        // Operational means the section belongs to a ficha that is still running (ACTIVA).
+        // A ficha in another state (INACTIVA / APLAZADA) does not hold the instructor.
+        List<ClassSection> operationalSections = classSectionRepository
+            .findByInstructorId(profile.getId())
+            .stream()
+            .filter(section -> section.getGrade() != null && section.getGrade().getState() == StateGrade.ACTIVA)
+            .toList();
+
+        if (operationalSections.isEmpty()) {
             return;
         }
 
-        List<String> affectedSubjectNames = activeSections
+        List<String> affected = operationalSections
             .stream()
-            .map(ClassSection::getSubjectName)
-            .filter(subjectName -> subjectName != null && !subjectName.isBlank())
+            .map(section -> {
+                String subjectName = StringUtils.isBlank(section.getSubjectName()) ? "Materia sin nombre" : section.getSubjectName();
+                String gradeCode = section.getGrade().getCode();
+                return StringUtils.isBlank(gradeCode) ? subjectName : subjectName + " (ficha " + gradeCode + ")";
+            })
+            .distinct()
             .sorted()
             .toList();
 
-        if (affectedSubjectNames.isEmpty()) {
-            throw new BadRequestAlertException("Debe existir al menos un instructor para la ficha", "userManagement", "lastInstructor");
-        }
-
-        String detail = String.join("; ", affectedSubjectNames);
         throw new BadRequestAlertException(
-            "Debe existir al menos un instructor: " + detail + " queda sin instructor",
+            "Debe existir al menos un instructor: " + String.join("; ", affected) + " quedaría sin instructor",
             "userManagement",
             "lastInstructor"
         );
