@@ -29,7 +29,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 - **Autenticación:** JWT. El login es `POST /api/authenticate` y devuelve el token en el cuerpo (`id_token`) y en la cabecera `Authorization`. Las peticiones autenticadas envían `Authorization: Bearer <token>`.
 - **Vigencia del token:** 86 400 segundos (24 horas) en los perfiles `dev` y `prod`. El flag `rememberMe` del login extiende la vigencia a 30 días (`token-validity-in-seconds-for-remember-me: 2592000`); este flag no está contemplado en los casos de uso.
 - **Roles:** el sistema emite `ROLE_ADMIN`, `ROLE_INSTRUCTOR`, `ROLE_APPRENTICE` y `ROLE_USER` (los tres primeros siempre acompañados de `ROLE_USER`). Ten presente que varias anotaciones `@PreAuthorize` del código todavía aceptan `ROLE_COORDINATOR`, un rol que los casos de uso vigentes ya no contemplan.
-- **Endpoints públicos:** `POST /api/authenticate`, `GET /api/authenticate`, `/api/register`, `/api/activate`, `/api/account/reset-password/init`, `/api/account/reset-password/finish` y `GET /api/document-types/**`. Los métodos de escritura de `/api/document-types/**` siguen protegidos por `@PreAuthorize` (solo `ROLE_ADMIN` o `ROLE_COORDINATOR`).
+- **Endpoints públicos:** `POST /api/authenticate`, `GET /api/authenticate`, `/api/register`, `/api/activate`, `/api/account/reset-password/init`, `/api/account/reset-password/finish` y `GET /api/document-types/**`. Los métodos de escritura de `/api/document-types/**` siguen protegidos por `@PreAuthorize` (solo `ROLE_ADMIN`).
 - **Paginación:** parámetros `page` (base 0), `size` y `sort=campo,asc|desc`. Spring Boot aplica el tamaño por defecto de 20 registros porque el proyecto no lo sobrescribe en `application.yml`. Los endpoints paginados devuelven un **arreglo JSON** con la página actual; el total y el enlace a la página siguiente viajan en las cabeceras `X-Total-Count` y `Link`. Los catálogos no paginados devuelven el arreglo completo.
 - **Errores:** formato RFC 7807 con `Content-Type: application/problem+json`. El cuerpo incluye `type`, `title`, `status`, `detail`, además de las propiedades `message` (clave `error.<errorKey>` o `error.http.<status>`), `params` (nombre de la entidad) y `path`; los errores de validación agregan `fieldErrors` con `objectName`, `field` y `message`. La clave de error de negocio viaja en el cuerpo como `message: error.<errorKey>` y el nombre de la entidad en `params`; el backend no emite cabeceras de error propias (verificado con las pruebas de integración).
 - **Códigos transversales:** `401` sin token o token inválido/expirado; `403` autenticado sin permisos; `400` datos inválidos o regla de negocio; `404` recurso inexistente; `500` error inesperado.
@@ -48,7 +48,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Implementado    |
 | [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Implementado    |
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Implementado    |
-| [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Parcial         |
+| [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Implementado    |
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Parcial         |
 | [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Parcial         |
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Parcial         |
@@ -123,7 +123,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 | 400    | `error.invalidpassword` (tipo `invalid-password`, título "Incorrect password") | La contraseña no cumple la política.                                                                                       |
 | 400    | `error.validation`                                                             | Fallo de validación de campos; incluye `fieldErrors`.                                                                      |
 
-**Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword`. El documento duplicado sí tiene mensajes diferenciados: `error.documentnumberexists` cuando el par tipo + número pertenece a una cuenta **activa** y `error.documentnumberinactive` cuando pertenece a una cuenta **desactivada**. Todas las validaciones (incluida la del documento duplicado) corren antes de la primera escritura, por lo que un registro rechazado por validación no deja usuario ni perfil parciales. El backend cubre el flujo de UC001; quedan a cargo del frontend el formulario en sí y la traducción de las claves de error (`emailrequired`, `documentnumberexists`, `documentnumberinactive`, `documentTypeInactive`); los tipos se obtienen con `GET /api/document-types` (ver UC022).
+**Notas / lo que se necesita:** la cuenta se crea con `ROLE_USER` + `ROLE_APPRENTICE` y `activated = true`; el envío de correo de activación está comentado en el código, aunque `GET /api/activate` existe. No hay `mustChangePassword`. El documento duplicado sí tiene mensajes diferenciados: `error.documentnumberexists` cuando el par tipo + número pertenece a una cuenta **activa** y `error.documentnumberinactive` cuando pertenece a una cuenta **desactivada**. Todas las validaciones (incluida la del documento duplicado) corren antes de la primera escritura, por lo que un registro rechazado por validación no deja usuario ni perfil parciales. El backend cubre el flujo de UC001; quedan a cargo del frontend el formulario en sí y la traducción de las claves de error (`emailrequired`, `documentnumberexists`, `documentnumberinactive`, `documentTypeInactive`); los tipos activos se obtienen con `GET /api/document-types/active` (ver UC022).
 
 ---
 
@@ -472,20 +472,21 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC022 — Gestionar tipos de documento
 
-**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD del catálogo de tipos de documento (CC, TI, CE, …). Las iniciales alimentan el login derivado `<iniciales>_<número>`.
 
 **Endpoints:**
 
-| Método | Ruta                       | Acceso                            | Descripción                                                     |
-| ------ | -------------------------- | --------------------------------- | --------------------------------------------------------------- |
-| GET    | `/api/document-types`      | Público                           | Lista completa (sin paginar); usado por el registro y el login. |
-| GET    | `/api/document-types/{id}` | Público                           | Detalle.                                                        |
-| POST   | `/api/document-types`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.                                     |
-| PUT    | `/api/document-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.                                               |
-| PATCH  | `/api/document-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`.                                   |
-| DELETE | `/api/document-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                 |
+| Método | Ruta                         | Acceso       | Descripción                                                                                        |
+| ------ | ---------------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
+| GET    | `/api/document-types`        | Público      | Lista **paginada** de tipos (20 por página por defecto).                                           |
+| GET    | `/api/document-types/active` | Público      | Lista de tipos activos, sin paginar; usado por el registro y el login.                             |
+| GET    | `/api/document-types/{id}`   | Público      | Detalle.                                                                                           |
+| POST   | `/api/document-types`        | `ROLE_ADMIN` | Crea; `201` con el recurso.                                                                        |
+| PUT    | `/api/document-types`        | `ROLE_ADMIN` | Reemplaza; el `id` viaja en el body; `200`.                                                        |
+| PATCH  | `/api/document-types`        | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el body; `200`.                                            |
+| DELETE | `/api/document-types/{id}`   | `ROLE_ADMIN` | Elimina; `204`. Bloquea si algún perfil usa el tipo (`400 error.documentTypeInUse`).               |
 
 **Request — `POST /api/document-types`**
 
@@ -496,17 +497,17 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 }
 ```
 
-| Campo      | Tipo    | Obligatorio | Reglas                                                                                   |
-| ---------- | ------- | ----------- | ---------------------------------------------------------------------------------------- |
-| `name`     | string  | Sí          | `@NotNull`, máximo 30. No se valida unicidad.                                            |
-| `initials` | string  | Sí          | `@NotNull`, máximo 10. No se normaliza a mayúsculas en el backend ni se valida unicidad. |
-| `isActive` | boolean | No          | Estado del catálogo. Si se omite al crear, el tipo nace **activo** (`true`).             |
+| Campo      | Tipo    | Obligatorio | Reglas                                                                                                                                                                                                                |
+| ---------- | ------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`     | string  | Sí          | `@NotBlank`, máximo 30. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.documentTypeNameAlreadyUsed`.                                                                        |
+| `initials` | string  | Sí          | `@NotBlank`, máximo 10. Se recorta y se normaliza a mayúsculas. **Iniciales únicas** (se comparan sin distinguir mayúsculas); un duplicado responde `400 error.documentTypeInitialsAlreadyUsed`.                        |
+| `isActive` | boolean | No          | Estado del catálogo. Si se omite al crear, el tipo nace **activo** (`true`).                                                                                                                                          |
 
-**Response:** `201 Created` con el `DocumentTypeDTO` (`id`, `name`, `initials`, `isActive`). El listado es público por configuración de seguridad, lo que permite poblar los formularios de registro e inicio de sesión sin sesión.
+**Response:** `201 Created` con el `DocumentTypeDTO` (`id`, `name`, `initials`, `isActive`). `GET /api/document-types` es **paginado**: acepta `page` (base 0), `size` y `sort=campo,asc|desc` (20 por defecto) y devuelve un arreglo JSON con la página actual más las cabeceras `X-Total-Count` y `Link`. `GET /api/document-types/active` devuelve el arreglo completo sin paginar (selector del registro y del login). El listado y el detalle son públicos por configuración de seguridad; la escritura está restringida a `ROLE_ADMIN`.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403` en escritura; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation`; `400 error.documentTypeNameAlreadyUsed` (nombre duplicado, E1); `400 error.documentTypeInitialsAlreadyUsed` (iniciales duplicadas, E2); `400 error.documentTypeInitialsInUse` (cambio de iniciales de un tipo en uso, E3); `400 error.documentTypeInUse` (eliminación de un tipo en uso, E4); `403` en escritura sin `ROLE_ADMIN`; `404`.
 
-**Notas / lo que se necesita:** el `DocumentTypeDTO` ahora expone `isActive`; los tipos nuevos nacen activos (`true`) y el registro (UC001) rechaza los inactivos con `400 error.documentTypeInactive`. Al actualizar sin enviar `isActive`, el backend conserva el estado existente. Quedan pendientes las demás reglas de UC022: no se validan nombre ni iniciales duplicados (E1/E2), no se bloquea el cambio de iniciales de un tipo en uso (E3) ni su eliminación por uso (E4). Cualquier usuario autenticado puede listar tipos, y los GET son públicos.
+**Notas / lo que se necesita:** reglas de UC022 implementadas. En `PUT` y `PATCH` el `id` viaja **solo en el body** (la ruta es `/api/document-types`, sin `{id}`): si falta responde `400 error.idnull` y si no existe, `400 error.idnotfound`. Unicidad (E1/E2): el nombre se recorta y se compara sin distinguir mayúsculas; las iniciales se recortan, se convierten a mayúsculas y se comparan sin distinguir mayúsculas; ambos se validan en `POST`, `PUT` y `PATCH` (el tipo con el mismo `id` se excluye del chequeo), y un valor vacío o en blanco responde `400 error.validation`. Iniciales en uso (E3): si al menos un `UserProfile` referencia el tipo, cambiar sus iniciales responde `400 error.documentTypeInitialsInUse`; el nombre sí puede cambiarse en cualquier momento. Eliminar en uso (E4): si algún `UserProfile` referencia el tipo, `DELETE /api/document-types/{id}` responde `400 error.documentTypeInUse`; en ese caso el tipo no se elimina y debe **desactivarse** con `PATCH /api/document-types` (`isActive: false`), de modo que los perfiles existentes lo sigan conservando. El estado se maneja con `isActive` en lugar de acciones Desactivar/Reactivar. `GET /api/document-types` usa el estándar de paginación del sistema (`page`/`size`/`sort`, `X-Total-Count`, `Link`); `GET /api/document-types/active` permanece sin paginar porque alimenta selectores. Las escrituras (`POST`, `PUT`, `PATCH`, `DELETE`) están restringidas a `ROLE_ADMIN`. El estado `isActive` ya existía: los tipos nuevos nacen activos (`true`) y el registro (UC001) rechaza los inactivos con `400 error.documentTypeInactive`.
 
 ---
 
