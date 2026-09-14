@@ -765,6 +765,38 @@ class ProgramResourceIT {
     }
 
     @Test
+    void patchProgramWithTrimestersOutOfRangeReturnsBadRequest() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        ProgramDTO patchDto = new ProgramDTO();
+        patchDto.setId(program.getId());
+        patchDto.setTrimesters(13);
+
+        restProgramMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(patchDto)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimestersoutofrange"));
+
+        assertThat(getPersistedProgram(program).getTrimesters()).isEqualTo(DEFAULT_TRIMESTERS);
+    }
+
+    @Test
+    void patchProgramWithNonNumericCodeReturnsBadRequest() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        ProgramDTO patchDto = new ProgramDTO();
+        patchDto.setId(program.getId());
+        patchDto.setCode("AB12");
+
+        restProgramMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(patchDto)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.codenotnumeric"));
+
+        assertThat(getPersistedProgram(program).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
     void patchProgramWithDuplicateCodeReturnsBadRequest() throws Exception {
         // A: already persisted with DEFAULT_CODE (the value we try to steal) -> cleaned by @AfterEach
         insertedProgram = programRepository.save(program);

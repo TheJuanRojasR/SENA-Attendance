@@ -96,6 +96,7 @@ public class ProgramServiceImpl implements ProgramService {
 
         programDTO.setStatus(null);
         sanitizeBlankPatchFields(programDTO);
+        validatePatchFieldValues(programDTO);
         boolean hasFieldsToUpdate = hasPatchFields(programDTO);
 
         return programRepository
@@ -185,6 +186,25 @@ public class ProgramServiceImpl implements ProgramService {
     public void delete(String id) {
         LOG.debug("Request to delete Program : {}", id);
         programRepository.deleteById(id);
+    }
+
+    /**
+     * The full DTO constraints include {@code NotNull} on every field, so they cannot run on a
+     * partial payload; the PATCH endpoint therefore validates only the fields actually present.
+     *
+     * @param programDTO the incoming partial update.
+     * @throws BadRequestAlertException with key {@code trimestersoutofrange} when the trimester
+     *                                  count is outside the 1..12 range.
+     * @throws BadRequestAlertException with key {@code codenotnumeric} when the code carries
+     *                                  non-digit characters.
+     */
+    private void validatePatchFieldValues(ProgramDTO programDTO) {
+        if (programDTO.getTrimesters() != null && (programDTO.getTrimesters() < 1 || programDTO.getTrimesters() > 12)) {
+            throw new BadRequestAlertException("La cantidad de trimestres debe estar entre 1 y 12", ENTITY_NAME, "trimestersoutofrange");
+        }
+        if (programDTO.getCode() != null && !programDTO.getCode().matches("\\d+")) {
+            throw new BadRequestAlertException("El código debe contener solo números", ENTITY_NAME, "codenotnumeric");
+        }
     }
 
     /**
