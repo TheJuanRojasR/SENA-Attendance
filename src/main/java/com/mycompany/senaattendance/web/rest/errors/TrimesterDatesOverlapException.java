@@ -9,11 +9,6 @@ public class TrimesterDatesOverlapException extends BadRequestAlertException {
     private static final long serialVersionUID = 1L;
 
     public TrimesterDatesOverlapException() {
-        super(
-            ErrorConstants.TRIMESTER_DATES_OVERLAP_TYPE,
-            "Ya existe un trimestre que se solapa con las fechas indicadas",
-            "trimester",
-            "datesoverlap"
-        );
+        super(ErrorConstants.TRIMESTER_DATES_OVERLAP_TYPE, "Las fechas se solapan con otro trimestre", "trimester", "datesoverlap");
     }
 }
