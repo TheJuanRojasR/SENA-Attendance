@@ -217,11 +217,7 @@ class JustificationTypeResourceIT {
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(updatedJustificationType);
 
         restJustificationTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, justificationTypeDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(justificationTypeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
             .andExpect(status().isOk());
 
         // Validate the JustificationType in the database
@@ -239,11 +235,7 @@ class JustificationTypeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restJustificationTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, justificationTypeDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(justificationTypeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the JustificationType in the database
@@ -251,38 +243,16 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    void putWithIdMismatchJustificationType() throws Exception {
+    void putJustificationTypeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        justificationType.setId(UUID.randomUUID().toString());
+        justificationType.setId(null);
 
-        // Create the JustificationType
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restJustificationTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(justificationTypeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the JustificationType in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamJustificationType() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        justificationType.setId(UUID.randomUUID().toString());
-
-        // Create the JustificationType
-        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restJustificationTypeMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the JustificationType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -303,7 +273,7 @@ class JustificationTypeResourceIT {
 
         restJustificationTypeMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedJustificationType.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(partialUpdatedJustificationType))
             )
@@ -333,7 +303,7 @@ class JustificationTypeResourceIT {
 
         restJustificationTypeMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedJustificationType.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(partialUpdatedJustificationType))
             )
@@ -358,11 +328,7 @@ class JustificationTypeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restJustificationTypeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, justificationTypeDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(justificationTypeDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(justificationTypeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the JustificationType in the database
@@ -370,38 +336,16 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchJustificationType() throws Exception {
+    void patchJustificationTypeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        justificationType.setId(UUID.randomUUID().toString());
+        justificationType.setId(null);
 
-        // Create the JustificationType
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restJustificationTypeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(justificationTypeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the JustificationType in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamJustificationType() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        justificationType.setId(UUID.randomUUID().toString());
-
-        // Create the JustificationType
-        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restJustificationTypeMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(justificationTypeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the JustificationType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
