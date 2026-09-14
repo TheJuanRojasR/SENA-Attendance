@@ -107,6 +107,11 @@ public class UserService {
 
     public User completePasswordReset(String newPassword, String key) {
         LOG.debug("Reset user password for reset key {}", key);
+        // A missing key must resolve as an invalid link: findOneByResetKey(null) would otherwise
+        // match users that never requested a reset and fail with IncorrectResultSizeDataAccessException.
+        if (key == null || key.isBlank()) {
+            throw new BadRequestAlertException("Reset link is not valid", "account", "resetlinkinvalid");
+        }
         User user = userRepository
             .findOneByResetKey(key)
             .orElseThrow(() -> new BadRequestAlertException("Reset link is not valid", "account", "resetlinkinvalid"));

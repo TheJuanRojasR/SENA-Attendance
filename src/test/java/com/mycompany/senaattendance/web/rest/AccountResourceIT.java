@@ -1464,6 +1464,28 @@ class AccountResourceIT {
     }
 
     @Test
+    void testFinishPasswordResetMissingKeyReturnsInvalidLink() throws Exception {
+        // A user with no reset key is what makes a null-key lookup ambiguous, so seed one.
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-missing-key");
+        user.setEmail("finish-password-reset-missing-key@example.com");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkinvalid"));
+    }
+
+    @Test
     void testFinishPasswordResetWithExpiredKey() throws Exception {
         User user = new User();
         user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
