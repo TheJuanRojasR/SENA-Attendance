@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,27 +65,22 @@ public class DocumentTypeResource {
     }
 
     /**
-     * {@code PUT  /document-types/:id} : Updates an existing documentType.
+     * {@code PUT  /document-types} : Updates an existing documentType; the id is taken from the request body.
      *
-     * @param id the id of the documentTypeDTO to save.
      * @param documentTypeDTO the documentTypeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated documentTypeDTO,
      * or with status {@code 400 (Bad Request)} if the documentTypeDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the documentTypeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<DocumentTypeDTO> updateDocumentType(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody DocumentTypeDTO documentTypeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update DocumentType : {}, {}", id, documentTypeDTO);
-        if (documentTypeDTO.getId() == null) {
+    public ResponseEntity<DocumentTypeDTO> updateDocumentType(@Valid @RequestBody DocumentTypeDTO documentTypeDTO)
+        throws URISyntaxException {
+        String id = documentTypeDTO.getId();
+        LOG.debug("REST request to update DocumentType : {}", documentTypeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, documentTypeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!documentTypeRepository.existsById(id)) {
@@ -100,9 +94,9 @@ public class DocumentTypeResource {
     }
 
     /**
-     * {@code PATCH  /document-types/:id} : Partial updates given fields of an existing documentType, field will ignore if it is null
+     * {@code PATCH  /document-types} : Partial updates given fields of an existing documentType, field will ignore if it is null;
+     * the id is taken from the request body.
      *
-     * @param id the id of the documentTypeDTO to save.
      * @param documentTypeDTO the documentTypeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated documentTypeDTO,
      * or with status {@code 400 (Bad Request)} if the documentTypeDTO is not valid,
@@ -110,18 +104,14 @@ public class DocumentTypeResource {
      * or with status {@code 500 (Internal Server Error)} if the documentTypeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<DocumentTypeDTO> partialUpdateDocumentType(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody DocumentTypeDTO documentTypeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update DocumentType partially : {}, {}", id, documentTypeDTO);
-        if (documentTypeDTO.getId() == null) {
+    public ResponseEntity<DocumentTypeDTO> partialUpdateDocumentType(@NotNull @RequestBody DocumentTypeDTO documentTypeDTO)
+        throws URISyntaxException {
+        String id = documentTypeDTO.getId();
+        LOG.debug("REST request to partial update DocumentType partially : {}", documentTypeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, documentTypeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!documentTypeRepository.existsById(id)) {

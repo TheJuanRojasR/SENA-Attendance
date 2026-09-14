@@ -211,11 +211,7 @@ class DocumentTypeResourceIT {
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(updatedDocumentType);
 
         restDocumentTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, documentTypeDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
             .andExpect(status().isOk());
 
         // Validate the DocumentType in the database
@@ -233,11 +229,7 @@ class DocumentTypeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, documentTypeDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the DocumentType in the database
@@ -245,38 +237,16 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    void putWithIdMismatchDocumentType() throws Exception {
+    void putDocumentTypeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
+        documentType.setId(null);
 
-        // Create the DocumentType
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restDocumentTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the DocumentType in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamDocumentType() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
-
-        // Create the DocumentType
-        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the DocumentType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -297,9 +267,7 @@ class DocumentTypeResourceIT {
 
         restDocumentTypeMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedDocumentType.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedDocumentType))
             )
             .andExpect(status().isOk());
 
@@ -327,9 +295,7 @@ class DocumentTypeResourceIT {
 
         restDocumentTypeMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedDocumentType.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedDocumentType))
             )
             .andExpect(status().isOk());
 
@@ -349,11 +315,7 @@ class DocumentTypeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, documentTypeDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(documentTypeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the DocumentType in the database
@@ -361,38 +323,16 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchDocumentType() throws Exception {
+    void patchDocumentTypeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
+        documentType.setId(null);
 
-        // Create the DocumentType
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restDocumentTypeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the DocumentType in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamDocumentType() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
-
-        // Create the DocumentType
-        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(documentTypeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the DocumentType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
