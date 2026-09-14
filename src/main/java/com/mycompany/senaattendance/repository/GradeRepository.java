@@ -50,4 +50,13 @@ public interface GradeRepository extends MongoRepository<Grade, String> {
      * @return {@code true} if at least one grade references this modality.
      */
     boolean existsByModalityId(String modalityId);
+
+    /**
+     * Returns whether any ficha (grade) references the given program.
+     * Used to block deleting a program that still has fichas in any state.
+     *
+     * @param programId the program id to check.
+     * @return {@code true} if at least one grade references this program.
+     */
+    boolean existsByProgramId(String programId);
 }

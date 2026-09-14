@@ -185,6 +185,13 @@ public class ProgramServiceImpl implements ProgramService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete Program : {}", id);
+        if (gradeRepository.existsByProgramId(id)) {
+            throw new BadRequestAlertException(
+                "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo",
+                ENTITY_NAME,
+                "programInUse"
+            );
+        }
         programRepository.deleteById(id);
     }
 

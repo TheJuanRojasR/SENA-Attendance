@@ -975,6 +975,28 @@ class ProgramResourceIT {
     }
 
     @Test
+    void deleteProgramWithFichasReturnsBadRequest() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        Grade ficha = new Grade()
+            .code("FICHA-E8-01")
+            .state(StateGrade.ACTIVA)
+            .startDate(LocalDate.of(2025, 1, 1))
+            .endDate(LocalDate.of(2025, 12, 31))
+            .program(insertedProgram);
+        insertedGrade = gradeRepository.save(ficha);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restProgramMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedProgram.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.programInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
     void deleteProgram() throws Exception {
         // Initialize the database
         insertedProgram = programRepository.save(program);
