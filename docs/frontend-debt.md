@@ -334,6 +334,9 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.justificationTypeInUse`          | "No es posible eliminar el tipo: ya fue usado en justificaciones. Puedes desactivarlo."            | Eliminación de tipo de justificación (UC016-E3).       |
 | `error.adminprotected`         | "La cuenta admin está protegida y no puede desactivarse."                                          | Desactivar/degradar al super admin (UC006-E6).         |
 | `error.rolenotfound`           | "Rol no válido."                                                                                   | Crear/editar usuario con un rol no asignable (UC006).  |
+| `error.trimestersoutofrange`   | "La cantidad de trimestres debe estar entre 1 y 12."                                               | Alta/edición de programa (UC012-E6).                   |
+| `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5).                   |
+| `error.programInUse`           | "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."                 | Eliminación de programa (UC012-E8).                    |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

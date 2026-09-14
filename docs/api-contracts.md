@@ -51,7 +51,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Implementado    |
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Implementado    |
 | [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Implementado    |
-| [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Parcial         |
+| [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Implementado    |
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Parcial         |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Parcial         |
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Parcial         |
@@ -662,22 +662,23 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 ## UC012 — Gestionar programas de aprendizaje
 
-**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD de programas con nombre, iniciales, código numérico y cantidad de trimestres. Solo los programas activos pueden recibir fichas nuevas.
 
 **Endpoints:**
 
-| Método | Ruta                      | Acceso                            | Descripción                                                                              |
-| ------ | ------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
-| GET    | `/api/programs`           | Autenticado                       | Lista paginada.                                                                          |
-| GET    | `/api/programs/search`    | Autenticado                       | Filtra por `search` (código o nombre) y `status`; paginado.                              |
-| GET    | `/api/programs/{id}`      | Autenticado                       | Detalle.                                                                                 |
-| POST   | `/api/programs`           | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.                                                              |
-| PUT    | `/api/programs/{id}`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.                                                                        |
-| PATCH  | `/api/programs`           | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `id` en el cuerpo; ignora `status` y valores en blanco.           |
-| PATCH  | `/api/programs/activated` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Activa/desactiva; devuelve el programa y, si aplica, una advertencia por fichas activas. |
-| DELETE | `/api/programs/{id}`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                                          |
+| Método | Ruta                      | Acceso       | Descripción                                                                              |
+| ------ | ------------------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| GET    | `/api/programs`           | Autenticado  | Lista paginada.                                                                          |
+| GET    | `/api/programs/active`    | Autenticado  | Lista de programas activos, sin paginar; los activos alimentan la creación de fichas (UC007). |
+| GET    | `/api/programs/search`    | Autenticado  | Filtra por `search` (código o nombre) y `status`; paginado.                              |
+| GET    | `/api/programs/{id}`      | Autenticado  | Detalle.                                                                                 |
+| POST   | `/api/programs`           | `ROLE_ADMIN` | Crea; `201` con el recurso.                                                              |
+| PUT    | `/api/programs`           | `ROLE_ADMIN` | Reemplaza; el `id` viaja en el body; `200`.                                              |
+| PATCH  | `/api/programs`           | `ROLE_ADMIN` | Actualización parcial; `id` en el cuerpo; ignora `status` y valores en blanco.           |
+| PATCH  | `/api/programs/activated` | `ROLE_ADMIN` | Activa/desactiva; devuelve el programa y, si aplica, una advertencia por fichas activas. |
+| DELETE | `/api/programs/{id}`      | `ROLE_ADMIN` | Elimina; `204`. Bloquea si el programa tiene fichas (`400 error.programInUse`).          |
 
 **Request — `POST /api/programs`**
 
@@ -694,9 +695,9 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 | ------------ | ------- | ----------- | ----------------------------------------------------------------------- |
 | `name`       | string  | Sí          | `@NotNull`, máximo 200; único sin distinguir mayúsculas.                |
 | `initials`   | string  | Sí          | `@NotNull`, máximo 10; se normaliza a mayúsculas; única.                |
-| `code`       | string  | Sí          | `@NotNull`, máximo 30; único. El backend **no** exige que sea numérico. |
+| `code`       | string  | Sí          | `@NotNull`, máximo 30, **solo números**; único. Un valor con caracteres distintos de dígitos responde `400 error.validation` con `code` en `fieldErrors` (E5). |
 | `trimesters` | integer | Sí          | `@Min(1)` y `@Max(12)`.                                                 |
-| `status`     | boolean | No          | Si se omite, el servicio lo crea activo (`true`).                       |
+| `status`     | boolean | No          | Ignorado en la creación: el programa nace **Activo** (`status = true`).  |
 
 **Request — `PATCH /api/programs/activated`**
 
@@ -741,9 +742,9 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 `warning` solo aparece al desactivar un programa con fichas activas; `activeFichasCount` se envía siempre que `status` sea `false`. Las listas paginadas usan las cabeceras `X-Total-Count` y `Link`.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.codeexists` ("Ya existe un programa con este código"), `400 error.initialsexists`, `400 error.nameexists`, `400 error.validation`; `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (código no numérico, E5, y rango de trimestres, E6); `400 error.codeexists` ("Ya existe un programa con este código"); `400 error.initialsexists` ("Ya existe un programa con estas iniciales"); `400 error.nameexists`; `400 error.trimestersoutofrange` y `400 error.codenotnumeric` (campos presentes en un `PATCH` fuera de regla); `400 error.programInUse` (el programa tiene fichas y no puede eliminarse, E8); `403`; `404`.
 
-**Notas / lo que se necesita:** no se valida que el código sea numérico (E5) y `DELETE` no verifica si el programa tiene fichas (E8). La advertencia de desactivación (E7) sí está implementada. El CRUD acepta `ROLE_COORDINATOR`, aunque los casos de uso solo contemplan Administrador.
+**Notas / lo que se necesita:** reglas de UC012 implementadas. El **código es numérico** (`@Pattern` en `POST`/`PUT`, validación en el servicio para los campos presentes en `PATCH`); la **cantidad de trimestres** se valida 1–12 en `POST`, `PUT` y en los campos presentes de `PATCH`. Al crear, el programa nace **siempre Activo** (`status = true`) y el valor enviado se ignora: el estado se cambia con `PATCH /api/programs/activated`, que implementa la advertencia E7 con `activeFichasCount`. **Eliminar en uso (E8):** si alguna ficha referencia el programa, `DELETE` responde `400 error.programInUse`; en ese caso no se elimina y se **desactiva**. `GET /api/programs/active` devuelve solo los activos para la creación de fichas (UC007). En `PUT` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta, `400 error.idnull`; si no existe, `400 error.idnotfound`. La escritura (`POST`, `PUT`, `PATCH`, `PATCH /activated`, `DELETE`) está restringida a `ROLE_ADMIN`; la lectura queda para cualquier usuario autenticado.
 
 ---
 
