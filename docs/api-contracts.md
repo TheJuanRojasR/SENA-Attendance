@@ -50,7 +50,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Implementado    |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Implementado    |
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Implementado    |
-| [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Parcial         |
+| [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Implementado    |
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Parcial         |
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Parcial         |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Parcial         |
@@ -567,9 +567,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | PATCH  | `/api/admin/users` o `/api/admin/users/{login}` | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el cuerpo. `200` con `AdminUserDTO`.    |
 | GET    | `/api/admin/users`                              | `ROLE_ADMIN` | Lista paginada de cuentas (`AdminUserDTO`).                                     |
 | GET    | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Detalle por login; `200` o `404`.                                               |
-| GET    | `/api/admin/users/search`                       | `ROLE_ADMIN` | Búsqueda por texto y estado; lista paginada de `UserManagementDTO`.             |
+| GET    | `/api/admin/users/search`                       | `ROLE_ADMIN` | Búsqueda por texto, `status` y `role`; paginada con `X-Total-Count` (`UserManagementDTO`). |
 | PATCH  | `/api/admin/users/activated`                    | `ROLE_ADMIN` | Activa/desactiva por número de documento; `200` con `AdminUserDTO`.             |
-| DELETE | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Elimina la cuenta; `204`. Contradice la regla "los usuarios nunca se eliminan". |
+| DELETE | `/api/admin/users/{login}`                      | —            | **No disponible**: los usuarios nunca se eliminan; responde `405`.              |
 
 **Request — `POST /api/admin/users`**
 
@@ -654,9 +654,9 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 `PATCH /api/admin/users` y `PATCH /api/admin/users/activated` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
 
-**Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"; la cuenta `admin` está protegida), `400 error.lastInstructor` (lista las materias sin instructor); `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.adminprotected` (la cuenta `admin` está protegida), `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"), `400 error.lastInstructor` (lista las materias afectadas); `403`; `404`.
 
-**Notas / lo que se necesita:** las cuentas creadas por un Administrador nacen con `mustChangePassword = true` en la entidad `User` y el indicador se expone en el `AdminUserDTO`; falta implementar el flujo de cambio obligatorio en el primer inicio. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero **no hay endpoint** para listarla o reenviarla (UC018). El borrado sigue disponible. La guarda del instructor único solo considera materias activas, no fichas Pendiente/Activa como pide el UC. Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (cualquier usuario autenticado), que puede crear o eliminar perfiles por fuera de este flujo.
+**Notas / lo que se necesita:** reglas de UC006 implementadas. Un solo rol por cuenta (`ROLE_USER` + rol de dominio); solo se pueden asignar **Administrador, Instructor o Aprendiz** —`ROLE_COORDINATOR` o un rol inexistente responden `400 error.rolenotfound`. El **cambio de rol** aplica las mismas guardas que la desactivación: no se puede degradar al **último administrador activo** (`error.lastAdmin`), ni a la **cuenta `admin`** protegida (`error.adminprotected`, que además bloquea su desactivación y el cambio de su documento), ni al **último instructor** de materias de fichas operativas (`error.lastInstructor`, considerando fichas en estado `ACTIVA`; el estado `Pendiente` no existe aún y se agregará en UC007). El **login se recalcula** cuando cambia el número **o el tipo** de documento. **Los usuarios nunca se eliminan**: el endpoint `DELETE /api/admin/users/{login}` se retiró y responde `405`; el estado se cambia con `PATCH /api/admin/users/activated`. `GET /api/admin/users/search` filtra por texto (nombre, documento o correo), `status` y `role`, y pagina con `X-Total-Count`/`Link` (20 por defecto). Las cuentas creadas por un Administrador nacen con `mustChangePassword = true`; el flujo de cambio obligatorio en el primer inicio es del frontend. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero el **reenvío manual (E7) queda a cargo de UC018** (REST de notificaciones). Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (deuda transversal).
 
 ---
 
