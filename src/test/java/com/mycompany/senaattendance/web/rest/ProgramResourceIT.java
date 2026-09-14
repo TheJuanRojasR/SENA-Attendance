@@ -42,8 +42,8 @@ class ProgramResourceIT {
     private static final String DEFAULT_INITIALS = "AAAAAAAAAA";
     private static final String UPDATED_INITIALS = "BBBBBBBBBB";
 
-    private static final String DEFAULT_CODE = "AAAAAAAAAA";
-    private static final String UPDATED_CODE = "BBBBBBBBBB";
+    private static final String DEFAULT_CODE = "2281181";
+    private static final String UPDATED_CODE = "2281182";
 
     private static final Integer DEFAULT_TRIMESTERS = 1;
     private static final Integer UPDATED_TRIMESTERS = 2;
@@ -273,13 +273,30 @@ class ProgramResourceIT {
     }
 
     @Test
+    void createProgramWithNonNumericCodeReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        program.setCode("AB12");
+
+        ProgramDTO programDTO = programMapper.toDto(program);
+
+        restProgramMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("code"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void createProgramWithDuplicateInitialsReturnsBadRequest() throws Exception {
         // Persist a program with DEFAULT_INITIALS so the upcoming POST collides on initials only
         programRepository.save(program);
         insertedProgram = program;
         long databaseSizeBeforeCreate = getRepositoryCount();
 
-        ProgramDTO programDTO = buildProgramDTO("ZZZZZZZZZZ", DEFAULT_INITIALS, "ZZZZZZZZZZ", DEFAULT_TRIMESTERS);
+        ProgramDTO programDTO = buildProgramDTO("ZZZZZZZZZZ", DEFAULT_INITIALS, "0000000", DEFAULT_TRIMESTERS);
 
         restProgramMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
@@ -296,7 +313,7 @@ class ProgramResourceIT {
         insertedProgram = program;
         long databaseSizeBeforeCreate = getRepositoryCount();
 
-        ProgramDTO programDTO = buildProgramDTO(DEFAULT_NAME, "ZZZZZZZZZZ", "ZZZZZZZZZZ", DEFAULT_TRIMESTERS);
+        ProgramDTO programDTO = buildProgramDTO(DEFAULT_NAME, "ZZZZZZZZZZ", "0000000", DEFAULT_TRIMESTERS);
 
         restProgramMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
@@ -315,7 +332,7 @@ class ProgramResourceIT {
             .perform(
                 post(ENTITY_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_13", "INI_13", "CODE_13", 13)))
+                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_13", "INI_13", "0000013", 13)))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.fieldErrors").isArray())
@@ -325,7 +342,7 @@ class ProgramResourceIT {
             .perform(
                 post(ENTITY_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_0", "INI_0", "CODE_0", 0)))
+                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_0", "INI_0", "0000000", 0)))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.fieldErrors").isArray())
@@ -338,7 +355,7 @@ class ProgramResourceIT {
     void createProgramWithMaxTrimestersCreates() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
 
-        ProgramDTO programDTO = buildProgramDTO("NAME_12", "INI_12", "CODE_12", 12);
+        ProgramDTO programDTO = buildProgramDTO("NAME_12", "INI_12", "0000012", 12);
 
         var returnedProgramDTO = om.readValue(
             restProgramMockMvc
@@ -729,7 +746,7 @@ class ProgramResourceIT {
         insertedProgram = programRepository.save(program);
 
         // B: the program we PATCH, trying to take A's code
-        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("OTHERCODE").status(true);
+        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("7777777").status(true);
         other = programRepository.save(other);
 
         try {
@@ -744,7 +761,7 @@ class ProgramResourceIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.codeexists"));
 
-            assertThat(getPersistedProgram(other).getCode()).as("code unchanged after rejected patch").isEqualTo("OTHERCODE");
+            assertThat(getPersistedProgram(other).getCode()).as("code unchanged after rejected patch").isEqualTo("7777777");
         } finally {
             programRepository.delete(other);
         }
@@ -754,7 +771,7 @@ class ProgramResourceIT {
     void patchProgramWithDuplicateInitialsReturnsBadRequest() throws Exception {
         insertedProgram = programRepository.save(program);
 
-        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("OTHERCODE").status(true);
+        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("7777777").status(true);
         other = programRepository.save(other);
 
         try {
@@ -779,7 +796,7 @@ class ProgramResourceIT {
     void patchProgramWithDuplicateNameReturnsBadRequest() throws Exception {
         insertedProgram = programRepository.save(program);
 
-        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("OTHERCODE").status(true);
+        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("7777777").status(true);
         other = programRepository.save(other);
 
         try {
