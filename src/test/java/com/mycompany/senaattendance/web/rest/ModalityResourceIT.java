@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Modality;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.ModalityDTO;
@@ -48,6 +50,9 @@ class ModalityResourceIT {
     private ModalityRepository modalityRepository;
 
     @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
     private ModalityMapper modalityMapper;
 
     @Autowired
@@ -56,6 +61,8 @@ class ModalityResourceIT {
     private Modality modality;
 
     private Modality insertedModality;
+
+    private Grade insertedGrade;
 
     /**
      * Create an entity for this test.
@@ -84,6 +91,10 @@ class ModalityResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedGrade != null) {
+            gradeRepository.delete(insertedGrade);
+            insertedGrade = null;
+        }
         if (insertedModality != null) {
             modalityRepository.delete(insertedModality);
             insertedModality = null;
@@ -503,6 +514,37 @@ class ModalityResourceIT {
             .andExpect(status().isNoContent());
 
         // Validate the database contains one less item
+        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteModalityAssignedToGradeReturnsBadRequest() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        Grade grade = GradeResourceIT.createEntity();
+        grade.setModality(insertedModality);
+        insertedGrade = gradeRepository.save(grade);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restModalityMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedModality.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.modalityInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteUnusedModalitySucceeds() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restModalityMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedModality.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 

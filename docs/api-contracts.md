@@ -447,7 +447,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | POST   | `/api/modalities`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea la modalidad (nace Activa); `201` con el recurso creado. |
 | PUT    | `/api/modalities/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.             |
 | PATCH  | `/api/modalities/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`. |
-| DELETE | `/api/modalities/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.               |
+| DELETE | `/api/modalities/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`. Bloquea la eliminación si la modalidad está asignada a fichas (`400 error.modalityInUse`). |
 
 **Request — `POST /api/modalities`**
 
@@ -464,9 +464,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Response:** `201 Created` con el `ModalityDTO` (`id`, `name`, `isActive`). Listas como arreglo JSON completo.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.modalityNameAlreadyUsed` (nombre duplicado, E1); `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `400 error.modalityNameAlreadyUsed` (nombre duplicado, E1); `400 error.modalityInUse` (la modalidad está asignada a una o más fichas y no puede eliminarse, E2); `403`; `404`.
 
-**Notas / lo que se necesita:** está implementada la unicidad de nombre (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400 error.modalityNameAlreadyUsed` y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear (`POST`) el backend fuerza `isActive = true` (la modalidad nace Activa) e ignora el valor enviado; el `PATCH` genérico sí puede cambiar el estado. Falta el bloqueo de eliminación si la modalidad está en uso por fichas (E2). El estado se maneja con `isActive` en lugar de las acciones Desactivar/Reactivar.
+**Notas / lo que se necesita:** está implementada la unicidad de nombre (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400 error.modalityNameAlreadyUsed` y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear (`POST`) el backend fuerza `isActive = true` (la modalidad nace Activa) e ignora el valor enviado; el `PATCH` genérico sí puede cambiar el estado. También está implementado el bloqueo de eliminación (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400 error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`), de modo que las fichas existentes la sigan conservando. El estado se maneja con `isActive` en lugar de las acciones Desactivar/Reactivar.
 
 ---
 

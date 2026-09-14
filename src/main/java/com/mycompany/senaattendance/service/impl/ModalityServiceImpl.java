@@ -1,11 +1,13 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Modality;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ModalityService;
 import com.mycompany.senaattendance.service.dto.ModalityDTO;
 import com.mycompany.senaattendance.service.mapper.ModalityMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.ModalityNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.LinkedList;
@@ -28,9 +30,12 @@ public class ModalityServiceImpl implements ModalityService {
 
     private final ModalityMapper modalityMapper;
 
-    public ModalityServiceImpl(ModalityRepository modalityRepository, ModalityMapper modalityMapper) {
+    private final GradeRepository gradeRepository;
+
+    public ModalityServiceImpl(ModalityRepository modalityRepository, ModalityMapper modalityMapper, GradeRepository gradeRepository) {
         this.modalityRepository = modalityRepository;
         this.modalityMapper = modalityMapper;
+        this.gradeRepository = gradeRepository;
     }
 
     @Override
@@ -107,6 +112,9 @@ public class ModalityServiceImpl implements ModalityService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete Modality : {}", id);
+        if (gradeRepository.existsByModalityId(id)) {
+            throw new BadRequestAlertException("This modality is assigned to fichas and cannot be deleted", "modality", "modalityInUse");
+        }
         modalityRepository.deleteById(id);
     }
 
