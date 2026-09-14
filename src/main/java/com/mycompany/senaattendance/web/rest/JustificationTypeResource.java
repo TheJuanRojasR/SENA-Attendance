@@ -142,6 +142,17 @@ public class JustificationTypeResource {
     }
 
     /**
+     * {@code GET  /justification-types/active} : get all the active Justification Types.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of active Justification Types in body.
+     */
+    @GetMapping("/active")
+    public List<JustificationTypeDTO> getActiveJustificationTypes() {
+        LOG.debug("REST request to get all active JustificationTypes");
+        return justificationTypeService.findActiveJustificationTypes();
+    }
+
+    /**
      * {@code GET  /justification-types/:id} : get the "id" justificationType.
      *
      * @param id the id of the justificationTypeDTO to retrieve.

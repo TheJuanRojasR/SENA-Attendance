@@ -117,6 +117,16 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     }
 
     @Override
+    public List<JustificationTypeDTO> findActiveJustificationTypes() {
+        LOG.debug("Request to get all active JustificationTypes");
+        return justificationTypeRepository
+            .findJustificationTypeByStatus(Status.ACTIVO)
+            .stream()
+            .map(justificationTypeMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
+    }
+
+    @Override
     public Optional<JustificationTypeDTO> findOne(String id) {
         LOG.debug("Request to get JustificationType : {}", id);
         return justificationTypeRepository.findById(id).map(justificationTypeMapper::toDto);

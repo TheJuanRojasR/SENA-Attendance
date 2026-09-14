@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.JustificationTypeAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -286,6 +287,23 @@ class JustificationTypeResourceIT {
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].limitPerTrimester").value(hasItem(DEFAULT_LIMIT_PER_TRIMESTER)))
             .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.toString())));
+    }
+
+    @Test
+    void getActiveJustificationTypes() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+        JustificationType inactiveJustificationType = justificationTypeRepository.save(createUpdatedEntity());
+
+        try {
+            restJustificationTypeMockMvc
+                .perform(get(ENTITY_API_URL + "/active"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$.[*].id").value(hasItem(insertedJustificationType.getId())))
+                .andExpect(jsonPath("$.[*].id").value(not(hasItem(inactiveJustificationType.getId()))));
+        } finally {
+            justificationTypeRepository.delete(inactiveJustificationType);
+        }
     }
 
     @Test

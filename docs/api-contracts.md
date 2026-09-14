@@ -521,8 +521,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Método | Ruta                            | Acceso                            | Descripción                   |
 | ------ | ------------------------------- | --------------------------------- | ----------------------------- |
-| GET    | `/api/justification-types`      | Autenticado                       | Lista completa (sin paginar). |
-| GET    | `/api/justification-types/{id}` | Autenticado                       | Detalle.                      |
+| GET    | `/api/justification-types`        | Autenticado                       | Lista completa (sin paginar). |
+| GET    | `/api/justification-types/active` | Autenticado                       | Lista de tipos activos; la usa el formulario del aprendiz (UC011). |
+| GET    | `/api/justification-types/{id}`   | Autenticado                       | Detalle.                      |
 | POST   | `/api/justification-types`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.   |
 | PUT    | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.             |
 | PATCH  | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`. |
@@ -544,7 +545,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | `limitPerTrimester` | integer | Sí          | `@NotNull` + `@Min(1)`: entero mayor a 0 (E2). Un valor nulo, 0 o negativo responde `400 error.validation` con `limitPerTrimester` en `fieldErrors`. |
 | `status`            | string  | No          | Valores del enum `Status`: `ACTIVO`, `INACTIVO`. Si se omite al crear, el tipo nace **Activo**; en `PUT`/`PATCH` conserva el estado existente. |
 
-**Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `status`).
+**Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `status`). `GET /api/justification-types` devuelve todos los tipos (sin paginar); `GET /api/justification-types/active` devuelve solo los `ACTIVO` para el formulario del aprendiz.
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (E2: límite nulo, 0 o negativo); `400 error.justificationTypeNameAlreadyUsed` (nombre duplicado, E1); `400 error.justificationTypeInUse` (el tipo fue usado en justificaciones y no puede eliminarse, E3); `403`; `404`.
 
