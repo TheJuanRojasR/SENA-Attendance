@@ -47,7 +47,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC005](#uc005--recuperar-contraseña)               | Recuperar contraseña               | Implementado    |
 | [UC019](#uc019--gestionar-configuración-global)     | Gestionar configuración global     | Implementado    |
 | [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Implementado    |
-| [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Parcial         |
+| [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Implementado    |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Parcial         |
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Parcial         |
 | [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Parcial         |
@@ -433,7 +433,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC021 — Gestionar modalidades
 
-**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD del catálogo de modalidades de formación que se seleccionan al crear fichas.
 
