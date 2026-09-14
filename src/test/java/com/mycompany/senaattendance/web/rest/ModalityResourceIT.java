@@ -107,7 +107,9 @@ class ModalityResourceIT {
 
         // Validate the Modality in the database
         assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedModalityDTO.getIsActive()).isTrue();
         var returnedModality = modalityMapper.toEntity(returnedModalityDTO);
+        assertThat(getPersistedModality(returnedModality).getIsActive()).isTrue();
         assertModalityUpdatableFieldsEquals(returnedModality, getPersistedModality(returnedModality));
 
         insertedModality = returnedModality;
@@ -184,19 +186,29 @@ class ModalityResourceIT {
     }
 
     @Test
-    void checkIsActiveIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
+    void createModalityWithoutIsActiveIsPersistedActive() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
         // set the field null
         modality.setIsActive(null);
 
-        // Create the Modality, which fails.
         ModalityDTO modalityDTO = modalityMapper.toDto(modality);
+        var returnedModalityDTO = om.readValue(
+            restModalityMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ModalityDTO.class
+        );
 
-        restModalityMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
-            .andExpect(status().isBadRequest());
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedModalityDTO.getIsActive()).isTrue();
 
-        assertSameRepositoryCount(databaseSizeBeforeTest);
+        var returnedModality = modalityMapper.toEntity(returnedModalityDTO);
+        assertThat(getPersistedModality(returnedModality).getIsActive()).isTrue();
+
+        insertedModality = returnedModality;
     }
 
     @Test

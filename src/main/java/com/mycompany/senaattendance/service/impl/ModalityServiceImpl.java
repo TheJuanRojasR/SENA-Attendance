@@ -38,6 +38,7 @@ public class ModalityServiceImpl implements ModalityService {
         LOG.debug("Request to save Modality : {}", modalityDTO);
         Modality modality = modalityMapper.toEntity(modalityDTO);
 
+        modality.setIsActive(true);
         validateAndNormalizeName(modality, null);
 
         // Inserta fecha de creación

@@ -215,7 +215,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC021 — Gestionar modalidades
 
-**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Falta el bloqueo de eliminación si la modalidad está en uso por fichas (E2). Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
+**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear, la modalidad nace **Activa**: el backend fuerza `isActive = true` e ignora el valor enviado. Falta el bloqueo de eliminación si la modalidad está en uso por fichas (E2). Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
 
 **Estado del frontend:** pendiente. La pantalla de modalidades debe manejar el error de nombre duplicado y evitar enviar nombres en blanco.
 
@@ -224,6 +224,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 1   | Validar en el cliente que el nombre no esté vacío ni compuesto solo por espacios antes de enviar; el backend responde `400 error.validation` con `name` en `fieldErrors`.   | `Pendiente` |
 | 2   | Al crear o editar una modalidad, manejar `400 error.modalityNameAlreadyUsed` mostrando "Ya existe una modalidad con este nombre" (E1) y conservar los datos del formulario. | `Pendiente` |
 | 3   | Validar en el cliente el máximo de 50 caracteres del nombre (el backend responde `400 error.validation` con `name` en `fieldErrors`).                                      | `Pendiente` |
+| 4   | En el formulario de creación no enviar `isActive`: el backend siempre crea la modalidad **Activa** (`isActive = true`) e ignora el valor enviado.                           | `Pendiente` |
 
 ---
 
