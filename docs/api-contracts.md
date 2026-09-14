@@ -524,10 +524,10 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | GET    | `/api/justification-types`        | Autenticado                       | Lista completa (sin paginar). |
 | GET    | `/api/justification-types/active` | Autenticado                       | Lista de tipos activos; la usa el formulario del aprendiz (UC011). |
 | GET    | `/api/justification-types/{id}`   | Autenticado                       | Detalle.                      |
-| POST   | `/api/justification-types`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.   |
-| PUT    | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.             |
-| PATCH  | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`. |
-| DELETE | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`. Bloquea si algún tipo fue usado (`400 error.justificationTypeInUse`). |
+| POST   | `/api/justification-types`        | `ROLE_ADMIN` | Crea; `201` con el recurso.   |
+| PUT    | `/api/justification-types`        | `ROLE_ADMIN` | Reemplaza; el `id` viaja en el body; `200`. |
+| PATCH  | `/api/justification-types`        | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el body; `200`. |
+| DELETE | `/api/justification-types/{id}`   | `ROLE_ADMIN` | Elimina; `204`. Bloquea si algún tipo fue usado (`400 error.justificationTypeInUse`). |
 
 **Request — `POST /api/justification-types`**
 

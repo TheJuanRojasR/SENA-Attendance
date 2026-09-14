@@ -54,7 +54,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<JustificationTypeDTO> createJustificationType(@Valid @RequestBody JustificationTypeDTO justificationTypeDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save JustificationType : {}", justificationTypeDTO);
@@ -77,7 +77,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<JustificationTypeDTO> updateJustificationType(@Valid @RequestBody JustificationTypeDTO justificationTypeDTO)
         throws URISyntaxException {
         String id = justificationTypeDTO.getId();
@@ -108,7 +108,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<JustificationTypeDTO> partialUpdateJustificationType(
         @NotNull @RequestBody JustificationTypeDTO justificationTypeDTO
     ) throws URISyntaxException {
@@ -172,7 +172,7 @@ public class JustificationTypeResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteJustificationType(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JustificationType : {}", id);
         justificationTypeService.delete(id);

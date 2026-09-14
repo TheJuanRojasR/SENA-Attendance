@@ -576,6 +576,73 @@ class JustificationTypeResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+
+        restJustificationTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(insertedJustificationType);
+
+        restJustificationTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(insertedJustificationType);
+
+        restJustificationTypeMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restJustificationTypeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedJustificationType.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readJustificationTypesAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        restJustificationTypeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restJustificationTypeMockMvc.perform(get(ENTITY_API_URL_ID, insertedJustificationType.getId())).andExpect(status().isOk());
+        restJustificationTypeMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
+    }
+
     protected long getRepositoryCount() {
         return justificationTypeRepository.count();
     }
