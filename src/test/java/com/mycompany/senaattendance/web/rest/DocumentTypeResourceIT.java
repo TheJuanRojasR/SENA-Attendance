@@ -10,7 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.DocumentType;
+import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.DocumentTypeDTO;
 import com.mycompany.senaattendance.service.mapper.DocumentTypeMapper;
@@ -48,6 +50,9 @@ class DocumentTypeResourceIT {
     private DocumentTypeRepository documentTypeRepository;
 
     @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
     private DocumentTypeMapper documentTypeMapper;
 
     @Autowired
@@ -56,6 +61,8 @@ class DocumentTypeResourceIT {
     private DocumentType documentType;
 
     private DocumentType insertedDocumentType;
+
+    private UserProfile insertedUserProfile;
 
     /**
      * Create an entity for this test.
@@ -84,10 +91,29 @@ class DocumentTypeResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedUserProfile != null) {
+            userProfileRepository.delete(insertedUserProfile);
+            insertedUserProfile = null;
+        }
         if (insertedDocumentType != null) {
             documentTypeRepository.delete(insertedDocumentType);
             insertedDocumentType = null;
         }
+    }
+
+    /**
+     * Builds a minimal user profile that references the given document type, so tests can assert
+     * the "document type is in use" rules. The random document number avoids the compound unique
+     * index on (documentType, documentNumber).
+     */
+    private UserProfile createProfileUsing(DocumentType documentType) {
+        UserProfile profile = new UserProfile()
+            .firstName("AAAAAAAAAA")
+            .firstLastName("AAAAAAAAAA")
+            .documentNumber("D" + UUID.randomUUID().toString().replace("-", "").substring(0, 12))
+            .phoneNumber("3000000000");
+        profile.setDocumentType(documentType);
+        return profile;
     }
 
     @Test
@@ -409,6 +435,59 @@ class DocumentTypeResourceIT {
         } finally {
             documentTypeRepository.delete(other);
         }
+    }
+
+    @Test
+    void putDocumentTypeInitialsOfInUseReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        DocumentType updatedDocumentType = documentTypeRepository.findById(insertedDocumentType.getId()).orElseThrow();
+        updatedDocumentType.setInitials(UPDATED_INITIALS);
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(updatedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInitialsInUse"));
+
+        assertThat(getPersistedDocumentType(insertedDocumentType).getInitials()).isEqualTo(DEFAULT_INITIALS);
+    }
+
+    @Test
+    void putDocumentTypeNameOfInUseSucceeds() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        DocumentType updatedDocumentType = documentTypeRepository.findById(insertedDocumentType.getId()).orElseThrow();
+        updatedDocumentType.setName(UPDATED_NAME);
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(updatedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedDocumentType(insertedDocumentType).getName()).isEqualTo(UPDATED_NAME);
+        assertThat(getPersistedDocumentType(insertedDocumentType).getInitials()).isEqualTo(DEFAULT_INITIALS);
+    }
+
+    @Test
+    void patchDocumentTypeInitialsOfInUseReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        DocumentType partialUpdatedDocumentType = new DocumentType();
+        partialUpdatedDocumentType.setId(insertedDocumentType.getId());
+        partialUpdatedDocumentType.setInitials(UPDATED_INITIALS);
+
+        restDocumentTypeMockMvc
+            .perform(
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedDocumentType))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInitialsInUse"));
+
+        assertThat(getPersistedDocumentType(insertedDocumentType).getInitials()).isEqualTo(DEFAULT_INITIALS);
     }
 
     @Test

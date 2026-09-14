@@ -33,6 +33,15 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // ------- SEARCH USER PROFILE BY DOCUMENT TYPE AND DOCUMENT NUMBER -------
     Optional<UserProfile> findByDocumentTypeAndDocumentNumber(String documentTypeId, String documentNumber);
 
+    /**
+     * Returns whether any user profile references the given document type.
+     * Used to block changing the initials of, or deleting, a document type that is still in use.
+     *
+     * @param documentTypeId the document type id to check.
+     * @return {@code true} if at least one user profile references this document type.
+     */
+    boolean existsByDocumentTypeId(String documentTypeId);
+
     // ------- SEARCH USERPROFILE BY DOCUMENT NUMBER -------
     @Query("{ 'documentNumber': {$regex: ?0, $options: 'i' } }")
     Page<UserProfile> findByDocumentNumberContaining(String documentNumber, Pageable pageable);
