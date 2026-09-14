@@ -26,6 +26,8 @@ public class JustificationType extends AbstractAuditingEntity implements Seriali
     @Field("name")
     private String name;
 
+    @NotNull
+    @Min(1)
     @Field("limit_per_trimester")
     private Integer limitPerTrimester;
 

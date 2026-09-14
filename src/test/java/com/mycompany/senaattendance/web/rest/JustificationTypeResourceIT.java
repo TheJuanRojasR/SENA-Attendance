@@ -187,6 +187,55 @@ class JustificationTypeResourceIT {
     }
 
     @Test
+    void checkLimitPerTrimesterIsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        justificationType.setLimitPerTrimester(null);
+
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+
+        restJustificationTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("limitPerTrimester"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createJustificationTypeWithZeroLimitReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        justificationType.setLimitPerTrimester(0);
+
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+
+        restJustificationTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("limitPerTrimester"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createJustificationTypeWithNegativeLimitReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        justificationType.setLimitPerTrimester(-1);
+
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+
+        restJustificationTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("limitPerTrimester"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkStatusIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null

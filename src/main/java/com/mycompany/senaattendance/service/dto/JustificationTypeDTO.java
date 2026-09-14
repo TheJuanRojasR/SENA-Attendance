@@ -17,6 +17,8 @@ public class JustificationTypeDTO implements Serializable {
     @Size(max = 100)
     private String name;
 
+    @NotNull
+    @Min(1)
     private Integer limitPerTrimester;
 
     @NotNull
