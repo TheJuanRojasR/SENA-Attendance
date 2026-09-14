@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.JustificationType;
+import com.mycompany.senaattendance.domain.enumeration.Status;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationTypeService;
@@ -42,6 +43,9 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
         JustificationType justificationType = justificationTypeMapper.toEntity(justificationTypeDTO);
         validateAndNormalizeName(justificationType, null);
 
+        // Los tipos nuevos nacen activos
+        justificationType.setStatus(Status.ACTIVO);
+
         justificationType.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
         if (currentUserLogin.isPresent()) {
@@ -69,6 +73,11 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
             if (currentUserLogin.isPresent()) {
                 justificationType.setCreatedBy(currentUserLogin.get());
             }
+        }
+
+        // Un PUT sin status conserva el estado existente en lugar de borrarlo.
+        if (justificationType.getStatus() == null) {
+            justificationType.setStatus(optionalJustificationType.map(JustificationType::getStatus).orElse(Status.ACTIVO));
         }
 
         justificationType = justificationTypeRepository.save(justificationType);

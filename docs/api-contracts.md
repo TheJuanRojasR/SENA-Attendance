@@ -542,7 +542,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | ------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------ |
 | `name`              | string  | Sí          | `@NotBlank`, máximo 100. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.justificationTypeNameAlreadyUsed`. |
 | `limitPerTrimester` | integer | Sí          | `@NotNull` + `@Min(1)`: entero mayor a 0 (E2). Un valor nulo, 0 o negativo responde `400 error.validation` con `limitPerTrimester` en `fieldErrors`. |
-| `status`            | string  | Sí          | `@NotNull`; valores del enum `Status`: `ACTIVO`, `INACTIVO`. El cliente define el estado inicial. |
+| `status`            | string  | No          | Valores del enum `Status`: `ACTIVO`, `INACTIVO`. Si se omite al crear, el tipo nace **Activo**; en `PUT`/`PATCH` conserva el estado existente. |
 
 **Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `status`).
 

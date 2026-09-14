@@ -236,19 +236,29 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    void checkStatusIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
+    void createJustificationTypeWithoutStatusIsPersistedActive() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        // set the field null so the backend applies its default of active
         justificationType.setStatus(null);
 
-        // Create the JustificationType, which fails.
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+        var returnedJustificationTypeDTO = om.readValue(
+            restJustificationTypeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            JustificationTypeDTO.class
+        );
 
-        restJustificationTypeMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
-            .andExpect(status().isBadRequest());
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedJustificationTypeDTO.getStatus()).isEqualTo(Status.ACTIVO);
 
-        assertSameRepositoryCount(databaseSizeBeforeTest);
+        var returnedJustificationType = justificationTypeMapper.toEntity(returnedJustificationTypeDTO);
+        assertThat(getPersistedJustificationType(returnedJustificationType).getStatus()).isEqualTo(Status.ACTIVO);
+
+        insertedJustificationType = returnedJustificationType;
     }
 
     @Test

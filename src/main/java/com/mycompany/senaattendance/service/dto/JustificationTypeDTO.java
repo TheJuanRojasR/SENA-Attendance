@@ -21,7 +21,6 @@ public class JustificationTypeDTO implements Serializable {
     @Min(1)
     private Integer limitPerTrimester;
 
-    @NotNull
     private Status status;
 
     public String getId() {
