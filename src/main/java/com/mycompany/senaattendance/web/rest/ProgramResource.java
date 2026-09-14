@@ -12,7 +12,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,27 +72,21 @@ public class ProgramResource {
     }
 
     /**
-     * {@code PUT  /programs/:id} : Updates an existing program.
+     * {@code PUT  /programs} : Updates an existing program; the id is taken from the request body.
      *
-     * @param id the id of the programDTO to save.
      * @param programDTO the programDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated programDTO,
      * or with status {@code 400 (Bad Request)} if the programDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the programDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ProgramDTO> updateProgram(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ProgramDTO programDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Program : {}, {}", id, programDTO);
-        if (programDTO.getId() == null) {
+    public ResponseEntity<ProgramDTO> updateProgram(@Valid @RequestBody ProgramDTO programDTO) throws URISyntaxException {
+        String id = programDTO.getId();
+        LOG.debug("REST request to update Program : {}", programDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, programDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!programRepository.existsById(id)) {

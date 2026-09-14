@@ -459,9 +459,7 @@ class ProgramResourceIT {
         ProgramDTO programDTO = programMapper.toDto(updatedProgram);
 
         restProgramMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, programDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
             .andExpect(status().isOk());
 
         // Validate the Program in the database
@@ -479,9 +477,7 @@ class ProgramResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restProgramMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, programDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Program in the database
@@ -489,38 +485,16 @@ class ProgramResourceIT {
     }
 
     @Test
-    void putWithIdMismatchProgram() throws Exception {
+    void putProgramWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        program.setId(UUID.randomUUID().toString());
+        program.setId(null);
 
-        // Create the Program
         ProgramDTO programDTO = programMapper.toDto(program);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restProgramMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(programDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Program in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamProgram() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        program.setId(UUID.randomUUID().toString());
-
-        // Create the Program
-        ProgramDTO programDTO = programMapper.toDto(program);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restProgramMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the Program in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
