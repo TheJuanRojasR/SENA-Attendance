@@ -142,6 +142,32 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void createDocumentTypeWithoutIsActiveIsPersistedActive() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        // set the field null so the backend applies its default of active
+        documentType.setIsActive(null);
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        var returnedDocumentTypeDTO = om.readValue(
+            restDocumentTypeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            DocumentTypeDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedDocumentTypeDTO.getIsActive()).isTrue();
+
+        var returnedDocumentType = documentTypeMapper.toEntity(returnedDocumentTypeDTO);
+        assertThat(getPersistedDocumentType(returnedDocumentType).getIsActive()).isTrue();
+
+        insertedDocumentType = returnedDocumentType;
+    }
+
+    @Test
     void createDocumentTypeWithExistingId() throws Exception {
         // Create the DocumentType with an existing ID
         documentType.setId("existing_id");
