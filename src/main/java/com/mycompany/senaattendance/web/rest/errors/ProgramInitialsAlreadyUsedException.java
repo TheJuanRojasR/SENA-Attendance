@@ -9,6 +9,6 @@ public class ProgramInitialsAlreadyUsedException extends BadRequestAlertExceptio
     private static final long serialVersionUID = 1L;
 
     public ProgramInitialsAlreadyUsedException() {
-        super(ErrorConstants.PROGRAM_INITIALS_ALREADY_USED_TYPE, "Ya existe un programa con estas siglas", "program", "initialsexists");
+        super(ErrorConstants.PROGRAM_INITIALS_ALREADY_USED_TYPE, "Ya existe un programa con estas iniciales", "program", "initialsexists");
     }
 }
