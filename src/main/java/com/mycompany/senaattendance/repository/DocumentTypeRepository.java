@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.DocumentType;
+import java.util.List;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
@@ -9,6 +10,14 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface DocumentTypeRepository extends MongoRepository<DocumentType, String> {
+    /**
+     * Returns the document types with the given active state.
+     *
+     * @param isActive the active state to filter by.
+     * @return the matching document types.
+     */
+    List<DocumentType> findDocumentTypeByIsActive(Boolean isActive);
+
     /**
      * Returns whether a document type with the given name already exists (case-insensitive).
      *

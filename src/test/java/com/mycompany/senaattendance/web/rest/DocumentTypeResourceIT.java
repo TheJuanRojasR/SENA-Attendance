@@ -4,6 +4,8 @@ import static com.mycompany.senaattendance.domain.DocumentTypeAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -293,12 +295,47 @@ class DocumentTypeResourceIT {
 
         // Get all the documentTypeList
         restDocumentTypeMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(ENTITY_API_URL + "?page=0&size=20&sort=id,desc"))
             .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(documentType.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].initials").value(hasItem(DEFAULT_INITIALS)));
+    }
+
+    @Test
+    void getAllDocumentTypesWithSizeOneReturnsOnlyOneElementWithTotalCount() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            restDocumentTypeMockMvc
+                .perform(get(ENTITY_API_URL + "?page=0&size=1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$", hasSize(1)));
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void getActiveDocumentTypes() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        DocumentType inactiveDocumentType = documentTypeRepository.save(createUpdatedEntity().isActive(false));
+
+        try {
+            restDocumentTypeMockMvc
+                .perform(get(ENTITY_API_URL + "/active"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$.[*].id").value(hasItem(insertedDocumentType.getId())))
+                .andExpect(jsonPath("$.[*].id").value(not(hasItem(inactiveDocumentType.getId()))));
+        } finally {
+            documentTypeRepository.delete(inactiveDocumentType);
+        }
     }
 
     @Test

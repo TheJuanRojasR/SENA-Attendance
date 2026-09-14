@@ -14,10 +14,15 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
+import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
 /**
@@ -129,12 +134,26 @@ public class DocumentTypeResource {
     /**
      * {@code GET  /document-types} : get all the Document Types.
      *
+     * @param pageable the pagination information.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Document Types in body.
      */
     @GetMapping("")
-    public List<DocumentTypeDTO> getAllDocumentTypes() {
-        LOG.debug("REST request to get all DocumentTypes");
-        return documentTypeService.findAll();
+    public ResponseEntity<List<DocumentTypeDTO>> getAllDocumentTypes(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
+        LOG.debug("REST request to get a page of DocumentTypes");
+        Page<DocumentTypeDTO> page = documentTypeService.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
+     * {@code GET  /document-types/active} : get all the active Document Types.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of active Document Types in body.
+     */
+    @GetMapping("/active")
+    public List<DocumentTypeDTO> getActiveDocumentTypes() {
+        LOG.debug("REST request to get all active DocumentTypes");
+        return documentTypeService.findActiveDocumentTypes();
     }
 
     /**

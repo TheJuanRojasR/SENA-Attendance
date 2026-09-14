@@ -17,6 +17,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -119,9 +121,19 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     }
 
     @Override
-    public List<DocumentTypeDTO> findAll() {
+    public Page<DocumentTypeDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all DocumentTypes");
-        return documentTypeRepository.findAll().stream().map(documentTypeMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
+        return documentTypeRepository.findAll(pageable).map(documentTypeMapper::toDto);
+    }
+
+    @Override
+    public List<DocumentTypeDTO> findActiveDocumentTypes() {
+        LOG.debug("Request to get all active DocumentTypes");
+        return documentTypeRepository
+            .findDocumentTypeByIsActive(true)
+            .stream()
+            .map(documentTypeMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
     }
 
     @Override
