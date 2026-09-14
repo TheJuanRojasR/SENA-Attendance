@@ -3,6 +3,8 @@ package com.mycompany.senaattendance.service;
 import com.mycompany.senaattendance.service.dto.DocumentTypeDTO;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 /**
  * Service Interface for managing {@link com.mycompany.senaattendance.domain.DocumentType}.
@@ -35,9 +37,17 @@ public interface DocumentTypeService {
     /**
      * Get all the documentTypes.
      *
+     * @param pageable the pagination information.
      * @return the list of entities.
      */
-    List<DocumentTypeDTO> findAll();
+    Page<DocumentTypeDTO> findAll(Pageable pageable);
+
+    /**
+     * Get all the active documentTypes.
+     *
+     * @return the list of active entities.
+     */
+    List<DocumentTypeDTO> findActiveDocumentTypes();
 
     /**
      * Get the "id" documentType.

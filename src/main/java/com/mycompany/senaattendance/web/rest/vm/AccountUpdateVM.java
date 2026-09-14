@@ -11,17 +11,25 @@ public class AccountUpdateVM {
     @Size(min = 1, max = 30)
     private String firstName;
 
-    @Size(min = 1, max = 30)
+    @Size(max = 30)
     private String middleName;
 
     @Size(min = 1, max = 30)
     private String firstLastName;
 
-    @Size(min = 1, max = 30)
+    @Size(max = 30)
     private String secondLastName;
 
     @Size(min = 1, max = 30)
+    @Pattern(regexp = "\\d{10}")
     private String phoneNumber;
+
+    // ----- DOCUMENT (IMMUTABLE) DETECTION FIELDS -----
+    // Optional on purpose: deserialization must accept them so the service can detect
+    // and reject an attempt to change the document (UC003-E3). They are never applied.
+    private String documentTypeId;
+
+    private String documentNumber;
 
     // ----- USER FIELDS -----
     @Email
@@ -29,14 +37,9 @@ public class AccountUpdateVM {
     @Size(min = 5, max = 254)
     private String email;
 
-    @Size(min = 8, max = 20)
     private String currentPassword;
 
-    @Size(min = 8, max = 20)
     private String newPassword;
-
-    @Size(max = 256)
-    private String imageUrl;
 
     @Size(min = 2, max = 10)
     private String langKey;
@@ -84,6 +87,22 @@ public class AccountUpdateVM {
         this.phoneNumber = phoneNumber;
     }
 
+    public String getDocumentTypeId() {
+        return documentTypeId;
+    }
+
+    public void setDocumentTypeId(String documentTypeId) {
+        this.documentTypeId = documentTypeId;
+    }
+
+    public String getDocumentNumber() {
+        return documentNumber;
+    }
+
+    public void setDocumentNumber(String documentNumber) {
+        this.documentNumber = documentNumber;
+    }
+
     public String getEmail() {
         return email;
     }
@@ -106,14 +125,6 @@ public class AccountUpdateVM {
 
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
     }
 
     public String getLangKey() {

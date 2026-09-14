@@ -244,7 +244,8 @@ class UserResourceIT {
 
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
-            .andExpect(status().isCreated());
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.mustChangePassword").value(true));
 
         User createdUser = userRepository.findOneByLogin(expectedLogin).orElseThrow();
         assertThat(createdUser.getLogin()).isEqualTo(expectedLogin);
@@ -252,6 +253,7 @@ class UserResourceIT {
         assertThat(createdUser.getImageUrl()).isNull();
         assertThat(createdUser.getLangKey()).isEqualTo(DEFAULT_LANGKEY);
         assertThat(createdUser.isActivated()).isTrue();
+        assertThat(createdUser.isMustChangePassword()).isTrue();
         // role field produces {ROLE_USER, ROLE_INSTRUCTOR}
         assertThat(createdUser.getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
             AuthoritiesConstants.USER,
@@ -594,6 +596,24 @@ class UserResourceIT {
         UserProfile profile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
         assertThat(profile.getFirstName()).isEqualTo("John");
         assertThat(profile.getDocumentNumber()).isEqualTo(DEFAULT_DOCUMENT);
+    }
+
+    @Test
+    void updateUserIgnoresMustChangePassword() throws Exception {
+        User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+        assertThat(user.isMustChangePassword()).isFalse();
+
+        // the inherited field is accepted in JSON but ignored server-side, like login/activated/authorities
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(user.getId());
+        vm.setMustChangePassword(true);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk());
+
+        User updated = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updated.isMustChangePassword()).isFalse();
     }
 
     @Test

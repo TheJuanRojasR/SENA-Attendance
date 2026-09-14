@@ -35,6 +35,7 @@ class UserMapperTest {
         user.setLogin(DEFAULT_LOGIN);
         user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
         user.setActivated(true);
+        user.setMustChangePassword(true);
         user.setEmail("johndoe@localhost");
         user.setImageUrl("image_url");
         user.setCreatedBy(DEFAULT_LOGIN);
@@ -60,6 +61,7 @@ class UserMapperTest {
         assertThat(convertedUserDto.getLogin()).isEqualTo(user.getLogin());
         assertThat(convertedUserDto.getEmail()).isEqualTo(user.getEmail());
         assertThat(convertedUserDto.isActivated()).isEqualTo(user.isActivated());
+        assertThat(convertedUserDto.isMustChangePassword()).isEqualTo(user.isMustChangePassword());
         assertThat(convertedUserDto.getImageUrl()).isEqualTo(user.getImageUrl());
         assertThat(convertedUserDto.getCreatedBy()).isEqualTo(user.getCreatedBy());
         assertThat(convertedUserDto.getCreatedDate()).isEqualTo(user.getCreatedDate());

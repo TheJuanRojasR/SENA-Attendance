@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.service.impl;
 
+import com.mycompany.senaattendance.config.Constants;
 import com.mycompany.senaattendance.domain.GlobalConfiguration;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
@@ -7,21 +8,27 @@ import com.mycompany.senaattendance.service.GlobalConfigurationService;
 import com.mycompany.senaattendance.service.dto.GlobalConfigurationDTO;
 import com.mycompany.senaattendance.service.mapper.GlobalConfigurationMapper;
 import java.time.Instant;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Service Implementation for managing {@link com.mycompany.senaattendance.domain.GlobalConfiguration}.
+ * Service Implementation for managing the singleton {@link GlobalConfiguration}.
+ *
+ * <p>The configuration is a single row: reads re-seed it with the default values
+ * when it is missing (defensive recovery), and updates are partial merges of the
+ * typed fields. Classification snapshots are never derived from live config.
  */
 @Service
 public class GlobalConfigurationServiceImpl implements GlobalConfigurationService {
 
     private static final Logger LOG = LoggerFactory.getLogger(GlobalConfigurationServiceImpl.class);
+
+    public static final Integer DEFAULT_STUDENT_JUSTIFICATION_DAYS = 5;
+    public static final Integer DEFAULT_INSTRUCTOR_RESPONSE_DAYS = 2;
+    public static final Integer DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD = 3;
+    public static final Integer DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD = 5;
 
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
@@ -36,42 +43,9 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
     }
 
     @Override
-    public GlobalConfigurationDTO save(GlobalConfigurationDTO globalConfigurationDTO) {
-        LOG.debug("Request to save GlobalConfiguration : {}", globalConfigurationDTO);
-        GlobalConfiguration globalConfiguration = globalConfigurationMapper.toEntity(globalConfigurationDTO);
-
-        // Inserta fecha de creación
-        globalConfiguration.setCreatedDate(Instant.now());
-        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
-        if (currentUserLogin.isPresent()) {
-            // Inserta quien lo creo
-            globalConfiguration.setCreatedBy(currentUserLogin.get());
-        }
-
-        globalConfiguration = globalConfigurationRepository.save(globalConfiguration);
-        return globalConfigurationMapper.toDto(globalConfiguration);
-    }
-
-    @Override
-    public GlobalConfigurationDTO update(GlobalConfigurationDTO globalConfigurationDTO) {
-        LOG.debug("Request to update GlobalConfiguration : {}", globalConfigurationDTO);
-        GlobalConfiguration globalConfiguration = globalConfigurationMapper.toEntity(globalConfigurationDTO);
-
-        Optional<GlobalConfiguration> optionalGlobalConfiguration = globalConfigurationRepository.findById(globalConfiguration.getId());
-        if (optionalGlobalConfiguration.isPresent()) {
-            GlobalConfiguration existingGlobalConfiguration = optionalGlobalConfiguration.get();
-            globalConfiguration.setCreatedBy(existingGlobalConfiguration.getCreatedBy());
-            globalConfiguration.setCreatedDate(existingGlobalConfiguration.getCreatedDate());
-        } else {
-            globalConfiguration.setCreatedDate(Instant.now());
-            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
-            if (currentUserLogin.isPresent()) {
-                globalConfiguration.setCreatedBy(currentUserLogin.get());
-            }
-        }
-
-        globalConfiguration = globalConfigurationRepository.save(globalConfiguration);
-        return globalConfigurationMapper.toDto(globalConfiguration);
+    public GlobalConfigurationDTO get() {
+        LOG.debug("Request to get the GlobalConfiguration");
+        return globalConfigurationMapper.toDto(getSingletonEntity());
     }
 
     @Override
@@ -79,9 +53,11 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
         LOG.debug("Request to partially update GlobalConfiguration : {}", globalConfigurationDTO);
 
         return globalConfigurationRepository
-            .findById(globalConfigurationDTO.getId())
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
             .map(existingGlobalConfiguration -> {
                 globalConfigurationMapper.partialUpdate(existingGlobalConfiguration, globalConfigurationDTO);
+                // The configuration is a singleton: keep its fixed identity even if the body carries another id.
+                existingGlobalConfiguration.setId(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
 
                 return existingGlobalConfiguration;
             })
@@ -89,25 +65,52 @@ public class GlobalConfigurationServiceImpl implements GlobalConfigurationServic
             .map(globalConfigurationMapper::toDto);
     }
 
-    @Override
-    public List<GlobalConfigurationDTO> findAll() {
-        LOG.debug("Request to get all GlobalConfigurations");
+    /**
+     * Loads the single configuration row by its fixed id, re-seeding it with the
+     * default values when it is missing.
+     *
+     * <p>Rows created before a parameter existed are healed in place: any null
+     * parameter is filled with its default and persisted so the legacy row stays
+     * valid (the domain fields are {@code @NotNull}).
+     */
+    private GlobalConfiguration getSingletonEntity() {
         return globalConfigurationRepository
-            .findAll()
-            .stream()
-            .map(globalConfigurationMapper::toDto)
-            .collect(Collectors.toCollection(LinkedList::new));
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+            .map(existing -> applyDefaults(existing) ? globalConfigurationRepository.save(existing) : existing)
+            .orElseGet(() -> {
+                LOG.warn("GlobalConfiguration row is missing, re-seeding it with the default values");
+                GlobalConfiguration globalConfiguration = new GlobalConfiguration();
+                globalConfiguration.setId(GlobalConfiguration.GLOBAL_CONFIGURATION_ID);
+                applyDefaults(globalConfiguration);
+                globalConfiguration.setCreatedBy(SecurityUtils.getCurrentUserLogin().orElse(Constants.SYSTEM));
+                globalConfiguration.setCreatedDate(Instant.now());
+                return globalConfigurationRepository.save(globalConfiguration);
+            });
     }
 
-    @Override
-    public Optional<GlobalConfigurationDTO> findOne(String id) {
-        LOG.debug("Request to get GlobalConfiguration : {}", id);
-        return globalConfigurationRepository.findById(id).map(globalConfigurationMapper::toDto);
-    }
-
-    @Override
-    public void delete(String id) {
-        LOG.debug("Request to delete GlobalConfiguration : {}", id);
-        globalConfigurationRepository.deleteById(id);
+    /**
+     * Fills every null parameter with its default value.
+     *
+     * @return {@code true} when at least one parameter was filled.
+     */
+    private boolean applyDefaults(GlobalConfiguration globalConfiguration) {
+        boolean changed = false;
+        if (globalConfiguration.getStudentJustificationDays() == null) {
+            globalConfiguration.setStudentJustificationDays(DEFAULT_STUDENT_JUSTIFICATION_DAYS);
+            changed = true;
+        }
+        if (globalConfiguration.getInstructorResponseDays() == null) {
+            globalConfiguration.setInstructorResponseDays(DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
+            changed = true;
+        }
+        if (globalConfiguration.getConsecutiveAbsenceAlertThreshold() == null) {
+            globalConfiguration.setConsecutiveAbsenceAlertThreshold(DEFAULT_CONSECUTIVE_ABSENCE_ALERT_THRESHOLD);
+            changed = true;
+        }
+        if (globalConfiguration.getAccumulatedAbsenceAlertThreshold() == null) {
+            globalConfiguration.setAccumulatedAbsenceAlertThreshold(DEFAULT_ACCUMULATED_ABSENCE_ALERT_THRESHOLD);
+            changed = true;
+        }
+        return changed;
     }
 }

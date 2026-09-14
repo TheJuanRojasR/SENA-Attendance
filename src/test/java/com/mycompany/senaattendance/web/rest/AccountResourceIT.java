@@ -25,6 +25,7 @@ import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
 import com.mycompany.senaattendance.web.rest.vm.ManagedUserVM;
 import com.mycompany.senaattendance.web.rest.vm.PasswordResetRequestVM;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -134,6 +135,49 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser(TEST_USER_LOGIN)
+    void testGetCurrentUserProfile() throws Exception {
+        // The user's login is fixed (not derived) so the @WithMockUser principal matches.
+        User accountUser = new User();
+        accountUser.setLogin(TEST_USER_LOGIN);
+        accountUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        accountUser.setEmail("john.doe@jhipster.com");
+        accountUser.setLangKey("en");
+        accountUser.setActivated(true);
+        userRepository.save(accountUser);
+
+        userProfileRepository.save(
+            new UserProfile()
+                .firstName("John")
+                .middleName("Michael")
+                .firstLastName("Doe")
+                .secondLastName("Smith")
+                .documentNumber(TEST_USER_LOGIN)
+                .phoneNumber("3000000000")
+                .user(accountUser)
+                .documentType(seededDocumentType())
+        );
+
+        restAccountMockMvc
+            .perform(get("/api/account/profile").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.firstName").value("John"))
+            .andExpect(jsonPath("$.firstLastName").value("Doe"))
+            .andExpect(jsonPath("$.documentNumber").value(TEST_USER_LOGIN))
+            .andExpect(jsonPath("$.phoneNumber").value("3000000000"))
+            .andExpect(jsonPath("$.documentType.id").exists())
+            .andExpect(jsonPath("$.user.login").value(TEST_USER_LOGIN))
+            .andExpect(jsonPath("$.user.email").value("john.doe@jhipster.com"));
+    }
+
+    @Test
+    @WithUnauthenticatedMockUser
+    void testGetCurrentUserProfileUnauthenticated() throws Exception {
+        restAccountMockMvc.perform(get("/api/account/profile").accept(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void testGetUnknownAccount() throws Exception {
         restAccountMockMvc.perform(get("/api/account").accept(MediaType.APPLICATION_PROBLEM_JSON)).andExpect(status().isUnauthorized());
     }
@@ -154,6 +198,7 @@ class AccountResourceIT {
         assertThat(createdUser.get().getPassword()).isNotEqualTo(VALID_PASSWORD);
         assertThat(passwordEncoder.matches(VALID_PASSWORD, createdUser.get().getPassword())).isTrue();
         assertThat(createdUser.get().isActivated()).isTrue();
+        assertThat(createdUser.get().isMustChangePassword()).isFalse();
         assertThat(createdUser.get().getAuthorities().stream().map(Authority::getName)).containsExactlyInAnyOrder(
             AuthoritiesConstants.USER,
             AuthoritiesConstants.APPRENTICE
@@ -172,13 +217,38 @@ class AccountResourceIT {
     }
 
     @Test
+    void testRegisterInactiveDocumentType() throws Exception {
+        String documentNumber = "1000000021";
+        DocumentType inactiveType = new DocumentType();
+        inactiveType.setName("Inactive Document Type");
+        inactiveType.setInitials("IX");
+        inactiveType.setIsActive(false);
+        inactiveType = documentTypeRepository.save(inactiveType);
+
+        try {
+            ManagedUserVM invalidUser = validRegisterVM(documentNumber, "register-inactive-doc-type@example.com");
+            invalidUser.setDocumentTypeId(inactiveType.getId());
+
+            restAccountMockMvc
+                .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeInactive"));
+
+            assertThat(userRepository.findOneByLogin(loginFor(inactiveType.getId(), documentNumber))).isEmpty();
+        } finally {
+            documentTypeRepository.delete(inactiveType);
+        }
+    }
+
+    @Test
     void testRegisterInvalidPassword() throws Exception {
         ManagedUserVM invalidUser = validRegisterVM("1000000003", "register-invalid-password@example.com");
         invalidUser.setPassword("password"); // no uppercase / digit / symbol -> fails PASSWORD_PATTERN
 
         restAccountMockMvc
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
 
         assertThat(userRepository.findOneByLogin(expectedLogin("1000000003"))).isEmpty();
     }
@@ -242,11 +312,81 @@ class AccountResourceIT {
 
         restAccountMockMvc
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentnumberexists"));
 
         Optional<User> testUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
         assertThat(testUser).isPresent();
         assertThat(testUser.get().getEmail()).isEqualTo("duplicate-document@example.com");
+    }
+
+    @Test
+    void testRegisterSameDocumentDeactivatedAccountIsNotDeleted() throws Exception {
+        String documentNumber = "1000000017";
+        String login = expectedLogin(documentNumber);
+        String deactivatedEmail = "deactivated-1000000017@example.com";
+
+        // A deactivated account for the same document (type + number) already exists.
+        User deactivatedUser = new User();
+        deactivatedUser.setLogin(login);
+        deactivatedUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        deactivatedUser.setEmail(deactivatedEmail);
+        deactivatedUser.setActivated(false);
+        deactivatedUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(deactivatedUser);
+
+        ManagedUserVM secondUser = validRegisterVM(documentNumber, "re-register-deactivated@example.com");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentnumberinactive"));
+
+        Optional<User> stillThere = userRepository.findOneByLogin(login);
+        assertThat(stillThere).isPresent();
+        assertThat(stillThere.get().isActivated()).isFalse();
+        assertThat(stillThere.get().getEmail()).isEqualTo(deactivatedEmail);
+    }
+
+    @Test
+    void testRegisterDuplicateEmailDeactivatedAccountIsNotDeleted() throws Exception {
+        String deactivatedDocumentNumber = "1000000018";
+        String deactivatedLogin = expectedLogin(deactivatedDocumentNumber);
+        String sharedEmail = "deactivated-shared-email@example.com";
+
+        User deactivatedUser = new User();
+        deactivatedUser.setLogin(deactivatedLogin);
+        deactivatedUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        deactivatedUser.setEmail(sharedEmail);
+        deactivatedUser.setActivated(false);
+        deactivatedUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(deactivatedUser);
+
+        // Different document (1000000019) but the email already belongs to the deactivated account.
+        ManagedUserVM secondUser = validRegisterVM("1000000019", sharedEmail);
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
+            .andExpect(status().isBadRequest());
+
+        Optional<User> stillThere = userRepository.findOneByLogin(deactivatedLogin);
+        assertThat(stillThere).isPresent();
+        assertThat(stillThere.get().getEmail()).isEqualTo(sharedEmail);
+        assertThat(userRepository.findOneByLogin(expectedLogin("1000000019"))).isEmpty();
     }
 
     @Test
@@ -270,6 +410,56 @@ class AccountResourceIT {
         assertThat(userProfileRepository.findByDocumentTypeAndDocumentNumber(secondDocumentTypeId(), documentNumber)).isPresent();
         assertThat(userRepository.findOneByLogin(loginFor(validDocumentTypeId(), documentNumber))).isPresent();
         assertThat(userRepository.findOneByLogin(loginFor(secondDocumentTypeId(), documentNumber))).isPresent();
+    }
+
+    @Test
+    void testRegisterDuplicateDocumentNumberFromProfileLeavesNoPartialUser() throws Exception {
+        String conflictingDocumentNumber = "1000000020";
+        String otherDocumentNumber = "1000000099";
+
+        // Simulate inconsistent legacy data: a UserProfile already owns (valid type, conflictingDocumentNumber)
+        // but it points to a DIFFERENT user whose login derives from another document number.
+        User otherUser = new User();
+        otherUser.setLogin(expectedLogin(otherDocumentNumber));
+        otherUser.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        otherUser.setEmail("other-partial-user@example.com");
+        otherUser.setActivated(true);
+        otherUser.setAuthorities(
+            new HashSet<>(
+                Set.of(
+                    authorityRepository.findById(AuthoritiesConstants.USER).orElseThrow(),
+                    authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow()
+                )
+            )
+        );
+        userRepository.save(otherUser);
+
+        UserProfile existingProfile = userProfileRepository.save(
+            new UserProfile()
+                .firstName("Other")
+                .firstLastName("User")
+                .documentNumber(conflictingDocumentNumber)
+                .phoneNumber("3001234567")
+                .user(otherUser)
+                .documentType(seededDocumentType())
+        );
+
+        ManagedUserVM conflictingUser = validRegisterVM(conflictingDocumentNumber, "no-partial-user@example.com");
+
+        // The profile duplicate check must fire BEFORE any write, so registration fails with 400...
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(conflictingUser)))
+            .andExpect(status().isBadRequest());
+
+        // ...and no orphan User is left behind for the requested document.
+        assertThat(userRepository.findOneByLogin(expectedLogin(conflictingDocumentNumber))).isEmpty();
+
+        // The pre-existing profile is untouched and still points to the other user.
+        UserProfile unchangedProfile = userProfileRepository
+            .findByDocumentTypeAndDocumentNumber(validDocumentTypeId(), conflictingDocumentNumber)
+            .orElseThrow();
+        assertThat(unchangedProfile.getId()).isEqualTo(existingProfile.getId());
+        assertThat(unchangedProfile.getUser().getId()).isEqualTo(otherUser.getId());
     }
 
     @Test
@@ -297,6 +487,110 @@ class AccountResourceIT {
             AuthoritiesConstants.USER,
             AuthoritiesConstants.APPRENTICE
         );
+    }
+
+    @Test
+    void testRegisterDocumentNumberNotNumeric() throws Exception {
+        ManagedUserVM invalidUser = validRegisterVM("10000000A1", "register-doc-nonnumeric@example.com");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testRegisterPhoneNumberInvalid() throws Exception {
+        ManagedUserVM invalidUser = validRegisterVM("1000000011", "register-phone-invalid@example.com");
+        invalidUser.setPhoneNumber("300123456"); // 9 digits -> fails @Pattern("\\d{10}")
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testRegisterEmailMissing() throws Exception {
+        ManagedUserVM invalidUser = validRegisterVM("1000000012", "register-email-missing@example.com");
+        invalidUser.setEmail(null);
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testRegisterLangKeyHonored() throws Exception {
+        String documentNumber = "1000000013";
+        ManagedUserVM validUser = validRegisterVM(documentNumber, "register-lang-key-honored@example.com");
+        validUser.setLangKey("en");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+            .andExpect(status().isCreated());
+
+        Optional<User> createdUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
+        assertThat(createdUser).isPresent();
+        assertThat(createdUser.orElseThrow().getLangKey()).isEqualTo("en");
+    }
+
+    @Test
+    void testRegisterLangKeyDefaultsWhenNull() throws Exception {
+        String documentNumber = "1000000014";
+        ManagedUserVM validUser = validRegisterVM(documentNumber, "register-lang-key-default@example.com");
+        validUser.setLangKey(null);
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+            .andExpect(status().isCreated());
+
+        Optional<User> createdUser = userRepository.findOneByLogin(expectedLogin(documentNumber));
+        assertThat(createdUser).isPresent();
+        assertThat(createdUser.orElseThrow().getLangKey()).isEqualTo(Constants.DEFAULT_LANGUAGE);
+    }
+
+    @Test
+    void testRegisterTrimsPersistedNames() throws Exception {
+        String documentNumber = "1000000015";
+        ManagedUserVM validUser = validRegisterVM(documentNumber, "register-trimmed-names@example.com");
+        validUser.setFirstName("  Juan  ");
+        validUser.setMiddleName("  Carlos ");
+        validUser.setFirstLastName(" Perez  ");
+        validUser.setSecondLastName("  Gomez  ");
+
+        restAccountMockMvc
+            .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+            .andExpect(status().isCreated());
+
+        UserProfile createdProfile = userProfileRepository.findByDocumentNumber(documentNumber).orElseThrow();
+        assertThat(createdProfile.getFirstName()).isEqualTo("Juan");
+        assertThat(createdProfile.getMiddleName()).isEqualTo("Carlos");
+        assertThat(createdProfile.getFirstLastName()).isEqualTo("Perez");
+        assertThat(createdProfile.getSecondLastName()).isEqualTo("Gomez");
+    }
+
+    @Test
+    void testRegisterFailsWhenApprenticeAuthorityMissing() throws Exception {
+        String documentNumber = "1000000016";
+        String email = "register-missing-apprentice@example.com";
+
+        // The APPRENTICE authority is mandatory for a self-registration. Remove it to prove
+        // registerUser fails fast instead of silently persisting a ROLE_USER-only user.
+        Optional<Authority> apprenticeAuthority = authorityRepository.findById(AuthoritiesConstants.APPRENTICE);
+        assertThat(apprenticeAuthority).isPresent();
+        authorityRepository.deleteById(AuthoritiesConstants.APPRENTICE);
+
+        try {
+            ManagedUserVM validUser = validRegisterVM(documentNumber, email);
+
+            restAccountMockMvc
+                .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(validUser)))
+                .andExpect(status().isBadRequest());
+
+            assertThat(userRepository.findOneByLogin(expectedLogin(documentNumber))).isEmpty();
+        } finally {
+            // restore the authority: the @AfterEach of this class only deletes profiles and users
+            authorityRepository.save(apprenticeAuthority.orElseThrow());
+        }
     }
 
     private static ManagedUserVM createInvalidUser(String login, String password, String email, boolean activated) {
@@ -461,6 +755,167 @@ class AccountResourceIT {
     }
 
     @Test
+    @WithMockUser("save-account-image-url-ignored")
+    void testSaveAccountIgnoresImageUrl() throws Exception {
+        User user = persistedAccountUser("save-account-image-url-ignored");
+        String originalImageUrl = "http://original.example.com/avatar.png";
+        user.setImageUrl(originalImageUrl);
+        userRepository.save(user);
+        persistedAccountProfile(user, "SAVEIMG1");
+
+        // imageUrl is no longer part of the self-service contract: it must be ignored by
+        // deserialization and never reach the persisted User.imageUrl.
+        restAccountMockMvc
+            .perform(
+                patch("/api/account")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"imageUrl\":\"http://attacker.example.com/avatar.png\"}")
+            )
+            .andExpect(status().isOk());
+
+        User unchangedUser = userRepository.findOneByLogin("save-account-image-url-ignored").orElseThrow();
+        assertThat(unchangedUser.getImageUrl()).isEqualTo(originalImageUrl);
+
+        userService.deleteUser("save-account-image-url-ignored");
+    }
+
+    @Test
+    @WithMockUser("save-account-document-number")
+    void testSaveAccountDocumentNumberImmutable() throws Exception {
+        User user = persistedAccountUser("save-account-document-number");
+        UserProfile profile = persistedAccountProfile(user, "SAVEDOCN1");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setFirstName("Changed");
+        updateVM.setDocumentNumber("9999999999");
+
+        // Manipulating the request with a document number must be rejected (E3).
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentimmutable"));
+
+        // The rejection happens before any write: document and other fields stay untouched.
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getId()).isEqualTo(profile.getId());
+        assertThat(unchangedProfile.getDocumentNumber()).isEqualTo("SAVEDOCN1");
+        assertThat(unchangedProfile.getFirstName()).isEqualTo("Juan");
+
+        userService.deleteUser("save-account-document-number");
+    }
+
+    @Test
+    @WithMockUser("save-account-document-type")
+    void testSaveAccountDocumentTypeImmutable() throws Exception {
+        User user = persistedAccountUser("save-account-document-type");
+        UserProfile profile = persistedAccountProfile(user, "SAVEDOCT1");
+        String originalDocumentTypeId = profile.getDocumentType().getId();
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setFirstName("Changed");
+        updateVM.setDocumentTypeId(secondDocumentTypeId());
+
+        // Manipulating the request with a document type must be rejected (E3).
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentimmutable"));
+
+        // The rejection happens before any write: document and other fields stay untouched.
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getId()).isEqualTo(profile.getId());
+        assertThat(unchangedProfile.getDocumentType().getId()).isEqualTo(originalDocumentTypeId);
+        assertThat(unchangedProfile.getFirstName()).isEqualTo("Juan");
+
+        userService.deleteUser("save-account-document-type");
+    }
+
+    @Test
+    @WithMockUser("save-account-valid-phone")
+    void testSaveAccountValidPhone() throws Exception {
+        User user = persistedAccountUser("save-account-valid-phone");
+        persistedAccountProfile(user, "SAVEPH1");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setPhoneNumber("3105551234"); // exactly 10 digits -> valid
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isOk());
+
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getPhoneNumber()).isEqualTo("3105551234");
+
+        userService.deleteUser("save-account-valid-phone");
+    }
+
+    @Test
+    @WithMockUser("save-account-short-phone")
+    void testSaveAccountPhoneTooShort() throws Exception {
+        User user = persistedAccountUser("save-account-short-phone");
+        persistedAccountProfile(user, "SAVEPH2");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setPhoneNumber("310555123"); // 9 digits -> fails @Pattern("\\d{10}")
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("phoneNumber"));
+
+        // rejected before the service runs -> persisted value is untouched
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getPhoneNumber()).isEqualTo("3001234567");
+
+        userService.deleteUser("save-account-short-phone");
+    }
+
+    @Test
+    @WithMockUser("save-account-nonnumeric-phone")
+    void testSaveAccountPhoneNonNumeric() throws Exception {
+        User user = persistedAccountUser("save-account-nonnumeric-phone");
+        persistedAccountProfile(user, "SAVEPH3");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setPhoneNumber("31055A1234"); // non-numeric -> fails @Pattern("\\d{10}")
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("phoneNumber"));
+
+        UserProfile unchangedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(unchangedProfile.getPhoneNumber()).isEqualTo("3001234567");
+
+        userService.deleteUser("save-account-nonnumeric-phone");
+    }
+
+    @Test
+    @WithMockUser("save-account-clear-optional-names")
+    void testSaveAccountClearOptionalNames() throws Exception {
+        User user = persistedAccountUser("save-account-clear-optional-names");
+        UserProfile profile = persistedAccountProfile(user, "SAVENA1");
+        assertThat(profile.getMiddleName()).isEqualTo("Carlos");
+        assertThat(profile.getSecondLastName()).isEqualTo("Gomez");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setMiddleName("");
+        updateVM.setSecondLastName("");
+
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isOk());
+
+        UserProfile updatedProfile = userProfileRepository.findOneByUserId(user.getId()).orElseThrow();
+        assertThat(updatedProfile.getMiddleName()).isNull();
+        assertThat(updatedProfile.getSecondLastName()).isNull();
+
+        userService.deleteUser("save-account-clear-optional-names");
+    }
+
+    @Test
     @WithMockUser("save-invalid-email-user")
     void testSaveInvalidEmail() throws Exception {
         User user = persistedAccountUser("save-invalid-email-user");
@@ -526,6 +981,8 @@ class AccountResourceIT {
     @WithMockUser("save-account-change-password")
     void testSaveAccountChangePassword() throws Exception {
         User user = persistedAccountUser("save-account-change-password");
+        user.setMustChangePassword(true);
+        userRepository.save(user);
         persistedAccountProfile(user, "SAVEPW1");
 
         AccountUpdateVM updateVM = new AccountUpdateVM();
@@ -538,6 +995,7 @@ class AccountResourceIT {
 
         User updatedUser = userRepository.findOneByLogin("save-account-change-password").orElseThrow();
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
 
         userService.deleteUser("save-account-change-password");
     }
@@ -552,16 +1010,85 @@ class AccountResourceIT {
         updateVM.setCurrentPassword("WrongPassw0rd!");
         updateVM.setNewPassword("NewPassw0rd!");
 
-        // wrong currentPassword -> InvalidPasswordException (400), password must not change
+        // wrong currentPassword -> BadRequestAlertException (400, error.currentpasswordinvalid), password must not change
         restAccountMockMvc
             .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.currentpasswordinvalid"));
 
         User updatedUser = userRepository.findOneByLogin("save-account-change-password-wrong").orElseThrow();
         assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
         assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("save-account-change-password-wrong");
+    }
+
+    @Test
+    @WithMockUser("save-account-change-password-same")
+    void testSaveAccountChangePasswordSameAsCurrent() throws Exception {
+        User user = persistedAccountUser("save-account-change-password-same");
+        persistedAccountProfile(user, "SAVEPW3");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword(VALID_PASSWORD);
+        updateVM.setNewPassword(VALID_PASSWORD);
+
+        // new password equals the current one -> BadRequestAlertException (400, error.samepassword)
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.samepassword"));
+
+        User updatedUser = userRepository.findOneByLogin("save-account-change-password-same").orElseThrow();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-change-password-same");
+    }
+
+    @Test
+    @WithMockUser("save-account-policy-password")
+    void testSaveAccountChangePasswordPolicyViolation() throws Exception {
+        User user = persistedAccountUser("save-account-policy-password");
+        persistedAccountProfile(user, "SAVEPW4");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword(VALID_PASSWORD);
+        updateVM.setNewPassword("12345678"); // 8 chars (length-valid) but missing classes -> E5
+
+        // the policy failure carries the dedicated business key instead of a generic error
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
+
+        User updatedUser = userRepository.findOneByLogin("save-account-policy-password").orElseThrow();
+        assertThat(passwordEncoder.matches("12345678", updatedUser.getPassword())).isFalse();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-policy-password");
+    }
+
+    @Test
+    @WithMockUser("save-account-short-current-password")
+    void testSaveAccountChangePasswordShortCurrentReachesService() throws Exception {
+        User user = persistedAccountUser("save-account-short-current-password");
+        persistedAccountProfile(user, "SAVEPW5");
+
+        AccountUpdateVM updateVM = new AccountUpdateVM();
+        updateVM.setCurrentPassword("abc"); // below the old @Size(8) floor -> must reach the service
+        updateVM.setNewPassword("NewPassw0rd!");
+
+        // removing the VM-level @Size turns this into E4 (error.currentpasswordinvalid), not error.validation
+        restAccountMockMvc
+            .perform(patch("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updateVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.currentpasswordinvalid"));
+
+        User updatedUser = userRepository.findOneByLogin("save-account-short-current-password").orElseThrow();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isFalse();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("save-account-short-current-password");
     }
 
     @Test
@@ -580,7 +1107,8 @@ class AccountResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(new PasswordChangeDTO("1" + currentPassword, "new password")))
             )
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.currentpasswordinvalid"));
 
         User updatedUser = userRepository.findOneByLogin("change-password-wrong-existing-password").orElse(null);
         assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isFalse();
@@ -603,14 +1131,91 @@ class AccountResourceIT {
             .perform(
                 post("/api/account/change-password")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "new password")))
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "NewPassw0rd!")))
             )
             .andExpect(status().isOk());
 
         User updatedUser = userRepository.findOneByLogin("change-password").orElse(null);
-        assertThat(passwordEncoder.matches("new password", updatedUser.getPassword())).isTrue();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
 
         userService.deleteUser("change-password");
+    }
+
+    @Test
+    @WithMockUser("change-password-policy")
+    void testChangePasswordPolicyViolationLengthValid() throws Exception {
+        User user = new User();
+        String currentPassword = RandomStringUtils.insecure().nextAlphanumeric(60);
+        user.setPassword(passwordEncoder.encode(currentPassword));
+        user.setLogin("change-password-policy");
+        user.setEmail("change-password-policy@example.com");
+        userRepository.save(user);
+
+        // 8 chars (length-valid) but missing uppercase/special chars -> policy violation (E5)
+        restAccountMockMvc
+            .perform(
+                post("/api/account/change-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "12345678")))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
+
+        User updatedUser = userRepository.findOneByLogin("change-password-policy").orElse(null);
+        assertThat(updatedUser.getPassword()).isEqualTo(user.getPassword());
+
+        userService.deleteUser("change-password-policy");
+    }
+
+    @Test
+    @WithMockUser("change-password-same")
+    void testChangePasswordSameAsCurrent() throws Exception {
+        User user = new User();
+        user.setPassword(passwordEncoder.encode(VALID_PASSWORD));
+        user.setLogin("change-password-same");
+        user.setEmail("change-password-same@example.com");
+        userRepository.save(user);
+
+        // new password equals the current one -> BadRequestAlertException (E6, error.samepassword)
+        restAccountMockMvc
+            .perform(
+                post("/api/account/change-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(VALID_PASSWORD, VALID_PASSWORD)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.samepassword"));
+
+        User updatedUser = userRepository.findOneByLogin("change-password-same").orElse(null);
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("change-password-same");
+    }
+
+    @Test
+    @WithMockUser("change-password-must-change")
+    void testChangePasswordClearsMustChangePassword() throws Exception {
+        User user = new User();
+        String currentPassword = RandomStringUtils.insecure().nextAlphanumeric(60);
+        user.setPassword(passwordEncoder.encode(currentPassword));
+        user.setLogin("change-password-must-change");
+        user.setEmail("change-password-must-change@example.com");
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/change-password")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(new PasswordChangeDTO(currentPassword, "NewPassw0rd!")))
+            )
+            .andExpect(status().isOk());
+
+        User updatedUser = userRepository.findOneByLogin("change-password-must-change").orElse(null);
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
+        assertThat(passwordEncoder.matches("NewPassw0rd!", updatedUser.getPassword())).isTrue();
+
+        userService.deleteUser("change-password-must-change");
     }
 
     @Test
@@ -759,13 +1364,14 @@ class AccountResourceIT {
         user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
         user.setLogin("finish-password-reset");
         user.setEmail("finish-password-reset@example.com");
+        user.setMustChangePassword(true);
         user.setResetDate(Instant.now().plusSeconds(60));
         user.setResetKey("reset key");
         userRepository.save(user);
 
         KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
         keyAndPassword.setKey(user.getResetKey());
-        keyAndPassword.setNewPassword("new password");
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
 
         restAccountMockMvc
             .perform(
@@ -777,8 +1383,40 @@ class AccountResourceIT {
 
         User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
         assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isTrue();
+        // The user chose their own password, so the forced-change flag is cleared.
+        assertThat(updatedUser.isMustChangePassword()).isFalse();
 
         userService.deleteUser("finish-password-reset");
+    }
+
+    @Test
+    void testFinishPasswordResetWithWeakPassword() throws Exception {
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-weak");
+        user.setEmail("finish-password-reset-weak@example.com");
+        user.setResetDate(Instant.now().plusSeconds(60));
+        user.setResetKey("reset key weak");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setKey(user.getResetKey());
+        // Length-valid (8) but class-invalid: no uppercase, lowercase or special character.
+        keyAndPassword.setNewPassword("12345678");
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidpassword"));
+
+        User updatedUser = userRepository.findOneByLogin(user.getLogin()).orElse(null);
+        assertThat(passwordEncoder.matches(keyAndPassword.getNewPassword(), updatedUser.getPassword())).isFalse();
+
+        userService.deleteUser("finish-password-reset-weak");
     }
 
     @Test
@@ -821,6 +1459,96 @@ class AccountResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(keyAndPassword))
             )
-            .andExpect(status().isInternalServerError());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkinvalid"));
+    }
+
+    @Test
+    void testFinishPasswordResetMissingKeyReturnsInvalidLink() throws Exception {
+        // A user with no reset key is what makes a null-key lookup ambiguous, so seed one.
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-missing-key");
+        user.setEmail("finish-password-reset-missing-key@example.com");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkinvalid"));
+    }
+
+    @Test
+    void testFinishPasswordResetWithExpiredKey() throws Exception {
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-expired");
+        user.setEmail("finish-password-reset-expired@example.com");
+        user.setResetDate(Instant.now().minus(31, ChronoUnit.MINUTES));
+        user.setResetKey("reset key expired");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setKey(user.getResetKey());
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkexpired"));
+
+        User unchangedUser = userRepository.findOneByLogin(user.getLogin()).orElseThrow();
+        assertThat(passwordEncoder.matches(VALID_PASSWORD, unchangedUser.getPassword())).isFalse();
+
+        userService.deleteUser("finish-password-reset-expired");
+    }
+
+    @Test
+    void testFinishPasswordResetWithUsedKey() throws Exception {
+        User user = new User();
+        user.setPassword(RandomStringUtils.insecure().nextAlphanumeric(60));
+        user.setLogin("finish-password-reset-used");
+        user.setEmail("finish-password-reset-used@example.com");
+        user.setResetDate(Instant.now().plusSeconds(60));
+        user.setResetKey("reset key used");
+        userRepository.save(user);
+
+        KeyAndPasswordVM keyAndPassword = new KeyAndPasswordVM();
+        keyAndPassword.setKey(user.getResetKey());
+        keyAndPassword.setNewPassword(VALID_PASSWORD);
+
+        // First use consumes the link (resetDate cleared, key kept).
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(keyAndPassword))
+            )
+            .andExpect(status().isOk());
+
+        // Reusing the same link must report "already used" instead of "not valid".
+        KeyAndPasswordVM reuse = new KeyAndPasswordVM();
+        reuse.setKey(user.getResetKey());
+        reuse.setNewPassword("Another#2026");
+
+        restAccountMockMvc
+            .perform(
+                post("/api/account/reset-password/finish").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(reuse))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.resetlinkused"));
+
+        userService.deleteUser("finish-password-reset-used");
     }
 }

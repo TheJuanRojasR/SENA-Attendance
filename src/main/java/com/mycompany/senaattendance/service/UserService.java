@@ -15,6 +15,8 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.UserDTO;
+import com.mycompany.senaattendance.service.dto.UserProfileDTO;
+import com.mycompany.senaattendance.service.mapper.UserProfileMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentNumberAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNotFoundException;
@@ -54,6 +56,11 @@ public class UserService {
      */
     private static final String PROTECTED_ADMIN_LOGIN = "admin";
 
+    /**
+     * How long a password-reset link stays valid after it is requested.
+     */
+    private static final long RESET_KEY_VALIDITY_MINUTES = 30;
+
     private final UserRepository userRepository;
 
     private final PasswordEncoder passwordEncoder;
@@ -66,13 +73,16 @@ public class UserService {
 
     private final ClassSectionRepository classSectionRepository;
 
+    private final UserProfileMapper userProfileMapper;
+
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         AuthorityRepository authorityRepository,
         UserProfileRepository userProfileRepository,
         DocumentTypeRepository documentTypeRepository,
-        ClassSectionRepository classSectionRepository
+        ClassSectionRepository classSectionRepository,
+        UserProfileMapper userProfileMapper
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -80,6 +90,7 @@ public class UserService {
         this.userProfileRepository = userProfileRepository;
         this.documentTypeRepository = documentTypeRepository;
         this.classSectionRepository = classSectionRepository;
+        this.userProfileMapper = userProfileMapper;
     }
 
     public Optional<User> activateRegistration(String key) {
@@ -94,18 +105,37 @@ public class UserService {
         });
     }
 
-    public Optional<User> completePasswordReset(String newPassword, String key) {
+    public User completePasswordReset(String newPassword, String key) {
         LOG.debug("Reset user password for reset key {}", key);
-        return userRepository
+        // A missing key must resolve as an invalid link: findOneByResetKey(null) would otherwise
+        // match users that never requested a reset and fail with IncorrectResultSizeDataAccessException.
+        if (key == null || key.isBlank()) {
+            throw new BadRequestAlertException("Reset link is not valid", "account", "resetlinkinvalid");
+        }
+        User user = userRepository
             .findOneByResetKey(key)
-            .filter(user -> user.getResetDate().isAfter(Instant.now().minus(1, ChronoUnit.DAYS)))
-            .map(user -> {
-                user.setPassword(passwordEncoder.encode(newPassword));
-                user.setResetKey(null);
-                user.setResetDate(null);
-                userRepository.save(user);
-                return user;
-            });
+            .orElseThrow(() -> new BadRequestAlertException("Reset link is not valid", "account", "resetlinkinvalid"));
+
+        // A found key with no reset date means the link was already consumed.
+        if (user.getResetDate() == null) {
+            throw new BadRequestAlertException("Reset link has already been used", "account", "resetlinkused");
+        }
+
+        if (!user.getResetDate().isAfter(Instant.now().minus(RESET_KEY_VALIDITY_MINUTES, ChronoUnit.MINUTES))) {
+            throw new BadRequestAlertException("Reset link has expired", "account", "resetlinkexpired");
+        }
+
+        if (!PASSWORD_PATTERN.matcher(newPassword).matches()) {
+            throw new InvalidPasswordException();
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        // The user chose their own password, so any forced-change flag no longer applies.
+        user.setMustChangePassword(false);
+        // Keep the key so a later reuse resolves to "already used" instead of "not valid".
+        user.setResetDate(null);
+        userRepository.save(user);
+        return user;
     }
 
     public Optional<User> requestPasswordReset(String documentTypeId, String documentNumber) {
@@ -122,72 +152,79 @@ public class UserService {
     }
 
     public User registerUser(ManagedUserVM userVM, String password) {
+        if (userVM.getEmail() == null || userVM.getEmail().isBlank()) {
+            throw new BadRequestAlertException("Email is required", "userManagement", "emailrequired");
+        }
+
+        String documentNumber = userVM.getDocumentNumber().trim();
+
         // ------- RESOLVE DOCUMENT TYPE FIRST (login is derived from it) -------
         DocumentType documentType = documentTypeRepository
             .findById(userVM.getDocumentTypeId())
             .orElseThrow(() -> new DocumentTypeNotFoundException("Document type not found"));
 
-        String login = buildLogin(documentType, userVM.getDocumentNumber());
+        if (Boolean.FALSE.equals(documentType.getIsActive())) {
+            throw new BadRequestAlertException("Document type is inactive", "userProfile", "documentTypeInactive");
+        }
+
+        String login = buildLogin(documentType, documentNumber);
 
         if (login.isEmpty()) {
             throw new IllegalArgumentException("Document number cannot be null or empty");
         }
 
         userRepository.findOneByLogin(login).ifPresent(existingUser -> {
-            boolean removed = removeNonActivatedUser(existingUser);
-            if (!removed) {
-                throw new UsernameAlreadyUsedException();
+            if (existingUser.isActivated()) {
+                throw new DocumentNumberAlreadyUsedException("Document number is already in use");
             }
+            throw new BadRequestAlertException(
+                "Document number belongs to a deactivated account",
+                "userManagement",
+                "documentnumberinactive"
+            );
         });
 
-        userRepository.findOneByEmailIgnoreCase(userVM.getEmail()).ifPresent(existingUser -> {
-            boolean removed = removeNonActivatedUser(existingUser);
-            if (!removed) {
-                throw new EmailAlreadyUsedException();
-            }
+        userRepository.findOneByEmailIgnoreCase(userVM.getEmail()).ifPresent(existing -> {
+            throw new EmailAlreadyUsedException();
         });
 
-        User newUser = new User();
+        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), documentNumber).isPresent()) {
+            throw new DocumentNumberAlreadyUsedException("Document number is already in use for this document type");
+        }
 
         if (!password.matches(PASSWORD_PATTERN.pattern())) {
             throw new InvalidPasswordException();
         }
 
+        User newUser = new User();
+
         String encryptedPassword = passwordEncoder.encode(password);
         newUser.setLogin(login);
 
         newUser.setPassword(encryptedPassword);
-        if (userVM.getEmail() != null) {
-            newUser.setEmail(userVM.getEmail().toLowerCase());
-        }
+        newUser.setEmail(userVM.getEmail().toLowerCase());
         newUser.setImageUrl(userVM.getImageUrl());
 
-        if (userVM.getLangKey() != null) {
-            newUser.setLangKey(Constants.DEFAULT_LANGUAGE);
-        } else {
-            newUser.setLangKey(userVM.getLangKey());
-        }
+        newUser.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
 
         newUser.setActivated(true);
-        Set<Authority> authorities = new HashSet<>();
-        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
-        authorityRepository.findById(AuthoritiesConstants.APPRENTICE).ifPresent(authorities::add);
-        newUser.setAuthorities(authorities);
+        newUser.setMustChangePassword(false);
+        newUser.setAuthorities(buildAuthorities(AuthoritiesConstants.APPRENTICE));
         userRepository.save(newUser);
 
         // ------- CREATE USER PROFILE -------
         UserProfile userProfile = new UserProfile();
 
-        if (userProfileRepository.findByDocumentTypeAndDocumentNumber(documentType.getId(), userVM.getDocumentNumber()).isPresent()) {
-            throw new DocumentNumberAlreadyUsedException("Document number is already in use for this document type");
+        userProfile.setFirstName(userVM.getFirstName().trim());
+        if (userVM.getMiddleName() != null) {
+            userProfile.setMiddleName(userVM.getMiddleName().trim());
         }
-
-        userProfile.setFirstName(userVM.getFirstName());
-        userProfile.setMiddleName(userVM.getMiddleName());
-        userProfile.setFirstLastName(userVM.getFirstLastName());
-        userProfile.setSecondLastName(userVM.getSecondLastName());
-        userProfile.setDocumentNumber(userVM.getDocumentNumber());
-        userProfile.setPhoneNumber(userVM.getPhoneNumber());
+        userProfile.setFirstLastName(userVM.getFirstLastName().trim());
+        if (userVM.getSecondLastName() != null) {
+            userProfile.setSecondLastName(userVM.getSecondLastName().trim());
+        }
+        userProfile.setDocumentNumber(documentNumber);
+        userProfile.setPhoneNumber(userVM.getPhoneNumber().trim());
 
         userProfile.setUser(newUser);
         userProfile.setDocumentType(documentType);
@@ -196,14 +233,6 @@ public class UserService {
 
         LOG.debug("Created Information for User: {}", newUser);
         return newUser;
-    }
-
-    private boolean removeNonActivatedUser(User existingUser) {
-        if (existingUser.isActivated()) {
-            return false;
-        }
-        userRepository.delete(existingUser);
-        return true;
     }
 
     @Transactional
@@ -237,6 +266,7 @@ public class UserService {
         user.setImageUrl(null);
         user.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
         user.setActivated(true);
+        user.setMustChangePassword(true);
 
         user.setAuthorities(buildAuthorities(userVM.getRole()));
 
@@ -526,37 +556,27 @@ public class UserService {
         );
     }
 
-    /**
-     * Update basic information (email, language) for the current user.
-     *
-     * @param email     email id of user.
-     * @param langKey   language key.
-     * @param imageUrl  image URL of user.
-     */
-    public void updateUser(String email, String langKey, String imageUrl) {
-        SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .ifPresent(user -> {
-                if (email != null) {
-                    user.setEmail(email.toLowerCase());
-                }
-                user.setLangKey(langKey);
-                user.setImageUrl(imageUrl);
-                userRepository.save(user);
-                LOG.debug("Changed Information for User: {}", user);
-            });
-    }
-
     public void changePassword(String currentClearTextPassword, String newPassword) {
         SecurityUtils.getCurrentUserLogin()
             .flatMap(userRepository::findOneByLogin)
             .ifPresent(user -> {
                 String currentEncryptedPassword = user.getPassword();
                 if (!passwordEncoder.matches(currentClearTextPassword, currentEncryptedPassword)) {
+                    throw new BadRequestAlertException("Current password is incorrect", "userManagement", "currentpasswordinvalid");
+                }
+                if (!PASSWORD_PATTERN.matcher(newPassword).matches()) {
                     throw new InvalidPasswordException();
+                }
+                if (passwordEncoder.matches(newPassword, currentEncryptedPassword)) {
+                    throw new BadRequestAlertException(
+                        "New password must be different from the current one",
+                        "userManagement",
+                        "samepassword"
+                    );
                 }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
+                user.setMustChangePassword(false);
                 userRepository.save(user);
                 LOG.debug("Changed password for User: {}", user);
             });
@@ -576,6 +596,18 @@ public class UserService {
 
     public Optional<User> getUserWithAuthorities() {
         return SecurityUtils.getCurrentUserLogin().flatMap(userRepository::findOneByLogin);
+    }
+
+    /**
+     * Gets the profile of the current authenticated user.
+     *
+     * @return the current user's profile, or empty when the user or their profile does not exist.
+     */
+    public Optional<UserProfileDTO> getCurrentUserProfile() {
+        LOG.debug("Request to get current user's profile");
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .flatMap(user -> userProfileRepository.findOneByUserId(user.getId()).map(userProfileMapper::toDto));
     }
 
     /**
@@ -605,7 +637,7 @@ public class UserService {
 
     /**
      * Updates the current user's own account information:
-     * email, langKey, imageUrl and the associated UserProfile names/phone.
+     * email, langKey and the associated UserProfile names/phone.
      * Optionally changes the password when newPassword is provided.
      */
     public void updateOwnAccount(AccountUpdateVM accountUpdateVM) {
@@ -614,6 +646,10 @@ public class UserService {
         User user = SecurityUtils.getCurrentUserLogin()
             .flatMap(userRepository::findOneByLogin)
             .orElseThrow(() -> new BadRequestAlertException("Current user not found", "user", "notfound"));
+
+        if (accountUpdateVM.getDocumentTypeId() != null || accountUpdateVM.getDocumentNumber() != null) {
+            throw new BadRequestAlertException("The document cannot be modified", "userProfile", "documentimmutable");
+        }
 
         if (accountUpdateVM.getEmail() != null) {
             userRepository.findOneByEmailIgnoreCase(accountUpdateVM.getEmail()).ifPresent(existing -> {
@@ -629,23 +665,24 @@ public class UserService {
             user.setLangKey(accountUpdateVM.getLangKey());
         }
 
-        if (accountUpdateVM.getImageUrl() != null) {
-            user.setImageUrl(accountUpdateVM.getImageUrl());
-        }
-
         if (StringUtils.isNotBlank(accountUpdateVM.getNewPassword())) {
             if (
                 StringUtils.isBlank(accountUpdateVM.getCurrentPassword()) ||
                 !passwordEncoder.matches(accountUpdateVM.getCurrentPassword(), user.getPassword())
             ) {
-                throw new InvalidPasswordException();
+                throw new BadRequestAlertException("Current password is incorrect", "userManagement", "currentpasswordinvalid");
             }
 
             if (!PASSWORD_PATTERN.matcher(accountUpdateVM.getNewPassword()).matches()) {
                 throw new InvalidPasswordException();
             }
 
+            if (passwordEncoder.matches(accountUpdateVM.getNewPassword(), user.getPassword())) {
+                throw new BadRequestAlertException("New password must be different from the current one", "userManagement", "samepassword");
+            }
+
             user.setPassword(passwordEncoder.encode(accountUpdateVM.getNewPassword()));
+            user.setMustChangePassword(false);
         }
 
         UserProfile userProfile = userProfileRepository
@@ -665,11 +702,13 @@ public class UserService {
         }
 
         if (accountUpdateVM.getMiddleName() != null) {
-            userProfile.setMiddleName(accountUpdateVM.getMiddleName().trim());
+            String middleName = accountUpdateVM.getMiddleName().trim();
+            userProfile.setMiddleName(middleName.isEmpty() ? null : middleName);
         }
 
         if (accountUpdateVM.getSecondLastName() != null) {
-            userProfile.setSecondLastName(accountUpdateVM.getSecondLastName().trim());
+            String secondLastName = accountUpdateVM.getSecondLastName().trim();
+            userProfile.setSecondLastName(secondLastName.isEmpty() ? null : secondLastName);
         }
 
         userRepository.save(user);

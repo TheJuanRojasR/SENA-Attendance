@@ -12,13 +12,15 @@ public class DocumentTypeDTO implements Serializable {
 
     private String id;
 
-    @NotNull
+    @NotBlank
     @Size(max = 30)
     private String name;
 
-    @NotNull
+    @NotBlank
     @Size(max = 10)
     private String initials;
+
+    private Boolean isActive;
 
     public String getId() {
         return id;
@@ -42,6 +44,14 @@ public class DocumentTypeDTO implements Serializable {
 
     public void setInitials(String initials) {
         this.initials = initials;
+    }
+
+    public Boolean getIsActive() {
+        return isActive;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
     }
 
     @Override
@@ -72,6 +82,7 @@ public class DocumentTypeDTO implements Serializable {
             "id='" + getId() + "'" +
             ", name='" + getName() + "'" +
             ", initials='" + getInitials() + "'" +
+            ", isActive='" + getIsActive() + "'" +
             "}";
     }
 }

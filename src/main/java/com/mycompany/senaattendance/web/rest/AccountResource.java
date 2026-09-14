@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.service.dto.PasswordChangeDTO;
+import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.AccountUpdateVM;
 import com.mycompany.senaattendance.web.rest.vm.KeyAndPasswordVM;
@@ -17,7 +18,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing the current user's account.
@@ -95,6 +98,16 @@ public class AccountResource {
     }
 
     /**
+     * {@code GET  /account/profile} : get the profile of the current authenticated user.
+     *
+     * @return the current user's profile, resolved from the security context.
+     */
+    @GetMapping("/account/profile")
+    public ResponseEntity<UserProfileDTO> getCurrentUserProfile() {
+        return ResponseUtil.wrapOrNotFound(userService.getCurrentUserProfile());
+    }
+
+    /**
      * {@code PATCH  /account} : update the current user information.
      */
     @PatchMapping("/account")
@@ -138,18 +151,14 @@ public class AccountResource {
      *
      * @param keyAndPassword the generated key and the new password.
      * @throws InvalidPasswordException {@code 400 (Bad Request)} if the password is incorrect.
-     * @throws RuntimeException {@code 500 (Internal Server Error)} if the password could not be reset.
+     * @throws BadRequestAlertException {@code 400 (Bad Request)} if the reset link is invalid, expired or already used.
      */
     @PostMapping(path = "/account/reset-password/finish")
     public void finishPasswordReset(@RequestBody KeyAndPasswordVM keyAndPassword) {
         if (isPasswordLengthInvalid(keyAndPassword.getNewPassword())) {
             throw new InvalidPasswordException();
         }
-        Optional<User> user = userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey());
-
-        if (!user.isPresent()) {
-            throw new AccountResourceException("No user was found for this reset key");
-        }
+        userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey());
     }
 
     private static boolean isPasswordLengthInvalid(String password) {

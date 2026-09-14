@@ -4,13 +4,17 @@ import static com.mycompany.senaattendance.domain.DocumentTypeAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.DocumentType;
+import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.DocumentTypeDTO;
 import com.mycompany.senaattendance.service.mapper.DocumentTypeMapper;
@@ -48,6 +52,9 @@ class DocumentTypeResourceIT {
     private DocumentTypeRepository documentTypeRepository;
 
     @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
     private DocumentTypeMapper documentTypeMapper;
 
     @Autowired
@@ -57,6 +64,8 @@ class DocumentTypeResourceIT {
 
     private DocumentType insertedDocumentType;
 
+    private UserProfile insertedUserProfile;
+
     /**
      * Create an entity for this test.
      *
@@ -64,7 +73,7 @@ class DocumentTypeResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static DocumentType createEntity() {
-        return new DocumentType().name(DEFAULT_NAME).initials(DEFAULT_INITIALS);
+        return new DocumentType().name(DEFAULT_NAME).initials(DEFAULT_INITIALS).isActive(true);
     }
 
     /**
@@ -84,10 +93,29 @@ class DocumentTypeResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedUserProfile != null) {
+            userProfileRepository.delete(insertedUserProfile);
+            insertedUserProfile = null;
+        }
         if (insertedDocumentType != null) {
             documentTypeRepository.delete(insertedDocumentType);
             insertedDocumentType = null;
         }
+    }
+
+    /**
+     * Builds a minimal user profile that references the given document type, so tests can assert
+     * the "document type is in use" rules. The random document number avoids the compound unique
+     * index on (documentType, documentNumber).
+     */
+    private UserProfile createProfileUsing(DocumentType documentType) {
+        UserProfile profile = new UserProfile()
+            .firstName("AAAAAAAAAA")
+            .firstLastName("AAAAAAAAAA")
+            .documentNumber("D" + UUID.randomUUID().toString().replace("-", "").substring(0, 12))
+            .phoneNumber("3000000000");
+        profile.setDocumentType(documentType);
+        return profile;
     }
 
     @Test
@@ -114,6 +142,32 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void createDocumentTypeWithoutIsActiveIsPersistedActive() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        // set the field null so the backend applies its default of active
+        documentType.setIsActive(null);
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        var returnedDocumentTypeDTO = om.readValue(
+            restDocumentTypeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            DocumentTypeDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedDocumentTypeDTO.getIsActive()).isTrue();
+
+        var returnedDocumentType = documentTypeMapper.toEntity(returnedDocumentTypeDTO);
+        assertThat(getPersistedDocumentType(returnedDocumentType).getIsActive()).isTrue();
+
+        insertedDocumentType = returnedDocumentType;
+    }
+
+    @Test
     void createDocumentTypeWithExistingId() throws Exception {
         // Create the DocumentType with an existing ID
         documentType.setId("existing_id");
@@ -128,6 +182,104 @@ class DocumentTypeResourceIT {
 
         // Validate the DocumentType in the database
         assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createDocumentTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        // Persist a document type with DEFAULT_NAME so the upcoming POST collides on name only
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        documentTypeDTO.setId(null);
+        documentTypeDTO.setName("aaaaaaaaaa");
+        documentTypeDTO.setInitials("ZZ");
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createDocumentTypeWithBlankNameReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        documentType.setName("   ");
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createDocumentTypeNormalizesInitialsToUpperCase() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        documentType.setName("Tipo Normalizado");
+        documentType.setInitials("qz");
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        var returnedDocumentTypeDTO = om.readValue(
+            restDocumentTypeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            DocumentTypeDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedDocumentTypeDTO.getInitials()).isEqualTo("QZ");
+
+        var returnedDocumentType = documentTypeMapper.toEntity(returnedDocumentTypeDTO);
+        assertThat(getPersistedDocumentType(returnedDocumentType).getInitials()).isEqualTo("QZ");
+
+        insertedDocumentType = returnedDocumentType;
+    }
+
+    @Test
+    void createDocumentTypeWithDuplicateInitialsReturnsBadRequest() throws Exception {
+        // Persist a document type with DEFAULT_INITIALS so the upcoming POST collides on initials only
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        documentTypeDTO.setId(null);
+        documentTypeDTO.setName(UPDATED_NAME);
+        documentTypeDTO.setInitials("aaaaaaaaaa");
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInitialsAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createDocumentTypeWithBlankInitialsReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        documentType.setInitials("   ");
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("initials"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
     }
 
     @Test
@@ -169,12 +321,47 @@ class DocumentTypeResourceIT {
 
         // Get all the documentTypeList
         restDocumentTypeMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(ENTITY_API_URL + "?page=0&size=20&sort=id,desc"))
             .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(documentType.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].initials").value(hasItem(DEFAULT_INITIALS)));
+    }
+
+    @Test
+    void getAllDocumentTypesWithSizeOneReturnsOnlyOneElementWithTotalCount() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            restDocumentTypeMockMvc
+                .perform(get(ENTITY_API_URL + "?page=0&size=1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$", hasSize(1)));
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void getActiveDocumentTypes() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        DocumentType inactiveDocumentType = documentTypeRepository.save(createUpdatedEntity().isActive(false));
+
+        try {
+            restDocumentTypeMockMvc
+                .perform(get(ENTITY_API_URL + "/active"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$.[*].id").value(hasItem(insertedDocumentType.getId())))
+                .andExpect(jsonPath("$.[*].id").value(not(hasItem(inactiveDocumentType.getId()))));
+        } finally {
+            documentTypeRepository.delete(inactiveDocumentType);
+        }
     }
 
     @Test
@@ -211,11 +398,7 @@ class DocumentTypeResourceIT {
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(updatedDocumentType);
 
         restDocumentTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, documentTypeDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
             .andExpect(status().isOk());
 
         // Validate the DocumentType in the database
@@ -233,11 +416,7 @@ class DocumentTypeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, documentTypeDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the DocumentType in the database
@@ -245,41 +424,133 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    void putWithIdMismatchDocumentType() throws Exception {
+    void putDocumentTypeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
+        documentType.setId(null);
 
-        // Create the DocumentType
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restDocumentTypeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the DocumentType in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamDocumentType() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
-
-        // Create the DocumentType
-        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the DocumentType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    void putDocumentTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(other);
+            documentTypeDTO.setName(DEFAULT_NAME);
+
+            restDocumentTypeMockMvc
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putDocumentTypeKeepingOwnNameSucceeds() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(insertedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedDocumentType(insertedDocumentType).getName()).isEqualTo(DEFAULT_NAME);
+    }
+
+    @Test
+    void putDocumentTypeWithDuplicateInitialsReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(other);
+            documentTypeDTO.setInitials(DEFAULT_INITIALS);
+
+            restDocumentTypeMockMvc
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeInitialsAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getInitials()).isEqualTo(UPDATED_INITIALS);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putDocumentTypeInitialsOfInUseReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        DocumentType updatedDocumentType = documentTypeRepository.findById(insertedDocumentType.getId()).orElseThrow();
+        updatedDocumentType.setInitials(UPDATED_INITIALS);
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(updatedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInitialsInUse"));
+
+        assertThat(getPersistedDocumentType(insertedDocumentType).getInitials()).isEqualTo(DEFAULT_INITIALS);
+    }
+
+    @Test
+    void putDocumentTypeNameOfInUseSucceeds() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        DocumentType updatedDocumentType = documentTypeRepository.findById(insertedDocumentType.getId()).orElseThrow();
+        updatedDocumentType.setName(UPDATED_NAME);
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(updatedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedDocumentType(insertedDocumentType).getName()).isEqualTo(UPDATED_NAME);
+        assertThat(getPersistedDocumentType(insertedDocumentType).getInitials()).isEqualTo(DEFAULT_INITIALS);
+    }
+
+    @Test
+    void patchDocumentTypeInitialsOfInUseReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        DocumentType partialUpdatedDocumentType = new DocumentType();
+        partialUpdatedDocumentType.setId(insertedDocumentType.getId());
+        partialUpdatedDocumentType.setInitials(UPDATED_INITIALS);
+
+        restDocumentTypeMockMvc
+            .perform(
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedDocumentType))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInitialsInUse"));
+
+        assertThat(getPersistedDocumentType(insertedDocumentType).getInitials()).isEqualTo(DEFAULT_INITIALS);
     }
 
     @Test
@@ -297,9 +568,7 @@ class DocumentTypeResourceIT {
 
         restDocumentTypeMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedDocumentType.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedDocumentType))
             )
             .andExpect(status().isOk());
 
@@ -323,13 +592,11 @@ class DocumentTypeResourceIT {
         DocumentType partialUpdatedDocumentType = new DocumentType();
         partialUpdatedDocumentType.setId(documentType.getId());
 
-        partialUpdatedDocumentType.name(UPDATED_NAME).initials(UPDATED_INITIALS);
+        partialUpdatedDocumentType.name(UPDATED_NAME).initials(UPDATED_INITIALS).isActive(true);
 
         restDocumentTypeMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedDocumentType.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedDocumentType))
             )
             .andExpect(status().isOk());
 
@@ -349,11 +616,7 @@ class DocumentTypeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, documentTypeDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(documentTypeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the DocumentType in the database
@@ -361,41 +624,92 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchDocumentType() throws Exception {
+    void patchDocumentTypeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
+        documentType.setId(null);
 
-        // Create the DocumentType
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restDocumentTypeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(documentTypeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the DocumentType in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamDocumentType() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        documentType.setId(UUID.randomUUID().toString());
-
-        // Create the DocumentType
-        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restDocumentTypeMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(documentTypeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the DocumentType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    void patchDocumentTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+
+            DocumentType partialUpdatedDocumentType = new DocumentType();
+            partialUpdatedDocumentType.setId(other.getId());
+            partialUpdatedDocumentType.setName(DEFAULT_NAME);
+
+            restDocumentTypeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL)
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void patchDocumentTypeWithDuplicateInitialsReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+
+            DocumentType partialUpdatedDocumentType = new DocumentType();
+            partialUpdatedDocumentType.setId(other.getId());
+            partialUpdatedDocumentType.setInitials(DEFAULT_INITIALS);
+
+            restDocumentTypeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL)
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeInitialsAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getInitials()).isEqualTo(UPDATED_INITIALS);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void deleteDocumentTypeInUseReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        insertedUserProfile = userProfileRepository.save(createProfileUsing(insertedDocumentType));
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restDocumentTypeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedDocumentType.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
     }
 
     @Test
@@ -412,6 +726,73 @@ class DocumentTypeResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(insertedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(insertedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restDocumentTypeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedDocumentType.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readDocumentTypesAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        restDocumentTypeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restDocumentTypeMockMvc.perform(get(ENTITY_API_URL_ID, insertedDocumentType.getId())).andExpect(status().isOk());
+        restDocumentTypeMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
     }
 
     protected long getRepositoryCount() {

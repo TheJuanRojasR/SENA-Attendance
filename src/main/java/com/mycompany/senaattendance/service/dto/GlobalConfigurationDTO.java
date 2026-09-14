@@ -12,20 +12,19 @@ public class GlobalConfigurationDTO implements Serializable {
 
     private String id;
 
-    @NotNull
+    @Min(1)
+    @Max(30)
     private Integer studentJustificationDays;
 
-    @NotNull
+    @Min(1)
+    @Max(30)
     private Integer instructorResponseDays;
 
-    @NotNull
-    private Integer lateArrivalsToFail;
+    @Min(1)
+    private Integer consecutiveAbsenceAlertThreshold;
 
-    @NotNull
-    private Integer maxPostponementJustifications;
-
-    @NotNull
-    private Integer standardTrimesterMonths;
+    @Min(1)
+    private Integer accumulatedAbsenceAlertThreshold;
 
     public String getId() {
         return id;
@@ -51,28 +50,20 @@ public class GlobalConfigurationDTO implements Serializable {
         this.instructorResponseDays = instructorResponseDays;
     }
 
-    public Integer getLateArrivalsToFail() {
-        return lateArrivalsToFail;
+    public Integer getConsecutiveAbsenceAlertThreshold() {
+        return consecutiveAbsenceAlertThreshold;
     }
 
-    public void setLateArrivalsToFail(Integer lateArrivalsToFail) {
-        this.lateArrivalsToFail = lateArrivalsToFail;
+    public void setConsecutiveAbsenceAlertThreshold(Integer consecutiveAbsenceAlertThreshold) {
+        this.consecutiveAbsenceAlertThreshold = consecutiveAbsenceAlertThreshold;
     }
 
-    public Integer getMaxPostponementJustifications() {
-        return maxPostponementJustifications;
+    public Integer getAccumulatedAbsenceAlertThreshold() {
+        return accumulatedAbsenceAlertThreshold;
     }
 
-    public void setMaxPostponementJustifications(Integer maxPostponementJustifications) {
-        this.maxPostponementJustifications = maxPostponementJustifications;
-    }
-
-    public Integer getStandardTrimesterMonths() {
-        return standardTrimesterMonths;
-    }
-
-    public void setStandardTrimesterMonths(Integer standardTrimesterMonths) {
-        this.standardTrimesterMonths = standardTrimesterMonths;
+    public void setAccumulatedAbsenceAlertThreshold(Integer accumulatedAbsenceAlertThreshold) {
+        this.accumulatedAbsenceAlertThreshold = accumulatedAbsenceAlertThreshold;
     }
 
     @Override
@@ -103,9 +94,8 @@ public class GlobalConfigurationDTO implements Serializable {
             "id='" + getId() + "'" +
             ", studentJustificationDays=" + getStudentJustificationDays() +
             ", instructorResponseDays=" + getInstructorResponseDays() +
-            ", lateArrivalsToFail=" + getLateArrivalsToFail() +
-            ", maxPostponementJustifications=" + getMaxPostponementJustifications() +
-            ", standardTrimesterMonths=" + getStandardTrimesterMonths() +
+            ", consecutiveAbsenceAlertThreshold=" + getConsecutiveAbsenceAlertThreshold() +
+            ", accumulatedAbsenceAlertThreshold=" + getAccumulatedAbsenceAlertThreshold() +
             "}";
     }
 }

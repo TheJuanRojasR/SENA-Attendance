@@ -14,9 +14,8 @@ public class GlobalConfigurationTestSamples {
             .id("id1")
             .studentJustificationDays(1)
             .instructorResponseDays(1)
-            .lateArrivalsToFail(1)
-            .maxPostponementJustifications(1)
-            .standardTrimesterMonths(1);
+            .consecutiveAbsenceAlertThreshold(1)
+            .accumulatedAbsenceAlertThreshold(1);
     }
 
     public static GlobalConfiguration getGlobalConfigurationSample2() {
@@ -24,9 +23,8 @@ public class GlobalConfigurationTestSamples {
             .id("id2")
             .studentJustificationDays(2)
             .instructorResponseDays(2)
-            .lateArrivalsToFail(2)
-            .maxPostponementJustifications(2)
-            .standardTrimesterMonths(2);
+            .consecutiveAbsenceAlertThreshold(2)
+            .accumulatedAbsenceAlertThreshold(2);
     }
 
     public static GlobalConfiguration getGlobalConfigurationRandomSampleGenerator() {
@@ -34,8 +32,7 @@ public class GlobalConfigurationTestSamples {
             .id(UUID.randomUUID().toString())
             .studentJustificationDays(intCount.incrementAndGet())
             .instructorResponseDays(intCount.incrementAndGet())
-            .lateArrivalsToFail(intCount.incrementAndGet())
-            .maxPostponementJustifications(intCount.incrementAndGet())
-            .standardTrimesterMonths(intCount.incrementAndGet());
+            .consecutiveAbsenceAlertThreshold(intCount.incrementAndGet())
+            .accumulatedAbsenceAlertThreshold(intCount.incrementAndGet());
     }
 }

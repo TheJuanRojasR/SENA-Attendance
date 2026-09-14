@@ -10,15 +10,19 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
+import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
 /**
@@ -52,7 +56,7 @@ public class TimeSlotResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TimeSlotDTO> createTimeSlot(@Valid @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
         LOG.debug("REST request to save TimeSlot : {}", timeSlotDTO);
         if (timeSlotDTO.getId() != null) {
@@ -65,27 +69,21 @@ public class TimeSlotResource {
     }
 
     /**
-     * {@code PUT  /time-slots/:id} : Updates an existing timeSlot.
+     * {@code PUT  /time-slots} : Updates an existing timeSlot; the id is taken from the request body.
      *
-     * @param id the id of the timeSlotDTO to save.
      * @param timeSlotDTO the timeSlotDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated timeSlotDTO,
      * or with status {@code 400 (Bad Request)} if the timeSlotDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the timeSlotDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TimeSlotDTO> updateTimeSlot(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody TimeSlotDTO timeSlotDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update TimeSlot : {}, {}", id, timeSlotDTO);
-        if (timeSlotDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<TimeSlotDTO> updateTimeSlot(@Valid @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
+        String id = timeSlotDTO.getId();
+        LOG.debug("REST request to update TimeSlot : {}", timeSlotDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, timeSlotDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!timeSlotRepository.existsById(id)) {
@@ -99,9 +97,8 @@ public class TimeSlotResource {
     }
 
     /**
-     * {@code PATCH  /time-slots/:id} : Partial updates given fields of an existing timeSlot, field will ignore if it is null
+     * {@code PATCH  /time-slots} : Partial updates given fields of an existing timeSlot; the id is taken from the request body.
      *
-     * @param id the id of the timeSlotDTO to save.
      * @param timeSlotDTO the timeSlotDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated timeSlotDTO,
      * or with status {@code 400 (Bad Request)} if the timeSlotDTO is not valid,
@@ -109,18 +106,13 @@ public class TimeSlotResource {
      * or with status {@code 500 (Internal Server Error)} if the timeSlotDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TimeSlotDTO> partialUpdateTimeSlot(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody TimeSlotDTO timeSlotDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update TimeSlot partially : {}, {}", id, timeSlotDTO);
-        if (timeSlotDTO.getId() == null) {
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<TimeSlotDTO> partialUpdateTimeSlot(@NotNull @RequestBody TimeSlotDTO timeSlotDTO) throws URISyntaxException {
+        String id = timeSlotDTO.getId();
+        LOG.debug("REST request to partial update TimeSlot partially : {}", timeSlotDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, timeSlotDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!timeSlotRepository.existsById(id)) {
@@ -138,12 +130,15 @@ public class TimeSlotResource {
     /**
      * {@code GET  /time-slots} : get all the Time Slots.
      *
+     * @param pageable the pagination information.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Time Slots in body.
      */
     @GetMapping("")
-    public List<TimeSlotDTO> getAllTimeSlots() {
-        LOG.debug("REST request to get all TimeSlots");
-        return timeSlotService.findAll();
+    public ResponseEntity<List<TimeSlotDTO>> getAllTimeSlots(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
+        LOG.debug("REST request to get a page of TimeSlots");
+        Page<TimeSlotDTO> page = timeSlotService.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**
@@ -166,7 +161,7 @@ public class TimeSlotResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteTimeSlot(@PathVariable("id") String id) {
         LOG.debug("REST request to delete TimeSlot : {}", id);
         timeSlotService.delete(id);

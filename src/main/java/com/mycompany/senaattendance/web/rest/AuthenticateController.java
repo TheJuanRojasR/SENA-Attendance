@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import java.security.Principal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,59 +52,39 @@ public class AuthenticateController {
     @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds-for-remember-me:0}")
     private long tokenValidityInSecondsForRememberMe;
 
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
-
     private final PasswordEncoder passwordEncoder;
 
-    public AuthenticateController(
-        JwtEncoder jwtEncoder,
-        AuthenticationManagerBuilder authenticationManagerBuilder,
-        UserProfileRepository userProfileRepository,
-        PasswordEncoder passwordEncoder
-    ) {
+    public AuthenticateController(JwtEncoder jwtEncoder, UserProfileRepository userProfileRepository, PasswordEncoder passwordEncoder) {
         this.jwtEncoder = jwtEncoder;
-        this.authenticationManagerBuilder = authenticationManagerBuilder;
         this.userProfileRepository = userProfileRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
-    //    @PostMapping("/authenticate")
-    //    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
-    //        var authenticationToken = new UsernamePasswordAuthenticationToken(loginVM.getDocumentNumber(), loginVM.getPassword());
-    //
-    //        var authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-    //        SecurityContextHolder.getContext().setAuthentication(authentication);
-    //        String jwt = this.createToken(authentication, loginVM.isRememberMe());
-    //        var httpHeaders = new HttpHeaders();
-    //        httpHeaders.setBearerAuth(jwt);
-    //        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
-    //    }
-
     @PostMapping("/authenticate")
-    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
+    public ResponseEntity<?> authorize(@Valid @RequestBody LoginVM loginVM) {
         var profileOpt = userProfileRepository.findByDocumentTypeAndDocumentNumber(
             loginVM.getDocumentTypeId(),
             loginVM.getDocumentNumber()
         );
 
         if (profileOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("badcredentials");
         }
 
         UserProfile profile = profileOpt.get();
         User user = profile.getUser();
 
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("badcredentials");
         }
 
         boolean passwordMatches = passwordEncoder.matches(loginVM.getPassword(), user.getPassword());
         if (!passwordMatches) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("badcredentials");
         }
 
         if (!user.isActivated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return unauthorized("accountinactive");
         }
 
         var userDetails = DomainUserDetailsService.UserWithId.fromUser(user);
@@ -117,7 +97,21 @@ public class AuthenticateController {
         var httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(jwt);
 
-        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+        return new ResponseEntity<>(new JWTToken(jwt, user.isMustChangePassword()), httpHeaders, HttpStatus.OK);
+    }
+
+    /**
+     * Builds the {@code 401 Unauthorized} response for a failed login, carrying the business
+     * error key in the body as {@code message: error.<key>} so the client can tell an invalid
+     * credential from an inactive account. The same {@code badcredentials} key is used for an
+     * unknown document, a missing user relation and a wrong password, so the response never
+     * reveals which part of the credential failed.
+     *
+     * @param errorKey the business error key, without the {@code error.} prefix.
+     * @return the {@link ResponseEntity} with status {@code 401 (Unauthorized)} and the error key.
+     */
+    private ResponseEntity<Object> unauthorized(String errorKey) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Collections.singletonMap("message", "error." + errorKey));
     }
 
     /**
@@ -164,8 +158,11 @@ public class AuthenticateController {
 
         private String idToken;
 
-        JWTToken(String idToken) {
+        private boolean mustChangePassword;
+
+        JWTToken(String idToken, boolean mustChangePassword) {
             this.idToken = idToken;
+            this.mustChangePassword = mustChangePassword;
         }
 
         @JsonProperty("id_token")
@@ -175,6 +172,15 @@ public class AuthenticateController {
 
         void setIdToken(String idToken) {
             this.idToken = idToken;
+        }
+
+        @JsonProperty("mustChangePassword")
+        boolean isMustChangePassword() {
+            return mustChangePassword;
+        }
+
+        void setMustChangePassword(boolean mustChangePassword) {
+            this.mustChangePassword = mustChangePassword;
         }
     }
 }

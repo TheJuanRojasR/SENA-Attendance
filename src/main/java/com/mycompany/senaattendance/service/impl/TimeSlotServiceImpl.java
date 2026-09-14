@@ -1,18 +1,22 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TimeSlotService;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.TimeSlotMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.errors.TimeSlotNameAlreadyUsedException;
 import java.time.Instant;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,15 +31,22 @@ public class TimeSlotServiceImpl implements TimeSlotService {
 
     private final TimeSlotMapper timeSlotMapper;
 
-    public TimeSlotServiceImpl(TimeSlotRepository timeSlotRepository, TimeSlotMapper timeSlotMapper) {
+    private final GradeRepository gradeRepository;
+
+    public TimeSlotServiceImpl(TimeSlotRepository timeSlotRepository, TimeSlotMapper timeSlotMapper, GradeRepository gradeRepository) {
         this.timeSlotRepository = timeSlotRepository;
         this.timeSlotMapper = timeSlotMapper;
+        this.gradeRepository = gradeRepository;
     }
 
     @Override
     public TimeSlotDTO save(TimeSlotDTO timeSlotDTO) {
         LOG.debug("Request to save TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
+
+        timeSlot.setIsActive(true);
+        validateDifferentTimes(timeSlot);
+        validateAndNormalizeName(timeSlot, null);
 
         // Insertar fecha de creación
         timeSlot.setCreatedDate(Instant.now());
@@ -53,6 +64,9 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public TimeSlotDTO update(TimeSlotDTO timeSlotDTO) {
         LOG.debug("Request to update TimeSlot : {}", timeSlotDTO);
         TimeSlot timeSlot = timeSlotMapper.toEntity(timeSlotDTO);
+
+        validateDifferentTimes(timeSlot);
+        validateAndNormalizeName(timeSlot, timeSlot.getId());
 
         Optional<TimeSlot> optionalTimeSlot = timeSlotRepository.findById(timeSlot.getId());
         if (optionalTimeSlot.isPresent()) {
@@ -79,6 +93,8 @@ public class TimeSlotServiceImpl implements TimeSlotService {
             .findById(timeSlotDTO.getId())
             .map(existingTimeSlot -> {
                 timeSlotMapper.partialUpdate(existingTimeSlot, timeSlotDTO);
+                validateDifferentTimes(existingTimeSlot);
+                validateAndNormalizeName(existingTimeSlot, existingTimeSlot.getId());
 
                 return existingTimeSlot;
             })
@@ -87,9 +103,9 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     }
 
     @Override
-    public List<TimeSlotDTO> findAll() {
+    public Page<TimeSlotDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all TimeSlots");
-        return timeSlotRepository.findAll().stream().map(timeSlotMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
+        return timeSlotRepository.findAll(pageable).map(timeSlotMapper::toDto);
     }
 
     @Override
@@ -101,6 +117,9 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete TimeSlot : {}", id);
+        if (gradeRepository.existsByTimeSlotId(id)) {
+            throw new BadRequestAlertException("This jornada is assigned to fichas and cannot be deleted", "timeSlot", "timeSlotInUse");
+        }
         timeSlotRepository.deleteById(id);
     }
 
@@ -108,5 +127,45 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     public List<TimeSlotDTO> findByIsActiveTrue() {
         LOG.debug("Request to get all active TimeSlots");
         return timeSlotRepository.findTimeSlotByIsActive(true).stream().map(timeSlotMapper::toDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Rejects a time slot whose start and end times are equal. Ranges that cross midnight
+     * (an end time earlier than the start time) are valid and are not rejected here.
+     *
+     * @param timeSlot the time slot whose times are validated.
+     * @throws BadRequestAlertException if both times are set and equal.
+     */
+    private void validateDifferentTimes(TimeSlot timeSlot) {
+        if (timeSlot.getStartTime() != null && timeSlot.getStartTime().equals(timeSlot.getEndTime())) {
+            throw new BadRequestAlertException("Start time and end time cannot be equal", "timeSlot", "timeSlotSameTime");
+        }
+    }
+
+    /**
+     * Trims the time slot name and enforces its uniqueness case-insensitively.
+     * <p>
+     * When {@code excludeId} is not {@code null}, the time slot with that id is ignored so an
+     * update that keeps the same name does not collide with itself. On create {@code excludeId}
+     * is {@code null} and every existing time slot is considered. The trimmed name is written
+     * back onto the entity so the stored value is consistent.
+     *
+     * @param timeSlot the time slot whose name is normalized and validated.
+     * @param excludeId the id to exclude from the uniqueness check, or {@code null} on create.
+     * @throws TimeSlotNameAlreadyUsedException if another time slot with the same name exists.
+     */
+    private void validateAndNormalizeName(TimeSlot timeSlot, String excludeId) {
+        if (timeSlot.getName() == null) {
+            return;
+        }
+        String name = timeSlot.getName().trim();
+        timeSlot.setName(name);
+        boolean duplicate =
+            excludeId == null
+                ? timeSlotRepository.existsByNameIgnoreCase(name)
+                : timeSlotRepository.existsByNameIgnoreCaseAndIdNot(name, excludeId);
+        if (duplicate) {
+            throw new TimeSlotNameAlreadyUsedException();
+        }
     }
 }

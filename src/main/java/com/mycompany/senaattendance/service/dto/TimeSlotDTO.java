@@ -13,11 +13,10 @@ public class TimeSlotDTO implements Serializable {
 
     private String id;
 
-    @NotNull
+    @NotBlank
     @Size(max = 50)
     private String name;
 
-    @NotNull
     private Boolean isActive;
 
     @NotNull

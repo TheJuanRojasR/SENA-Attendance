@@ -10,15 +10,19 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
+import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
 /**
@@ -52,7 +56,7 @@ public class ModalityResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ModalityDTO> createModality(@Valid @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
         LOG.debug("REST request to save Modality : {}", modalityDTO);
         if (modalityDTO.getId() != null) {
@@ -65,27 +69,21 @@ public class ModalityResource {
     }
 
     /**
-     * {@code PUT  /modalities/:id} : Updates an existing modality.
+     * {@code PUT  /modalities} : Updates an existing modality; the id is taken from the request body.
      *
-     * @param id the id of the modalityDTO to save.
      * @param modalityDTO the modalityDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated modalityDTO,
      * or with status {@code 400 (Bad Request)} if the modalityDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the modalityDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ModalityDTO> updateModality(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ModalityDTO modalityDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Modality : {}, {}", id, modalityDTO);
-        if (modalityDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ModalityDTO> updateModality(@Valid @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
+        String id = modalityDTO.getId();
+        LOG.debug("REST request to update Modality : {}", modalityDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, modalityDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!modalityRepository.existsById(id)) {
@@ -99,9 +97,8 @@ public class ModalityResource {
     }
 
     /**
-     * {@code PATCH  /modalities/:id} : Partial updates given fields of an existing modality, field will ignore if it is null
+     * {@code PATCH  /modalities} : Partial updates given fields of an existing modality; the id is taken from the request body.
      *
-     * @param id the id of the modalityDTO to save.
      * @param modalityDTO the modalityDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated modalityDTO,
      * or with status {@code 400 (Bad Request)} if the modalityDTO is not valid,
@@ -109,18 +106,13 @@ public class ModalityResource {
      * or with status {@code 500 (Internal Server Error)} if the modalityDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ModalityDTO> partialUpdateModality(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ModalityDTO modalityDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Modality partially : {}, {}", id, modalityDTO);
-        if (modalityDTO.getId() == null) {
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ModalityDTO> partialUpdateModality(@NotNull @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
+        String id = modalityDTO.getId();
+        LOG.debug("REST request to partial update Modality partially : {}", modalityDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, modalityDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!modalityRepository.existsById(id)) {
@@ -138,12 +130,15 @@ public class ModalityResource {
     /**
      * {@code GET  /modalities} : get all the Modalities.
      *
+     * @param pageable the pagination information.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Modalities in body.
      */
     @GetMapping("")
-    public List<ModalityDTO> getAllModalities() {
-        LOG.debug("REST request to get all Modalities");
-        return modalityService.findAll();
+    public ResponseEntity<List<ModalityDTO>> getAllModalities(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
+        LOG.debug("REST request to get a page of Modalities");
+        Page<ModalityDTO> page = modalityService.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**
@@ -166,7 +161,7 @@ public class ModalityResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteModality(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Modality : {}", id);
         modalityService.delete(id);

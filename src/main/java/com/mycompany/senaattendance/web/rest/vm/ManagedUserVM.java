@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.web.rest.vm;
 
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -33,10 +34,12 @@ public class ManagedUserVM extends AdminUserDTO {
 
     @NotNull
     @Size(min = 1, max = 30)
+    @Pattern(regexp = "\\d+")
     private String documentNumber;
 
     @NotNull
     @Size(min = 1, max = 30)
+    @Pattern(regexp = "\\d{10}")
     private String phoneNumber;
 
     @NotNull

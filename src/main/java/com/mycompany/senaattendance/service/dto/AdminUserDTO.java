@@ -35,6 +35,8 @@ public class AdminUserDTO implements Serializable {
 
     private boolean activated = false;
 
+    private boolean mustChangePassword = false;
+
     @Size(min = 2, max = 10)
     private String langKey;
 
@@ -57,6 +59,7 @@ public class AdminUserDTO implements Serializable {
         this.login = user.getLogin();
         this.email = user.getEmail();
         this.activated = user.isActivated();
+        this.mustChangePassword = user.isMustChangePassword();
         this.imageUrl = user.getImageUrl();
         this.langKey = user.getLangKey();
         this.createdBy = user.getCreatedBy();
@@ -104,6 +107,14 @@ public class AdminUserDTO implements Serializable {
 
     public void setActivated(boolean activated) {
         this.activated = activated;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 
     public String getLangKey() {
@@ -162,6 +173,7 @@ public class AdminUserDTO implements Serializable {
             ", email='" + email + '\'' +
             ", imageUrl='" + imageUrl + '\'' +
             ", activated=" + activated +
+            ", mustChangePassword=" + mustChangePassword +
             ", langKey='" + langKey + '\'' +
             ", createdBy=" + createdBy +
             ", createdDate=" + createdDate +

@@ -14,6 +14,12 @@ import org.springframework.data.mongodb.core.mapping.Field;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class GlobalConfiguration extends AbstractAuditingEntity implements Serializable {
 
+    /**
+     * Fixed document id of the single global configuration row. The configuration is a
+     * singleton, so every read and write must target this exact id.
+     */
+    public static final String GLOBAL_CONFIGURATION_ID = "global-configuration";
+
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -33,22 +39,14 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
     private Integer instructorResponseDays;
 
     @NotNull
-    @Field("late_arrivals_to_fail")
+    @Field("consecutive_absence_alert_threshold")
     @Min(value = 1)
-    @Max(value = 30)
-    private Integer lateArrivalsToFail;
+    private Integer consecutiveAbsenceAlertThreshold;
 
     @NotNull
-    @Field("max_postponement_justifications")
+    @Field("accumulated_absence_alert_threshold")
     @Min(value = 1)
-    @Max(value = 30)
-    private Integer maxPostponementJustifications;
-
-    @NotNull
-    @Field("standard_trimester_months")
-    @Min(value = 1)
-    @Max(value = 6)
-    private Integer standardTrimesterMonths;
+    private Integer accumulatedAbsenceAlertThreshold;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -91,43 +89,30 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
         this.instructorResponseDays = instructorResponseDays;
     }
 
-    public Integer getLateArrivalsToFail() {
-        return this.lateArrivalsToFail;
+    public Integer getConsecutiveAbsenceAlertThreshold() {
+        return this.consecutiveAbsenceAlertThreshold;
     }
 
-    public GlobalConfiguration lateArrivalsToFail(Integer lateArrivalsToFail) {
-        this.setLateArrivalsToFail(lateArrivalsToFail);
+    public GlobalConfiguration consecutiveAbsenceAlertThreshold(Integer consecutiveAbsenceAlertThreshold) {
+        this.setConsecutiveAbsenceAlertThreshold(consecutiveAbsenceAlertThreshold);
         return this;
     }
 
-    public void setLateArrivalsToFail(Integer lateArrivalsToFail) {
-        this.lateArrivalsToFail = lateArrivalsToFail;
+    public void setConsecutiveAbsenceAlertThreshold(Integer consecutiveAbsenceAlertThreshold) {
+        this.consecutiveAbsenceAlertThreshold = consecutiveAbsenceAlertThreshold;
     }
 
-    public Integer getMaxPostponementJustifications() {
-        return this.maxPostponementJustifications;
+    public Integer getAccumulatedAbsenceAlertThreshold() {
+        return this.accumulatedAbsenceAlertThreshold;
     }
 
-    public GlobalConfiguration maxPostponementJustifications(Integer maxPostponementJustifications) {
-        this.setMaxPostponementJustifications(maxPostponementJustifications);
+    public GlobalConfiguration accumulatedAbsenceAlertThreshold(Integer accumulatedAbsenceAlertThreshold) {
+        this.setAccumulatedAbsenceAlertThreshold(accumulatedAbsenceAlertThreshold);
         return this;
     }
 
-    public void setMaxPostponementJustifications(Integer maxPostponementJustifications) {
-        this.maxPostponementJustifications = maxPostponementJustifications;
-    }
-
-    public Integer getStandardTrimesterMonths() {
-        return this.standardTrimesterMonths;
-    }
-
-    public GlobalConfiguration standardTrimesterMonths(Integer standardTrimesterMonths) {
-        this.setStandardTrimesterMonths(standardTrimesterMonths);
-        return this;
-    }
-
-    public void setStandardTrimesterMonths(Integer standardTrimesterMonths) {
-        this.standardTrimesterMonths = standardTrimesterMonths;
+    public void setAccumulatedAbsenceAlertThreshold(Integer accumulatedAbsenceAlertThreshold) {
+        this.accumulatedAbsenceAlertThreshold = accumulatedAbsenceAlertThreshold;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
@@ -156,9 +141,8 @@ public class GlobalConfiguration extends AbstractAuditingEntity implements Seria
             "id=" + getId() +
             ", studentJustificationDays=" + getStudentJustificationDays() +
             ", instructorResponseDays=" + getInstructorResponseDays() +
-            ", lateArrivalsToFail=" + getLateArrivalsToFail() +
-            ", maxPostponementJustifications=" + getMaxPostponementJustifications() +
-            ", standardTrimesterMonths=" + getStandardTrimesterMonths() +
+            ", consecutiveAbsenceAlertThreshold=" + getConsecutiveAbsenceAlertThreshold() +
+            ", accumulatedAbsenceAlertThreshold=" + getAccumulatedAbsenceAlertThreshold() +
             "}";
     }
 }

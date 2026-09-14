@@ -48,7 +48,8 @@ public class DocumentTypeAsserts {
         assertThat(actual)
             .as("Verify DocumentType relevant properties")
             .satisfies(a -> assertThat(a.getName()).as("check name").isEqualTo(expected.getName()))
-            .satisfies(a -> assertThat(a.getInitials()).as("check initials").isEqualTo(expected.getInitials()));
+            .satisfies(a -> assertThat(a.getInitials()).as("check initials").isEqualTo(expected.getInitials()))
+            .satisfies(a -> assertThat(a.getIsActive()).as("check isActive").isEqualTo(expected.getIsActive()));
     }
 
     /**
