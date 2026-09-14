@@ -472,6 +472,31 @@ class UserResourceIT {
     }
 
     @Test
+    void updateUserChangesDocumentTypeRecalculatesLogin() throws Exception {
+        User target = persistedUserWithProfile("TYPECHG01", "type.chg@example.com");
+        DocumentType otherType = documentTypeRepository
+            .findAll()
+            .stream()
+            .filter(dt -> !dt.getId().equals(seededDocumentTypeId()))
+            .findFirst()
+            .orElseThrow();
+
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(target.getId());
+        vm.setDocumentTypeId(otherType.getId());
+
+        String otherInitials = otherType.getInitials() != null ? otherType.getInitials() : "";
+        String expectedLogin = (otherInitials + "_TYPECHG01").toLowerCase().trim();
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(expectedLogin));
+
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getLogin()).isEqualTo(expectedLogin);
+    }
+
+    @Test
     void updateUserRoleChangesAuthorities() throws Exception {
         User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
         user.setAuthorities(
@@ -483,6 +508,8 @@ class UserResourceIT {
             )
         );
         userRepository.save(user);
+        // Keep another active admin so demoting this one is allowed (E6 guards the last active admin).
+        freshAdmin("role.keep.admin", "role.keep.admin@example.com");
 
         AdminUpdateUserVM vm = buildUpdateVM(
             user.getId(),
@@ -568,6 +595,8 @@ class UserResourceIT {
             )
         );
         userRepository.save(user);
+        // Keep another active admin so demoting this one is allowed (E6 guards the last active admin).
+        freshAdmin("role.keep.admin.2", "role.keep.admin.2@example.com");
 
         // PATCH carrying ONLY role: authorities must change, login stays
         AdminUpdateUserVM vm = new AdminUpdateUserVM();

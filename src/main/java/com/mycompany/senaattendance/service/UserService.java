@@ -367,12 +367,16 @@ public class UserService {
                     );
                 }
 
-                // ----- CONDITIONAL documentNumber / login re-derivation -----
-                if (vm.getDocumentNumber() != null) {
-                    documentNumber = vm.getDocumentNumber().trim();
+                // ----- CONDITIONAL document / login re-derivation -----
+                // The login is derived from the whole (documentType, documentNumber) pair, so changing
+                // either of them must re-derive it; the untouched half falls back to the stored value.
+                if (vm.getDocumentNumber() != null || vm.getDocumentTypeId() != null) {
                     DocumentType effectiveType =
                         vm.getDocumentTypeId() != null ? resolveDocumentType(vm.getDocumentTypeId()) : userProfile.getDocumentType();
-                    newLogin = buildLogin(effectiveType, documentNumber);
+                    String effectiveNumber =
+                        vm.getDocumentNumber() != null ? vm.getDocumentNumber().trim() : userProfile.getDocumentNumber();
+                    documentNumber = effectiveNumber;
+                    newLogin = buildLogin(effectiveType, effectiveNumber);
 
                     if (!newLogin.equals(user.getLogin())) {
                         // uniqueness excluding self
@@ -384,7 +388,7 @@ public class UserService {
                     }
 
                     userProfileRepository
-                        .findByDocumentTypeAndDocumentNumber(effectiveType != null ? effectiveType.getId() : null, documentNumber)
+                        .findByDocumentTypeAndDocumentNumber(effectiveType != null ? effectiveType.getId() : null, effectiveNumber)
                         .ifPresent(existing -> {
                             if (!existing.getUser().getId().equals(vm.getId())) {
                                 throw new DocumentNumberAlreadyUsedException("Document number is already in use");
