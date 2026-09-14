@@ -49,9 +49,8 @@ public class ProgramServiceImpl implements ProgramService {
         LOG.debug("Request to save Program : {}", programDTO);
         Program program = programMapper.toEntity(programDTO);
 
-        if (program.getStatus() == null) {
-            program.setStatus(true);
-        }
+        // Los programas nacen siempre activos: el estado se cambia con Desactivar / Reactivar.
+        program.setStatus(true);
 
         validateAndNormalizeUniqueFields(program, null);
 

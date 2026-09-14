@@ -227,6 +227,30 @@ class ProgramResourceIT {
     }
 
     @Test
+    void createProgramForcesActiveStatus() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        // set the field false: the backend ignores it and creates the program as active
+        program.setStatus(false);
+
+        ProgramDTO programDTO = programMapper.toDto(program);
+        var returnedProgramDTO = om.readValue(
+            restProgramMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ProgramDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedProgramDTO.getStatus()).isTrue();
+        assertThat(getPersistedProgram(programMapper.toEntity(returnedProgramDTO)).getStatus()).isTrue();
+
+        insertedProgram = programMapper.toEntity(returnedProgramDTO);
+    }
+
+    @Test
     void createProgramWithoutStatusDefaultsToTrue() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
 
