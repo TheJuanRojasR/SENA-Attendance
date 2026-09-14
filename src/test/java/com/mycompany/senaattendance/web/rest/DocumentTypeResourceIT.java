@@ -702,6 +702,73 @@ class DocumentTypeResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(insertedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(insertedDocumentType);
+
+        restDocumentTypeMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restDocumentTypeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedDocumentType.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readDocumentTypesAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        restDocumentTypeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restDocumentTypeMockMvc.perform(get(ENTITY_API_URL_ID, insertedDocumentType.getId())).andExpect(status().isOk());
+        restDocumentTypeMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
+    }
+
     protected long getRepositoryCount() {
         return documentTypeRepository.count();
     }
