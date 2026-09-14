@@ -16,6 +16,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -99,9 +101,9 @@ public class ModalityServiceImpl implements ModalityService {
     }
 
     @Override
-    public List<ModalityDTO> findAll() {
+    public Page<ModalityDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all Modalities");
-        return modalityRepository.findAll().stream().map(modalityMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
+        return modalityRepository.findAll(pageable).map(modalityMapper::toDto);
     }
 
     @Override

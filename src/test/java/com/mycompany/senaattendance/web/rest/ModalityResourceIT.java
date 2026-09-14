@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.ModalityAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -229,12 +230,30 @@ class ModalityResourceIT {
 
         // Get all the modalityList
         restModalityMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .perform(get(ENTITY_API_URL + "?page=0&size=20&sort=id,desc"))
             .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(modality.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].isActive").value(hasItem(DEFAULT_IS_ACTIVE)));
+    }
+
+    @Test
+    void getAllModalitiesWithSizeOneReturnsOnlyOneElementWithTotalCount() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+        Modality other = modalityRepository.save(createUpdatedEntity());
+
+        try {
+            restModalityMockMvc
+                .perform(get(ENTITY_API_URL + "?page=0&size=1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(getRepositoryCount())))
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$", hasSize(1)));
+        } finally {
+            modalityRepository.delete(other);
+        }
     }
 
     @Test

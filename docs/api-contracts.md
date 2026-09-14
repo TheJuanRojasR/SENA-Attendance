@@ -441,7 +441,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Método | Ruta                     | Acceso                            | Descripción                   |
 | ------ | ------------------------ | --------------------------------- | ----------------------------- |
-| GET    | `/api/modalities`        | Autenticado                       | Lista completa (sin paginar). |
+| GET    | `/api/modalities`        | Autenticado                       | Lista **paginada** de modalidades (20 por página por defecto). |
 | GET    | `/api/modalities/active` | Autenticado                       | Lista de modalidades activas. |
 | GET    | `/api/modalities/{id}`   | Autenticado                       | Detalle.                      |
 | POST   | `/api/modalities`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea la modalidad (nace Activa); `201` con el recurso creado. |
@@ -462,11 +462,11 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | `name`     | string  | Sí          | `@NotBlank`, máximo 50. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.modalityNameAlreadyUsed`. |
 | `isActive` | boolean | No          | Ignorado en la creación: el backend siempre crea la modalidad como **Activa** (`isActive = true`).                           |
 
-**Response:** `201 Created` con el `ModalityDTO` (`id`, `name`, `isActive`). Listas como arreglo JSON completo.
+**Response:** `201 Created` con el `ModalityDTO` (`id`, `name`, `isActive`). `GET /api/modalities` es **paginado**: acepta `page` (base 0), `size` y `sort=campo,asc|desc` (20 por defecto) y devuelve un arreglo JSON con la página actual más las cabeceras `X-Total-Count` y `Link`. `GET /api/modalities/active` sigue devolviendo el arreglo completo sin paginar (selector).
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation`; `400 error.modalityNameAlreadyUsed` (nombre duplicado, E1); `400 error.modalityInUse` (la modalidad está asignada a una o más fichas y no puede eliminarse, E2); `403`; `404`.
 
-**Notas / lo que se necesita:** `PUT` y `PATCH` toman el `id` del cuerpo (la ruta es `/api/modalities`, sin `{id}`); si falta, responde `400 error.idnull`, y si no existe, `400 error.idnotfound`. Está implementada la unicidad de nombre (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas, tanto en `PUT`/`PATCH` como en `POST`; un duplicado responde `400 error.modalityNameAlreadyUsed` y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear (`POST`) el backend fuerza `isActive = true` (la modalidad nace Activa) e ignora el valor enviado; el `PATCH` genérico sí puede cambiar el estado. También está implementado el bloqueo de eliminación (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400 error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`), de modo que las fichas existentes la sigan conservando. El estado se maneja con `isActive` en lugar de las acciones Desactivar/Reactivar.
+**Notas / lo que se necesita:** `PUT` y `PATCH` toman el `id` del cuerpo (la ruta es `/api/modalities`, sin `{id}`); si falta, responde `400 error.idnull`, y si no existe, `400 error.idnotfound`. Está implementada la unicidad de nombre (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas, tanto en `PUT`/`PATCH` como en `POST`; un duplicado responde `400 error.modalityNameAlreadyUsed` y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear (`POST`) el backend fuerza `isActive = true` (la modalidad nace Activa) e ignora el valor enviado; el `PATCH` genérico sí puede cambiar el estado. También está implementado el bloqueo de eliminación (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400 error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`), de modo que las fichas existentes la sigan conservando. El estado se maneja con `isActive` en lugar de las acciones Desactivar/Reactivar. `GET /api/modalities` usa el estándar de paginación del sistema (`page`/`size`/`sort`, `X-Total-Count`, `Link`); `GET /api/modalities/active` permanece sin paginar porque alimenta selectores.
 
 ---
 

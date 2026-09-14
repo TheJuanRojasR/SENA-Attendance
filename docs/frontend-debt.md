@@ -215,9 +215,9 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC021 — Gestionar modalidades
 
-**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear, la modalidad nace **Activa**: el backend fuerza `isActive = true` e ignora el valor enviado. También está implementado el **bloqueo de eliminación** (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400` con `error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`). Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
+**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear, la modalidad nace **Activa**: el backend fuerza `isActive = true` e ignora el valor enviado. También está implementado el **bloqueo de eliminación** (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400` con `error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`). El listado `GET /api/modalities` está **paginado** (`page`/`size`/`sort`, 20 por defecto) y devuelve `X-Total-Count`/`Link`; `GET /api/modalities/active` sigue sin paginar. Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
 
-**Estado del frontend:** pendiente. La pantalla de modalidades debe manejar el error de nombre duplicado y evitar enviar nombres en blanco.
+**Estado del frontend:** pendiente. La pantalla de modalidades debe manejar el error de nombre duplicado y evitar enviar nombres en blanco. El listado debe consumir `GET /api/modalities` como **paginado** (enviar `page`/`size` y leer `X-Total-Count` para el total de registros), usando `GET /api/modalities/active` solo para selectores.
 
 | #   | Ítem                                                                                                                                                                        | Estado      |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -227,6 +227,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 4   | En el formulario de creación no enviar `isActive`: el backend siempre crea la modalidad **Activa** (`isActive = true`) e ignora el valor enviado.                           | `Pendiente` |
 | 5   | Al eliminar una modalidad en uso, manejar `400 error.modalityInUse` mostrando "No es posible eliminar la modalidad: está asignada a fichas. Puedes desactivarla" (E2) y ofrecer **desactivarla** con `PATCH /api/modalities` (`isActive: false`) en lugar de reintentar la eliminación. | `Pendiente` |
 | 6   | Al editar, enviar el `id` de la modalidad en el cuerpo del `PUT`/`PATCH` (la ruta es `/api/modalities`, sin `{id}`): el backend lee el `id` del cuerpo y responde `400 error.idnull` si falta. | `Pendiente` |
+| 7   | Consumir `GET /api/modalities` como listado **paginado** (`page`/`size`/`sort`, 20 por defecto) y usar `X-Total-Count` para el total de registros; reservar `GET /api/modalities/active` para selectores. | `Pendiente` |
 
 ---
 
