@@ -526,7 +526,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | POST   | `/api/justification-types`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.   |
 | PUT    | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.             |
 | PATCH  | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`. |
-| DELETE | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.               |
+| DELETE | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`. Bloquea si algún tipo fue usado (`400 error.justificationTypeInUse`). |
 
 **Request — `POST /api/justification-types`**
 
@@ -546,9 +546,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `status`).
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation`; `400 error.justificationTypeNameAlreadyUsed` (nombre duplicado, E1); `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (E2: límite nulo, 0 o negativo); `400 error.justificationTypeNameAlreadyUsed` (nombre duplicado, E1); `400 error.justificationTypeInUse` (el tipo fue usado en justificaciones y no puede eliminarse, E3); `403`; `404`.
 
-**Notas / lo que se necesita:** no hay validación de nombre duplicado (E1), límite mayor a 0 (E2), bloqueo de eliminación si el tipo fue usado (E3) ni endpoint de solo activos para el formulario del aprendiz. Los estados del enum son `ACTIVO`/`INACTIVO` (el UC los llama Activo/Inactivo). El campo de estado se llama **`status`** (antes `state`): la entidad, el DTO y el documento MongoDB usan `status`; una migración Mongock (orden 008) renombra el campo en la colección `justification_type`.
+**Notas / lo que se necesita:** el nombre único (E1) y el límite mayor a 0 (E2) ya se validan; falta el endpoint de solo activos para el formulario del aprendiz. Los estados del enum son `ACTIVO`/`INACTIVO` (el UC los llama Activo/Inactivo). El campo de estado se llama **`status`** (antes `state`): la entidad, el DTO y el documento MongoDB usan `status`; una migración Mongock (orden 008) renombra el campo en la colección `justification_type`.
 
 ---
 

@@ -9,8 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationType;
 import com.mycompany.senaattendance.domain.enumeration.Status;
+import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
@@ -52,6 +54,9 @@ class JustificationTypeResourceIT {
     private JustificationTypeRepository justificationTypeRepository;
 
     @Autowired
+    private JustificationRepository justificationRepository;
+
+    @Autowired
     private JustificationTypeMapper justificationTypeMapper;
 
     @Autowired
@@ -60,6 +65,8 @@ class JustificationTypeResourceIT {
     private JustificationType justificationType;
 
     private JustificationType insertedJustificationType;
+
+    private Justification insertedJustification;
 
     /**
      * Create an entity for this test.
@@ -88,6 +95,10 @@ class JustificationTypeResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedJustification != null) {
+            justificationRepository.delete(insertedJustification);
+            insertedJustification = null;
+        }
         if (insertedJustificationType != null) {
             justificationTypeRepository.delete(insertedJustificationType);
             insertedJustificationType = null;
@@ -511,6 +522,24 @@ class JustificationTypeResourceIT {
         } finally {
             justificationTypeRepository.delete(other);
         }
+    }
+
+    @Test
+    void deleteJustificationTypeInUseReturnsBadRequest() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        Justification justification = JustificationResourceIT.createEntity();
+        justification.setJustificationType(insertedJustificationType);
+        insertedJustification = justificationRepository.save(justification);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restJustificationTypeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedJustificationType.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.justificationTypeInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
     }
 
     @Test

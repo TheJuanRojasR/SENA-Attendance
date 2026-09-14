@@ -22,4 +22,13 @@ public interface JustificationRepository extends MongoRepository<Justification, 
 
     @Query("{'id': ?0}")
     Optional<Justification> findOneWithEagerRelationships(String id);
+
+    /**
+     * Returns whether any justification references the given justification type.
+     * Used to block deleting a justification type that is still in use.
+     *
+     * @param justificationTypeId the justification type id to check.
+     * @return {@code true} if at least one justification references this type.
+     */
+    boolean existsByJustificationTypeId(String justificationTypeId);
 }

@@ -2,11 +2,13 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.JustificationType;
 import com.mycompany.senaattendance.domain.enumeration.Status;
+import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationTypeService;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationTypeMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.JustificationTypeNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.LinkedList;
@@ -29,12 +31,16 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
 
     private final JustificationTypeMapper justificationTypeMapper;
 
+    private final JustificationRepository justificationRepository;
+
     public JustificationTypeServiceImpl(
         JustificationTypeRepository justificationTypeRepository,
-        JustificationTypeMapper justificationTypeMapper
+        JustificationTypeMapper justificationTypeMapper,
+        JustificationRepository justificationRepository
     ) {
         this.justificationTypeRepository = justificationTypeRepository;
         this.justificationTypeMapper = justificationTypeMapper;
+        this.justificationRepository = justificationRepository;
     }
 
     @Override
@@ -119,6 +125,13 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete JustificationType : {}", id);
+        if (justificationRepository.existsByJustificationTypeId(id)) {
+            throw new BadRequestAlertException(
+                "This justification type is used by justifications and cannot be deleted",
+                "justificationType",
+                "justificationTypeInUse"
+            );
+        }
         justificationTypeRepository.deleteById(id);
     }
 
