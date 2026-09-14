@@ -252,6 +252,26 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC016 — Gestionar tipos de justificación
+
+**Estado del backend:** implementado. El **nombre es único** (se compara sin distinguir mayúsculas): un duplicado responde `400` con `error.justificationTypeNameAlreadyUsed` (E1) y un nombre vacío o en blanco responde `400 error.validation` con `name` en `fieldErrors`. El **límite de días por trimestre** es obligatorio y mayor a 0 (`@Min(1)`): un valor nulo, 0 o negativo responde `400 error.validation` con `limitPerTrimester` en `fieldErrors` (E2). Al crear, el tipo nace **Activo**: el formulario del UC solo envía nombre y límite, y `status` es opcional (si se omite queda `ACTIVO`); Desactivar/Reactivar (A2/A3) se hace con `PATCH` (`status: "INACTIVO"` / `"ACTIVO"`). Al eliminar, si el tipo ya fue usado en alguna justificación, `DELETE /api/justification-types/{id}` responde `400` con `error.justificationTypeInUse` (E3) y el tipo debe **desactivarse**. `GET /api/justification-types/active` devuelve solo los activos y es el que debe consumir el formulario del aprendiz (UC011); el listado `GET /api/justification-types` **no** está paginado. En `PUT`/`PATCH` el `id` viaja **solo en el body** (ruta `/api/justification-types`, sin `{id}`). La **escritura** quedó restringida a `ROLE_ADMIN`; la lectura sigue para cualquier usuario autenticado. **Cambio breaking:** el campo de estado se renombró de `state` a **`status`** en el JSON del API. Ver [`docs/api-contracts.md#uc016--gestionar-tipos-de-justificación`](./api-contracts.md#uc016--gestionar-tipos-de-justificación).
+
+**Estado del frontend:** pendiente. La pantalla debe manejar E1/E2/E3, enviar el `id` en el body en `PUT`/`PATCH`, usar `GET /api/justification-types/active` en el formulario del aprendiz (UC011) y adaptar el campo `state` → `status`.
+
+| #   | Ítem                                                                                                                                                                                                                                    | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Renombrar el campo `state` → `status` en el modelo (`justification-type.model.ts`), la tabla, el formulario y el detalle; el JSON del backend ahora usa `status` (**cambio breaking**).                                                  | `Pendiente` |
+| 2   | Validar en el cliente que el nombre no esté vacío ni compuesto solo por espacios; el backend responde `400 error.validation` con `name` en `fieldErrors`.                                                                               | `Pendiente` |
+| 3   | Al crear o editar un tipo, manejar `400 error.justificationTypeNameAlreadyUsed` mostrando "Ya existe un tipo de justificación con este nombre" (E1) y conservar los datos del formulario.                                                | `Pendiente` |
+| 4   | Validar el límite como entero mayor a 0 y manejar `400 error.validation` con `limitPerTrimester` en `fieldErrors` (E2).                                                                                                                 | `Pendiente` |
+| 5   | En el alta no enviar `status`: el backend crea el tipo **Activo** e ignora un estado enviado. El estado se cambia después con `PATCH` (`status: "INACTIVO"`/`"ACTIVO"`).                                                                   | `Pendiente` |
+| 6   | Al eliminar un tipo en uso, manejar `400 error.justificationTypeInUse` mostrando "No es posible eliminar el tipo: ya fue usado en justificaciones. Puedes desactivarlo" (E3) y ofrecer **desactivarlo** en lugar de reintentar la eliminación. | `Pendiente` |
+| 7   | Enviar el `id` del tipo **solo en el body** para `PUT /api/justification-types` y `PATCH /api/justification-types` (ya no va en la ruta); si falta el backend responde `400 error.idnull` y si no existe, `400 error.idnotfound`.       | `Pendiente` |
+| 8   | Usar `GET /api/justification-types/active` en el **formulario del aprendiz (UC011)** para ofrecer solo los tipos disponibles; el listado de gestión `GET /api/justification-types` no está paginado.                                      | `Pendiente` |
+| 9   | Mostrar la pantalla de **gestión de tipos de justificación** (crear, editar, desactivar, eliminar) **solo a `ROLE_ADMIN`**: el backend restringe la escritura a ese rol y responde `403` a los demás.                                   | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -310,6 +330,8 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.documentTypeInitialsAlreadyUsed` | "Ya existe un tipo de documento con estas iniciales."                                              | Alta/edición de tipo de documento (UC022-E2).          |
 | `error.documentTypeInitialsInUse`       | "No se pueden modificar las iniciales de un tipo de documento en uso."                             | Edición de tipo de documento (UC022-E3).               |
 | `error.documentTypeInUse`               | "No es posible eliminar el tipo de documento: está en uso por usuarios. Puedes desactivarlo."      | Eliminación de tipo de documento (UC022-E4).           |
+| `error.justificationTypeNameAlreadyUsed` | "Ya existe un tipo de justificación con este nombre."                                              | Alta/edición de tipo de justificación (UC016-E1).      |
+| `error.justificationTypeInUse`          | "No es posible eliminar el tipo: ya fue usado en justificaciones. Puedes desactivarlo."            | Eliminación de tipo de justificación (UC016-E3).       |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

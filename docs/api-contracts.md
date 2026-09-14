@@ -49,7 +49,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Implementado    |
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Implementado    |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Implementado    |
-| [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Parcial         |
+| [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Implementado    |
 | [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Parcial         |
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Parcial         |
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Parcial         |
@@ -513,7 +513,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC016 — Gestionar tipos de justificación
 
-**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD del catálogo de motivos de justificación. Cada tipo define el límite de días justificables por trimestre.
 
@@ -549,7 +549,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (E2: límite nulo, 0 o negativo); `400 error.justificationTypeNameAlreadyUsed` (nombre duplicado, E1); `400 error.justificationTypeInUse` (el tipo fue usado en justificaciones y no puede eliminarse, E3); `403`; `404`.
 
-**Notas / lo que se necesita:** el nombre único (E1) y el límite mayor a 0 (E2) ya se validan; falta el endpoint de solo activos para el formulario del aprendiz. Los estados del enum son `ACTIVO`/`INACTIVO` (el UC los llama Activo/Inactivo). El campo de estado se llama **`status`** (antes `state`): la entidad, el DTO y el documento MongoDB usan `status`; una migración Mongock (orden 008) renombra el campo en la colección `justification_type`.
+**Notas / lo que se necesita:** reglas de UC016 implementadas. El **nombre es único** (se recorta y se compara sin distinguir mayúsculas) y se valida en `POST`, `PUT` y `PATCH` excluyendo el propio `id`; un duplicado responde `400 error.justificationTypeNameAlreadyUsed` (E1) y un nombre vacío o en blanco responde `400 error.validation` con `name` en `fieldErrors`. El **límite** es obligatorio y mayor a 0 (`@Min(1)`); un valor nulo, 0 o negativo responde `400 error.validation` con `limitPerTrimester` en `fieldErrors` (E2). Al crear, el tipo nace **Activo** (`status = ACTIVO`) si se omite el campo —el formulario del UC solo envía nombre y límite—; en `PUT`/`PATCH` un `status` ausente conserva el estado existente, así que Desactivar/Reactivar (A2/A3) se hace con `PATCH` (`status: "INACTIVO"` / `"ACTIVO"`). **Eliminar en uso** (E3): si alguna `Justification` referencia el tipo, `DELETE` responde `400 error.justificationTypeInUse`; en ese caso el tipo no se elimina y se **desactiva**. `GET /api/justification-types/active` devuelve solo los activos para el formulario del aprendiz (UC011). En `PUT` y `PATCH` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta responde `400 error.idnull` y si no existe, `400 error.idnotfound`. El campo de estado se llama **`status`** (antes `state`): entidad, DTO y documento MongoDB usan `status`; la migración Mongock (orden 008) renombra el campo en la colección `justification_type`. Las escrituras (`POST`, `PUT`, `PATCH`, `DELETE`) están restringidas a `ROLE_ADMIN`; la lectura queda para cualquier usuario autenticado.
 
 ---
 
