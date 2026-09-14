@@ -189,6 +189,47 @@ class UserManagementResourceIT {
     }
 
     @Test
+    void testSearchUsersFiltersByRole() throws Exception {
+        String suffix = uid();
+        DocumentType type = seededDocumentType();
+
+        User instructor = persistUser("role-instr-" + suffix, "roleinstr-" + suffix + "@example.com", true);
+        instructor.getAuthorities().add(authorityRepository.findById(AuthoritiesConstants.INSTRUCTOR).orElseThrow());
+        userRepository.save(instructor);
+        persistProfile(instructor, "RoleInstr" + suffix, "Alpha", "RIN" + suffix, "3077777777", type);
+
+        User apprentice = persistUser("role-appr-" + suffix, "roleappr-" + suffix + "@example.com", true);
+        apprentice.getAuthorities().add(authorityRepository.findById(AuthoritiesConstants.APPRENTICE).orElseThrow());
+        userRepository.save(apprentice);
+        persistProfile(apprentice, "RoleAppr" + suffix, "Beta", "RAP" + suffix, "3088888888", type);
+
+        restUserManagementMockMvc
+            .perform(get(ENTITY_API_URL).param("search", suffix).param("role", AuthoritiesConstants.INSTRUCTOR))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.[*].email").value(hasItem(instructor.getEmail())))
+            .andExpect(jsonPath("$.[*].email").value(not(hasItem(apprentice.getEmail()))));
+    }
+
+    @Test
+    void testSearchUsersPaginatesWithTotalCount() throws Exception {
+        String shared = "Pager" + uid();
+        DocumentType type = seededDocumentType();
+
+        User first = persistUser("pager-a-" + uid(), "pagera-" + uid() + "@example.com", true);
+        persistProfile(first, shared + "One", "Alpha", "PAG" + uid(), "3055555555", type);
+        User second = persistUser("pager-b-" + uid(), "pagerb-" + uid() + "@example.com", true);
+        persistProfile(second, shared + "Two", "Beta", "PAG" + uid(), "3066666666", type);
+
+        restUserManagementMockMvc
+            .perform(get(ENTITY_API_URL).param("search", shared).param("page", "0").param("size", "1"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "2"))
+            .andExpect(jsonPath("$").isArray())
+            .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
     @WithMockUser(authorities = AuthoritiesConstants.USER)
     void testSearchUsersRequiresAdmin() throws Exception {
         restUserManagementMockMvc

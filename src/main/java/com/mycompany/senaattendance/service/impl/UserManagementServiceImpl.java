@@ -7,11 +7,8 @@ import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.service.UserManagementService;
 import com.mycompany.senaattendance.service.dto.UserManagementDTO;
 import com.mycompany.senaattendance.service.mapper.UserManagementMapper;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -37,41 +34,63 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public Page<UserManagementDTO> searchUsers(String searchTerm, Boolean status, Pageable pageable) {
-        List<User> usersByEmail = userRepository.findByEmailContaining(searchTerm);
+    public Page<UserManagementDTO> searchUsers(String searchTerm, Boolean status, String role, Pageable pageable) {
+        String term = StringUtils.trimToEmpty(searchTerm).toLowerCase();
 
-        List<UserProfile> profilesByEmail = usersByEmail
+        // The match spans profile fields and the user email, so it is resolved against the whole
+        // collection and then sliced for the requested page. This keeps the total count accurate
+        // for the applied filters instead of being limited by a pre-paged sub-query.
+        List<UserManagementDTO> matches = userProfileRepository
+            .findAll()
             .stream()
-            .map(user -> userProfileRepository.findOneByUserId(user.getId()))
-            .filter(Optional::isPresent)
-            .map(Optional::get)
+            .filter(profile -> matchesTerm(profile, term))
+            .filter(profile -> matchesStatus(profile, status))
+            .filter(profile -> matchesRole(profile, role))
+            .map(profile -> userManagementMapper.toDto(profile, profile.getUser()))
             .toList();
 
-        Page<UserProfile> profilesByDocument = userProfileRepository.findByDocumentNumberContaining(searchTerm, pageable);
-
-        Page<UserProfile> profilesByName = userProfileRepository.findByFirstNameContainingOrFirstLastNameContaining(searchTerm, pageable);
-
-        Set<UserProfile> combinedResults = new LinkedHashSet<>();
-        combinedResults.addAll(profilesByEmail);
-        combinedResults.addAll(profilesByDocument.getContent());
-        combinedResults.addAll(profilesByName.getContent());
-
-        Set<UserProfile> filteredResults = combinedResults;
-        if (status != null) {
-            filteredResults = combinedResults
-                .stream()
-                .filter(profile -> {
-                    User user = profile.getUser();
-                    return user != null && user.isActivated() == status;
-                })
-                .collect(Collectors.toSet());
+        long total = matches.size();
+        int from = (int) pageable.getOffset();
+        if (from >= total) {
+            return new PageImpl<>(List.of(), pageable, total);
         }
+        int to = Math.min(from + pageable.getPageSize(), (int) total);
+        return new PageImpl<>(matches.subList(from, to), pageable, total);
+    }
 
-        List<UserManagementDTO> dtos = filteredResults
-            .stream()
-            .map(profile -> userManagementMapper.toDto(profile, profile.getUser()))
-            .collect(Collectors.toList());
+    private boolean matchesTerm(UserProfile profile, String term) {
+        if (term.isEmpty()) {
+            return true;
+        }
+        User user = profile.getUser();
+        return (
+            containsIgnoreCase(profile.getFirstName(), term) ||
+            containsIgnoreCase(profile.getFirstLastName(), term) ||
+            containsIgnoreCase(profile.getDocumentNumber(), term) ||
+            (user != null && containsIgnoreCase(user.getEmail(), term))
+        );
+    }
 
-        return new PageImpl<>(dtos, pageable, dtos.size());
+    private boolean matchesStatus(UserProfile profile, Boolean status) {
+        User user = profile.getUser();
+        return status == null || (user != null && user.isActivated() == status);
+    }
+
+    private boolean matchesRole(UserProfile profile, String role) {
+        if (role == null) {
+            return true;
+        }
+        User user = profile.getUser();
+        return (
+            user != null &&
+            user
+                .getAuthorities()
+                .stream()
+                .anyMatch(authority -> StringUtils.equals(authority.getName(), role))
+        );
+    }
+
+    private static boolean containsIgnoreCase(String value, String term) {
+        return value != null && value.toLowerCase().contains(term);
     }
 }
