@@ -62,6 +62,16 @@ public class UserService {
      */
     private static final long RESET_KEY_VALIDITY_MINUTES = 30;
 
+    /**
+     * Roles that can be assigned to an account. {@code ROLE_COORDINATOR} is deliberately excluded:
+     * the current use cases no longer contemplate it.
+     */
+    private static final Set<String> ASSIGNABLE_ROLES = Set.of(
+        AuthoritiesConstants.ADMIN,
+        AuthoritiesConstants.INSTRUCTOR,
+        AuthoritiesConstants.APPRENTICE
+    );
+
     private final UserRepository userRepository;
 
     private final PasswordEncoder passwordEncoder;
@@ -317,6 +327,9 @@ public class UserService {
      * @return the immutable result set {@code {ROLE_USER, role}}.
      */
     private Set<Authority> buildAuthorities(String role) {
+        if (role == null || !ASSIGNABLE_ROLES.contains(role)) {
+            throw new BadRequestAlertException("Role not found", "userManagement", "rolenotfound");
+        }
         Set<Authority> authorities = new HashSet<>();
         authorities.add(
             authorityRepository

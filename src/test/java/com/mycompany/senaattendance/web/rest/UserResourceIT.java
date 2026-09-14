@@ -274,6 +274,24 @@ class UserResourceIT {
     }
 
     @Test
+    void createUserWithCoordinatorRoleReturnsBadRequest() throws Exception {
+        AdminCreateUserVM userVM = new AdminCreateUserVM();
+        userVM.setEmail("coord.rejected@example.com");
+        userVM.setPassword("Passw0rd!");
+        userVM.setFirstName("John");
+        userVM.setFirstLastName("Doe");
+        userVM.setDocumentNumber("COORDREJ01");
+        userVM.setPhoneNumber("3001234567");
+        userVM.setDocumentTypeId(seededDocumentTypeId());
+        userVM.setRole(AuthoritiesConstants.COORDINATOR);
+
+        restUserMockMvc
+            .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.rolenotfound"));
+    }
+
+    @Test
     void createUserWithExistingId() throws Exception {
         int databaseSizeBeforeCreate = userRepository.findAll().size();
 
@@ -494,6 +512,20 @@ class UserResourceIT {
             .andExpect(jsonPath("$.login").value(expectedLogin));
 
         assertThat(userRepository.findById(target.getId()).orElseThrow().getLogin()).isEqualTo(expectedLogin);
+    }
+
+    @Test
+    void updateUserCoordinatorRoleRejected() throws Exception {
+        User target = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(target.getId());
+        vm.setRole(AuthoritiesConstants.COORDINATOR);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.rolenotfound"));
     }
 
     @Test
