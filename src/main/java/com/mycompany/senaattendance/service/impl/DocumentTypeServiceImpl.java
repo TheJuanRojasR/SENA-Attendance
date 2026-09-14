@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.DocumentTypeService;
 import com.mycompany.senaattendance.service.dto.DocumentTypeDTO;
 import com.mycompany.senaattendance.service.mapper.DocumentTypeMapper;
+import com.mycompany.senaattendance.web.rest.errors.DocumentTypeInitialsAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.DocumentTypeNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.LinkedList;
@@ -38,6 +39,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
         LOG.debug("Request to save DocumentType : {}", documentTypeDTO);
         DocumentType documentType = documentTypeMapper.toEntity(documentTypeDTO);
         validateAndNormalizeName(documentType, null);
+        validateAndNormalizeInitials(documentType, null);
 
         // Los tipos nuevos nacen activos
         if (documentType.getIsActive() == null) {
@@ -61,6 +63,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
         LOG.debug("Request to update DocumentType : {}", documentTypeDTO);
         DocumentType documentType = documentTypeMapper.toEntity(documentTypeDTO);
         validateAndNormalizeName(documentType, documentType.getId());
+        validateAndNormalizeInitials(documentType, documentType.getId());
 
         // Trae el documentType por ID
         Optional<DocumentType> optionalDocumentType = documentTypeRepository.findById(documentType.getId());
@@ -95,6 +98,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
             .map(existingDocumentType -> {
                 documentTypeMapper.partialUpdate(existingDocumentType, documentTypeDTO);
                 validateAndNormalizeName(existingDocumentType, existingDocumentType.getId());
+                validateAndNormalizeInitials(existingDocumentType, existingDocumentType.getId());
 
                 return existingDocumentType;
             })
@@ -144,6 +148,33 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
                 : documentTypeRepository.existsByNameIgnoreCaseAndIdNot(name, excludeId);
         if (duplicate) {
             throw new DocumentTypeNameAlreadyUsedException();
+        }
+    }
+
+    /**
+     * Trims and uppercases the document type initials and enforces their uniqueness case-insensitively.
+     * <p>
+     * Uppercasing keeps the stored initials canonical, since they build the derived login
+     * {@code <initials>_<documentNumber>}. When {@code excludeId} is not {@code null}, the document
+     * type with that id is ignored so an update that keeps the same initials does not collide with
+     * itself. On create {@code excludeId} is {@code null} and every existing document type is considered.
+     *
+     * @param documentType the document type whose initials are normalized and validated.
+     * @param excludeId the id to exclude from the uniqueness check, or {@code null} on create.
+     * @throws DocumentTypeInitialsAlreadyUsedException if another document type with the same initials exists.
+     */
+    private void validateAndNormalizeInitials(DocumentType documentType, String excludeId) {
+        if (documentType.getInitials() == null) {
+            return;
+        }
+        String initials = documentType.getInitials().trim().toUpperCase();
+        documentType.setInitials(initials);
+        boolean duplicate =
+            excludeId == null
+                ? documentTypeRepository.existsByInitialsIgnoreCase(initials)
+                : documentTypeRepository.existsByInitialsIgnoreCaseAndIdNot(initials, excludeId);
+        if (duplicate) {
+            throw new DocumentTypeInitialsAlreadyUsedException();
         }
     }
 }

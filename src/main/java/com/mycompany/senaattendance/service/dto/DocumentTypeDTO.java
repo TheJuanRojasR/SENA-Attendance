@@ -16,7 +16,7 @@ public class DocumentTypeDTO implements Serializable {
     @Size(max = 30)
     private String name;
 
-    @NotNull
+    @NotBlank
     @Size(max = 10)
     private String initials;
 

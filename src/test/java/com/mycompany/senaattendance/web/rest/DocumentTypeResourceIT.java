@@ -167,6 +167,68 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void createDocumentTypeNormalizesInitialsToUpperCase() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        documentType.setName("Tipo Normalizado");
+        documentType.setInitials("qz");
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        var returnedDocumentTypeDTO = om.readValue(
+            restDocumentTypeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            DocumentTypeDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedDocumentTypeDTO.getInitials()).isEqualTo("QZ");
+
+        var returnedDocumentType = documentTypeMapper.toEntity(returnedDocumentTypeDTO);
+        assertThat(getPersistedDocumentType(returnedDocumentType).getInitials()).isEqualTo("QZ");
+
+        insertedDocumentType = returnedDocumentType;
+    }
+
+    @Test
+    void createDocumentTypeWithDuplicateInitialsReturnsBadRequest() throws Exception {
+        // Persist a document type with DEFAULT_INITIALS so the upcoming POST collides on initials only
+        insertedDocumentType = documentTypeRepository.save(documentType);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+        documentTypeDTO.setId(null);
+        documentTypeDTO.setName(UPDATED_NAME);
+        documentTypeDTO.setInitials("aaaaaaaaaa");
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentTypeInitialsAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createDocumentTypeWithBlankInitialsReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        documentType.setInitials("   ");
+
+        DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
+
+        restDocumentTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("initials"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkNameIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
@@ -327,6 +389,29 @@ class DocumentTypeResourceIT {
     }
 
     @Test
+    void putDocumentTypeWithDuplicateInitialsReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(other);
+            documentTypeDTO.setInitials(DEFAULT_INITIALS);
+
+            restDocumentTypeMockMvc
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(documentTypeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeInitialsAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getInitials()).isEqualTo(UPDATED_INITIALS);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
     void partialUpdateDocumentTypeWithPatch() throws Exception {
         // Initialize the database
         insertedDocumentType = documentTypeRepository.save(documentType);
@@ -436,6 +521,35 @@ class DocumentTypeResourceIT {
 
             assertSameRepositoryCount(databaseSizeBeforeUpdate);
             assertThat(getPersistedDocumentType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            documentTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void patchDocumentTypeWithDuplicateInitialsReturnsBadRequest() throws Exception {
+        insertedDocumentType = documentTypeRepository.save(documentType);
+
+        DocumentType other = documentTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+
+            DocumentType partialUpdatedDocumentType = new DocumentType();
+            partialUpdatedDocumentType.setId(other.getId());
+            partialUpdatedDocumentType.setInitials(DEFAULT_INITIALS);
+
+            restDocumentTypeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL)
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedDocumentType))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.documentTypeInitialsAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedDocumentType(other).getInitials()).isEqualTo(UPDATED_INITIALS);
         } finally {
             documentTypeRepository.delete(other);
         }

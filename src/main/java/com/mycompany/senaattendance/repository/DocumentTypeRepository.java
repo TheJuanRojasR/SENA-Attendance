@@ -26,4 +26,22 @@ public interface DocumentTypeRepository extends MongoRepository<DocumentType, St
      * @return {@code true} if another document type with this name exists.
      */
     boolean existsByNameIgnoreCaseAndIdNot(String name, String id);
+
+    /**
+     * Returns whether a document type with the given initials already exists (case-insensitive).
+     *
+     * @param initials the initials to check.
+     * @return {@code true} if a document type with these initials exists.
+     */
+    boolean existsByInitialsIgnoreCase(String initials);
+
+    /**
+     * Returns whether a document type with the given initials exists, excluding a specific id.
+     * Used so an update that keeps the same initials does not collide with itself.
+     *
+     * @param initials the initials to check.
+     * @param id the id to exclude.
+     * @return {@code true} if another document type with these initials exists.
+     */
+    boolean existsByInitialsIgnoreCaseAndIdNot(String initials, String id);
 }
