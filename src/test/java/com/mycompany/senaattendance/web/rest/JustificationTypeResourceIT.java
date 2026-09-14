@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.JustificationType;
-import com.mycompany.senaattendance.domain.enumeration.State;
+import com.mycompany.senaattendance.domain.enumeration.Status;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
@@ -39,8 +39,8 @@ class JustificationTypeResourceIT {
     private static final Integer DEFAULT_LIMIT_PER_TRIMESTER = 1;
     private static final Integer UPDATED_LIMIT_PER_TRIMESTER = 2;
 
-    private static final State DEFAULT_STATE = State.ACTIVO;
-    private static final State UPDATED_STATE = State.INACTIVO;
+    private static final Status DEFAULT_STATUS = Status.ACTIVO;
+    private static final Status UPDATED_STATUS = Status.INACTIVO;
 
     private static final String ENTITY_API_URL = "/api/justification-types";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -68,7 +68,7 @@ class JustificationTypeResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static JustificationType createEntity() {
-        return new JustificationType().name(DEFAULT_NAME).limitPerTrimester(DEFAULT_LIMIT_PER_TRIMESTER).state(DEFAULT_STATE);
+        return new JustificationType().name(DEFAULT_NAME).limitPerTrimester(DEFAULT_LIMIT_PER_TRIMESTER).status(DEFAULT_STATUS);
     }
 
     /**
@@ -78,7 +78,7 @@ class JustificationTypeResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static JustificationType createUpdatedEntity() {
-        return new JustificationType().name(UPDATED_NAME).limitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER).state(UPDATED_STATE);
+        return new JustificationType().name(UPDATED_NAME).limitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER).status(UPDATED_STATUS);
     }
 
     @BeforeEach
@@ -151,10 +151,10 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    void checkStateIsRequired() throws Exception {
+    void checkStatusIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
-        justificationType.setState(null);
+        justificationType.setStatus(null);
 
         // Create the JustificationType, which fails.
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
@@ -179,7 +179,7 @@ class JustificationTypeResourceIT {
             .andExpect(jsonPath("$.[*].id").value(hasItem(justificationType.getId())))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].limitPerTrimester").value(hasItem(DEFAULT_LIMIT_PER_TRIMESTER)))
-            .andExpect(jsonPath("$.[*].state").value(hasItem(DEFAULT_STATE.toString())));
+            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.toString())));
     }
 
     @Test
@@ -195,7 +195,7 @@ class JustificationTypeResourceIT {
             .andExpect(jsonPath("$.id").value(justificationType.getId()))
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.limitPerTrimester").value(DEFAULT_LIMIT_PER_TRIMESTER))
-            .andExpect(jsonPath("$.state").value(DEFAULT_STATE.toString()));
+            .andExpect(jsonPath("$.status").value(DEFAULT_STATUS.toString()));
     }
 
     @Test
@@ -213,7 +213,7 @@ class JustificationTypeResourceIT {
 
         // Update the justificationType
         JustificationType updatedJustificationType = justificationTypeRepository.findById(justificationType.getId()).orElseThrow();
-        updatedJustificationType.name(UPDATED_NAME).limitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER).state(UPDATED_STATE);
+        updatedJustificationType.name(UPDATED_NAME).limitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER).status(UPDATED_STATUS);
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(updatedJustificationType);
 
         restJustificationTypeMockMvc
@@ -299,7 +299,7 @@ class JustificationTypeResourceIT {
         JustificationType partialUpdatedJustificationType = new JustificationType();
         partialUpdatedJustificationType.setId(justificationType.getId());
 
-        partialUpdatedJustificationType.name(UPDATED_NAME).limitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER).state(UPDATED_STATE);
+        partialUpdatedJustificationType.name(UPDATED_NAME).limitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER).status(UPDATED_STATUS);
 
         restJustificationTypeMockMvc
             .perform(

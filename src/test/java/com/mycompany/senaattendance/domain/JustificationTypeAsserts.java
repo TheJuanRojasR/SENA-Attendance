@@ -49,7 +49,7 @@ public class JustificationTypeAsserts {
             .as("Verify JustificationType relevant properties")
             .satisfies(a -> assertThat(a.getName()).as("check name").isEqualTo(expected.getName()))
             .satisfies(a -> assertThat(a.getLimitPerTrimester()).as("check limitPerTrimester").isEqualTo(expected.getLimitPerTrimester()))
-            .satisfies(a -> assertThat(a.getState()).as("check state").isEqualTo(expected.getState()));
+            .satisfies(a -> assertThat(a.getStatus()).as("check status").isEqualTo(expected.getStatus()));
     }
 
     /**

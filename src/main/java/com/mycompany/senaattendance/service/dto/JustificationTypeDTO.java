@@ -1,6 +1,6 @@
 package com.mycompany.senaattendance.service.dto;
 
-import com.mycompany.senaattendance.domain.enumeration.State;
+import com.mycompany.senaattendance.domain.enumeration.Status;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.util.Objects;
@@ -20,7 +20,7 @@ public class JustificationTypeDTO implements Serializable {
     private Integer limitPerTrimester;
 
     @NotNull
-    private State state;
+    private Status status;
 
     public String getId() {
         return id;
@@ -46,12 +46,12 @@ public class JustificationTypeDTO implements Serializable {
         this.limitPerTrimester = limitPerTrimester;
     }
 
-    public State getState() {
-        return state;
+    public Status getStatus() {
+        return status;
     }
 
-    public void setState(State state) {
-        this.state = state;
+    public void setStatus(Status status) {
+        this.status = status;
     }
 
     @Override
@@ -82,7 +82,7 @@ public class JustificationTypeDTO implements Serializable {
             "id='" + getId() + "'" +
             ", name='" + getName() + "'" +
             ", limitPerTrimester=" + getLimitPerTrimester() +
-            ", state='" + getState() + "'" +
+            ", status='" + getStatus() + "'" +
             "}";
     }
 }
