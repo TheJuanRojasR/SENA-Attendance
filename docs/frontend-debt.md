@@ -226,6 +226,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 3   | Validar en el cliente el máximo de 50 caracteres del nombre (el backend responde `400 error.validation` con `name` en `fieldErrors`).                                      | `Pendiente` |
 | 4   | En el formulario de creación no enviar `isActive`: el backend siempre crea la modalidad **Activa** (`isActive = true`) e ignora el valor enviado.                           | `Pendiente` |
 | 5   | Al eliminar una modalidad en uso, manejar `400 error.modalityInUse` mostrando "No es posible eliminar la modalidad: está asignada a fichas. Puedes desactivarla" (E2) y ofrecer **desactivarla** con `PATCH /api/modalities` (`isActive: false`) en lugar de reintentar la eliminación. | `Pendiente` |
+| 6   | Al editar, enviar el `id` de la modalidad en el cuerpo del `PUT`/`PATCH` (la ruta es `/api/modalities`, sin `{id}`): el backend lee el `id` del cuerpo y responde `400 error.idnull` si falta. | `Pendiente` |
 
 ---
 

@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,27 +64,21 @@ public class ModalityResource {
     }
 
     /**
-     * {@code PUT  /modalities/:id} : Updates an existing modality.
+     * {@code PUT  /modalities} : Updates an existing modality; the id is taken from the request body.
      *
-     * @param id the id of the modalityDTO to save.
      * @param modalityDTO the modalityDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated modalityDTO,
      * or with status {@code 400 (Bad Request)} if the modalityDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the modalityDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ModalityDTO> updateModality(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ModalityDTO modalityDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Modality : {}, {}", id, modalityDTO);
-        if (modalityDTO.getId() == null) {
+    public ResponseEntity<ModalityDTO> updateModality(@Valid @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
+        String id = modalityDTO.getId();
+        LOG.debug("REST request to update Modality : {}", modalityDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, modalityDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!modalityRepository.existsById(id)) {
@@ -99,9 +92,8 @@ public class ModalityResource {
     }
 
     /**
-     * {@code PATCH  /modalities/:id} : Partial updates given fields of an existing modality, field will ignore if it is null
+     * {@code PATCH  /modalities} : Partial updates given fields of an existing modality; the id is taken from the request body.
      *
-     * @param id the id of the modalityDTO to save.
      * @param modalityDTO the modalityDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated modalityDTO,
      * or with status {@code 400 (Bad Request)} if the modalityDTO is not valid,
@@ -109,18 +101,13 @@ public class ModalityResource {
      * or with status {@code 500 (Internal Server Error)} if the modalityDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ModalityDTO> partialUpdateModality(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ModalityDTO modalityDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Modality partially : {}, {}", id, modalityDTO);
-        if (modalityDTO.getId() == null) {
+    public ResponseEntity<ModalityDTO> partialUpdateModality(@NotNull @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
+        String id = modalityDTO.getId();
+        LOG.debug("REST request to partial update Modality partially : {}", modalityDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, modalityDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!modalityRepository.existsById(id)) {

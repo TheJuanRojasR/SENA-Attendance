@@ -90,6 +90,7 @@ public class ModalityServiceImpl implements ModalityService {
             .findById(modalityDTO.getId())
             .map(existingModality -> {
                 modalityMapper.partialUpdate(existingModality, modalityDTO);
+                validateAndNormalizeName(existingModality, existingModality.getId());
 
                 return existingModality;
             })

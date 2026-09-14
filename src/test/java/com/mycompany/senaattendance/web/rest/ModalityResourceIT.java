@@ -271,11 +271,7 @@ class ModalityResourceIT {
         ModalityDTO modalityDTO = modalityMapper.toDto(updatedModality);
 
         restModalityMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, modalityDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(modalityDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
             .andExpect(status().isOk());
 
         // Validate the Modality in the database
@@ -295,11 +291,7 @@ class ModalityResourceIT {
             modalityDTO.setName(DEFAULT_NAME);
 
             restModalityMockMvc
-                .perform(
-                    put(ENTITY_API_URL_ID, modalityDTO.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(om.writeValueAsBytes(modalityDTO))
-                )
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.modalityNameAlreadyUsed"));
 
@@ -318,11 +310,7 @@ class ModalityResourceIT {
         ModalityDTO modalityDTO = modalityMapper.toDto(insertedModality);
 
         restModalityMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, modalityDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(modalityDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
             .andExpect(status().isOk());
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -339,11 +327,7 @@ class ModalityResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restModalityMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, modalityDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(modalityDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Modality in the database
@@ -351,40 +335,17 @@ class ModalityResourceIT {
     }
 
     @Test
-    void putWithIdMismatchModality() throws Exception {
+    void putModalityWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        modality.setId(UUID.randomUUID().toString());
+        modality.setId(null);
 
-        // Create the Modality
         ModalityDTO modalityDTO = modalityMapper.toDto(modality);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restModalityMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(modalityDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Modality in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamModality() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        modality.setId(UUID.randomUUID().toString());
-
-        // Create the Modality
-        ModalityDTO modalityDTO = modalityMapper.toDto(modality);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restModalityMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
-        // Validate the Modality in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
@@ -403,9 +364,7 @@ class ModalityResourceIT {
 
         restModalityMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedModality.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedModality))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedModality))
             )
             .andExpect(status().isOk());
 
@@ -430,9 +389,7 @@ class ModalityResourceIT {
 
         restModalityMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedModality.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedModality))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedModality))
             )
             .andExpect(status().isOk());
 
@@ -452,11 +409,7 @@ class ModalityResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restModalityMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, modalityDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(modalityDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(modalityDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Modality in the database
@@ -464,40 +417,44 @@ class ModalityResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchModality() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        modality.setId(UUID.randomUUID().toString());
+    void patchModalityWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedModality = modalityRepository.save(modality);
 
-        // Create the Modality
-        ModalityDTO modalityDTO = modalityMapper.toDto(modality);
+        Modality other = modalityRepository.save(createUpdatedEntity());
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restModalityMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(modalityDTO))
-            )
-            .andExpect(status().isBadRequest());
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
 
-        // Validate the Modality in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            Modality partialUpdatedModality = new Modality();
+            partialUpdatedModality.setId(other.getId());
+            partialUpdatedModality.setName(DEFAULT_NAME);
+
+            restModalityMockMvc
+                .perform(
+                    patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedModality))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.modalityNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedModality(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            modalityRepository.delete(other);
+        }
     }
 
     @Test
-    void patchWithMissingIdPathParamModality() throws Exception {
+    void patchModalityWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        modality.setId(UUID.randomUUID().toString());
+        modality.setId(null);
 
-        // Create the Modality
         ModalityDTO modalityDTO = modalityMapper.toDto(modality);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restModalityMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(modalityDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
-        // Validate the Modality in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
