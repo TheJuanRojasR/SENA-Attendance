@@ -524,6 +524,73 @@ class ModalityResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createModalityAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ModalityDTO modalityDTO = modalityMapper.toDto(modality);
+
+        restModalityMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateModalityAsNonAdminReturnsForbidden() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ModalityDTO modalityDTO = modalityMapper.toDto(insertedModality);
+
+        restModalityMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(modalityDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateModalityAsNonAdminReturnsForbidden() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ModalityDTO modalityDTO = modalityMapper.toDto(insertedModality);
+
+        restModalityMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(modalityDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteModalityAsNonAdminReturnsForbidden() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restModalityMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedModality.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readModalitiesAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedModality = modalityRepository.save(modality);
+
+        restModalityMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restModalityMockMvc.perform(get(ENTITY_API_URL_ID, insertedModality.getId())).andExpect(status().isOk());
+        restModalityMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
+    }
+
     protected long getRepositoryCount() {
         return modalityRepository.count();
     }

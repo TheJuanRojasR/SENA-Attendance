@@ -56,7 +56,7 @@ public class ModalityResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ModalityDTO> createModality(@Valid @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
         LOG.debug("REST request to save Modality : {}", modalityDTO);
         if (modalityDTO.getId() != null) {
@@ -78,7 +78,7 @@ public class ModalityResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ModalityDTO> updateModality(@Valid @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
         String id = modalityDTO.getId();
         LOG.debug("REST request to update Modality : {}", modalityDTO);
@@ -107,7 +107,7 @@ public class ModalityResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ModalityDTO> partialUpdateModality(@NotNull @RequestBody ModalityDTO modalityDTO) throws URISyntaxException {
         String id = modalityDTO.getId();
         LOG.debug("REST request to partial update Modality partially : {}", modalityDTO);
@@ -161,7 +161,7 @@ public class ModalityResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteModality(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Modality : {}", id);
         modalityService.delete(id);
