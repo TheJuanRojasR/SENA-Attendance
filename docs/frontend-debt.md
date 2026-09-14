@@ -272,6 +272,42 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC006 — Gestionar perfiles
+
+**Estado del backend:** implementado (salvo el **reenvío de credenciales E7**, que llega con UC018). Un solo rol por cuenta; solo se pueden asignar Administrador, Instructor o Aprendiz. El **cambio de rol** respeta las guardas de último administrador, último instructor y cuenta `admin` protegida. El **login se recalcula** al corregir el tipo o el número de documento. **Los usuarios nunca se eliminan.** Ver [`docs/api-contracts.md#uc006--gestionar-perfiles`](./api-contracts.md#uc006--gestionar-perfiles).
+
+**Estado del frontend:** pendiente.
+
+| #   | Ítem                                                                                                                                                                                                                                    | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Quitar la acción de **eliminar usuario**: el endpoint `DELETE /api/admin/users/{login}` fue retirado y responde `405`; usar desactivar/reactivar (`PATCH /api/admin/users/activated`).                                                    | `Pendiente` |
+| 2   | Manejar las claves de guardas: `400 error.adminprotected` (cuenta admin protegida), `400 error.lastAdmin` (último administrador activo), `400 error.lastInstructor` (último instructor de materias de fichas operativas) y `400 error.rolenotfound`. | `Pendiente` |
+| 3   | En `PATCH /api/admin/users` enviar el `id` en el body; el `rol` solo admite `ROLE_ADMIN`, `ROLE_INSTRUCTOR` o `ROLE_APPRENTICE` (sin Coordinador).                                                                                       | `Pendiente` |
+| 4   | Refrescar el **login derivado** que se muestra cuando el Administrador corrige el tipo o el número de documento.                                                                                                                        | `Pendiente` |
+| 5   | La búsqueda `GET /api/admin/users/search` admite también el parámetro `role` y pagina con `X-Total-Count`/`Link` (20 por defecto).                                                                                                       | `Pendiente` |
+| 6   | En el alta no enviar estado: la cuenta nace `mustChangePassword = true`; el **reenvío de credenciales (E7)** depende de UC018.                                                                                                            | `Pendiente` |
+
+---
+
+## UC012 — Gestionar programas de aprendizaje
+
+**Estado del backend:** implementado. El **código es solo numérico** (E5) y la **cantidad de trimestres** va de 1 a 12 (E6); el programa **nace Activo**; al eliminar, si tiene fichas, responde `400 error.programInUse` (E8) y debe **desactivarse**; `GET /api/programs/active` alimenta la creación de fichas (UC007). En `PUT` el `id` viaja **solo en el body**. La escritura quedó restringida a `ROLE_ADMIN`. Ver [`docs/api-contracts.md#uc012--gestionar-programas-de-aprendizaje`](./api-contracts.md#uc012--gestionar-programas-de-aprendizaje).
+
+**Estado del frontend:** pendiente. El formulario debe validar el código numérico y el rango de trimestres, no enviar estado en el alta, y adaptar el `PUT` al id en el body.
+
+| #   | Ítem                                                                                                                                                                                                                                    | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Validar el **código solo numérico** (E5) antes de enviar; el backend responde `400 error.validation` con `code` en `fieldErrors` (POST/PUT) o `400 error.codenotnumeric` (PATCH).                                                          | `Pendiente` |
+| 2   | Validar la **cantidad de trimestres 1–12** (E6); un PATCH fuera de rango responde `400 error.trimestersoutofrange`.                                                                                                                       | `Pendiente` |
+| 3   | En el alta no ofrecer estado: el programa nace **Activo** e ignora el `status` enviado. El estado se cambia con `PATCH /api/programs/activated`.                                                                                          | `Pendiente` |
+| 4   | Enviar el `id` del programa **solo en el body** para `PUT /api/programs` (cambio breaking: la ruta ya no lleva `{id}`); si falta, `400 error.idnull`, y si no existe, `400 error.idnotfound`.                                              | `Pendiente` |
+| 5   | Al eliminar un programa con fichas, manejar `400 error.programInUse` y ofrecer **desactivarlo** en lugar de reintentar.                                                                                                                   | `Pendiente` |
+| 6   | Mostrar la advertencia de desactivación (E7) con `warning` y `activeFichasCount` devueltos por `PATCH /api/programs/activated`.                                                                                                          | `Pendiente` |
+| 7   | Usar `GET /api/programs/active` en el selector de creación de fichas (UC007); el listado de gestión `GET /api/programs` es paginado (`X-Total-Count`).                                                                                    | `Pendiente` |
+| 8   | Mostrar la gestión de programas solo a `ROLE_ADMIN`: el backend restringe la escritura a ese rol y responde `403` a los demás.                                                                                                           | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
