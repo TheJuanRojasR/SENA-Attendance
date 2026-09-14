@@ -760,11 +760,11 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 | ------ | ------------------------ | --------------------------------- | --------------------------------------------------------------- |
 | GET    | `/api/trimesters`        | Autenticado                       | Lista paginada.                                                 |
 | GET    | `/api/trimesters/search` | Autenticado                       | Filtra por año (4 dígitos) o nombre, y por `status`; paginado.  |
-| GET    | `/api/trimesters/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Detalle.                                                        |
-| POST   | `/api/trimesters`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea y calcula `status`; `201`.                                 |
-| PUT    | `/api/trimesters/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`. No aplica validaciones de estado.             |
-| PATCH  | `/api/trimesters`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial con reglas por estado; `id` en el cuerpo. |
-| DELETE | `/api/trimesters/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                 |
+| GET    | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Detalle.                                                        |
+| POST   | `/api/trimesters`        | `ROLE_ADMIN` | Crea y calcula `status`; `201`.                                 |
+| PUT    | `/api/trimesters`   | `ROLE_ADMIN` | Reemplaza; `200`. No aplica validaciones de estado.             |
+| PATCH  | `/api/trimesters`        | `ROLE_ADMIN` | Actualización parcial con reglas por estado; `id` en el cuerpo. |
+| DELETE | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                 |
 
 **Request — `POST /api/trimesters`**
 
@@ -797,7 +797,7 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 **Errores:** `400 error.datesorder` ("La fecha de inicio debe ser anterior a la fecha de fin"), `400 error.datesoverlap` ("Ya existe un trimestre que se solapa con las fechas indicadas"), `400 error.noteditable` ("No se puede editar un trimestre que ya ha finalizado"), `400 error.startdatelocked`, `400 error.enddateinpast`, `400 error.startdatemustbefuture`, `400 error.attendancestartdate`; además de `idexists`, `idnull`, `idinvalid`, `idnotfound` y de validación; `403`; `404`.
 
-**Notas / lo que se necesita:** al crear **no** se valida que la fecha de inicio sea desde mañana ni que la fecha fin no esté vencida (solo orden y solapamiento). `PUT` no valida nada: reemplaza el documento tal como llega, incluido `status`. `PATCH` sí aplica las reglas por estado (no editable si cerró, inicio congelado si está activo, end ≥ hoy si está activo, inicio futuro si es futuro, bloqueo si ya hay asistencias). `DELETE` no verifica horarios ni asistencias asociadas. Los estados Futuro/Activo/Cerrado se derivan de `status` + fechas, no hay campo de estado explícito.
+**Notas / lo que se necesita:** `PUT` y `PATCH` aplican las mismas reglas de estado (un trimestre **cerrado** no se edita; en **activo** la fecha inicio está congelada y la fecha fin no puede ser anterior a hoy; en **futuro** la fecha inicio debe seguir siendo futura; cambiar la fecha inicio se bloquea si hay asistencias), validan orden de fechas (E2) y solape (E1) y recalculan `status`. **Eliminar en uso (E6):** si el trimestre tiene horarios o asistencias, `DELETE` responde `400 error.trimesterInUse`. La escritura está restringida a `ROLE_ADMIN`. **Pendiente:** al crear aún no se exige fecha inicio ≥ mañana ni fecha fin ≥ hoy (E2), y el estado sigue siendo un booleano `status`, por lo que no se puede filtrar por los tres estados (Futuro/Activo/Cerrado) que pide el UC.
 
 ---
 
@@ -814,10 +814,10 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 | GET    | `/api/grades`        | `ROLE_ADMIN` o `ROLE_USER`        | Lista paginada de fichas (relaciones cargadas con `eagerload=true` por defecto). |
 | GET    | `/api/grades/active` | Autenticado                       | Lista de fichas con estado `ACTIVA` (sin paginar).                               |
 | GET    | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_USER`        | Detalle con relaciones.                                                          |
-| POST   | `/api/grades`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.                                                      |
-| PUT    | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.                                                                |
-| PATCH  | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`.                                                    |
-| DELETE | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                                  |
+| POST   | `/api/grades`        | `ROLE_ADMIN` | Crea; `201` con el recurso.                                                      |
+| PUT    | `/api/grades/{id}`   | `ROLE_ADMIN` | Reemplaza; `200`.                                                                |
+| PATCH  | `/api/grades/{id}`   | `ROLE_ADMIN` | Actualización parcial; `200`.                                                    |
+| DELETE | `/api/grades/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                                  |
 
 **Request — `POST /api/grades`**
 
@@ -877,7 +877,7 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.programInactive` ("No se pueden crear fichas para un programa inactivo"), `400 error.validation`; `403`; `404`.
 
-**Notas / lo que se necesita:** no existe cálculo automático de Pendiente/Activa/Finalizada por fechas, ni acciones de Aplazar, Reanudar o Cancelar, ni los cinco estados del UC (el enum solo tiene `ACTIVA`, `INACTIVA`, `APLAZADA`). No se valida el código numérico ni su unicidad (E1), ni las reglas de edición por estado (A1), ni la guarda de eliminación por aprendices o asistencias. El guardado de programa activo solo aplica en `POST`; `PUT` y `PATCH` no lo revalidan. `GET /api/grades/active` quedó sin `@PreAuthorize`: cualquier usuario autenticado puede consultarlo.
+**Notas / lo que se necesita:** `PUT` y `PATCH` aplican las mismas reglas de estado (un trimestre **cerrado** no se edita; en **activo** la fecha inicio está congelada y la fecha fin no puede ser anterior a hoy; en **futuro** la fecha inicio debe seguir siendo futura; cambiar la fecha inicio se bloquea si hay asistencias), validan orden de fechas (E2) y solape (E1) y recalculan `status`. **Eliminar en uso (E6):** si el trimestre tiene horarios o asistencias, `DELETE` responde `400 error.trimesterInUse`. La escritura está restringida a `ROLE_ADMIN`. **Pendiente:** al crear aún no se exige fecha inicio ≥ mañana ni fecha fin ≥ hoy (E2), y el estado sigue siendo un booleano `status`, por lo que no se puede filtrar por los tres estados (Futuro/Activo/Cerrado) que pide el UC.
 
 ---
 
