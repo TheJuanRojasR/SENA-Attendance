@@ -59,7 +59,7 @@ public class ProgramResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ProgramDTO> createProgram(@Valid @RequestBody ProgramDTO programDTO) throws URISyntaxException {
         LOG.debug("REST request to save Program : {}", programDTO);
         if (programDTO.getId() != null) {
@@ -81,7 +81,7 @@ public class ProgramResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ProgramDTO> updateProgram(@Valid @RequestBody ProgramDTO programDTO) throws URISyntaxException {
         String id = programDTO.getId();
         LOG.debug("REST request to update Program : {}", programDTO);
@@ -113,7 +113,7 @@ public class ProgramResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ProgramDTO> partialUpdateProgram(@NotNull @RequestBody ProgramDTO programDTO) throws URISyntaxException {
         String id = programDTO.getId();
         LOG.debug("REST request to partial update Program partially : {}, {}", id, programDTO);
@@ -147,7 +147,7 @@ public class ProgramResource {
      *         or no program matches the id.
      */
     @PatchMapping("/activated")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ProgramActivatedResponseDTO> setProgramActivated(
         @Valid @RequestBody SetProgramActivatedVM setProgramActivatedVM
     ) {
@@ -232,7 +232,7 @@ public class ProgramResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteProgram(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Program : {}", id);
         programService.delete(id);

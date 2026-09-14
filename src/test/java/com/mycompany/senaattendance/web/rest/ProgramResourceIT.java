@@ -1032,6 +1032,89 @@ class ProgramResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createProgramAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ProgramDTO programDTO = programMapper.toDto(program);
+
+        restProgramMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateProgramAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ProgramDTO programDTO = programMapper.toDto(insertedProgram);
+
+        restProgramMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateProgramAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ProgramDTO programDTO = programMapper.toDto(insertedProgram);
+
+        restProgramMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void setProgramActivatedAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        var body = om.createObjectNode().put("id", insertedProgram.getId()).put("status", false);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteProgramAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restProgramMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedProgram.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readProgramsAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        restProgramMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restProgramMockMvc.perform(get(ENTITY_API_URL_ID, insertedProgram.getId())).andExpect(status().isOk());
+        restProgramMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
+    }
+
     protected long getRepositoryCount() {
         return programRepository.count();
     }
