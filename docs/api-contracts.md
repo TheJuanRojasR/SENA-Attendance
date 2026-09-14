@@ -540,13 +540,13 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Campo               | Tipo    | Obligatorio | Reglas                                                                                           |
 | ------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------ |
-| `name`              | string  | Sí          | `@NotNull`, máximo 100. No se valida unicidad.                                                   |
+| `name`              | string  | Sí          | `@NotBlank`, máximo 100. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.justificationTypeNameAlreadyUsed`. |
 | `limitPerTrimester` | integer | No          | Sin `@Min`; el UC exige entero mayor a 0.                                                        |
 | `status`            | string  | Sí          | `@NotNull`; valores del enum `Status`: `ACTIVO`, `INACTIVO`. El cliente define el estado inicial. |
 
 **Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `status`).
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation`; `400 error.justificationTypeNameAlreadyUsed` (nombre duplicado, E1); `403`; `404`.
 
 **Notas / lo que se necesita:** no hay validación de nombre duplicado (E1), límite mayor a 0 (E2), bloqueo de eliminación si el tipo fue usado (E3) ni endpoint de solo activos para el formulario del aprendiz. Los estados del enum son `ACTIVO`/`INACTIVO` (el UC los llama Activo/Inactivo). El campo de estado se llama **`status`** (antes `state`): la entidad, el DTO y el documento MongoDB usan `status`; una migración Mongock (orden 008) renombra el campo en la colección `justification_type`.
 

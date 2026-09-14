@@ -22,6 +22,9 @@ public final class ErrorConstants {
     public static final URI DOCUMENT_TYPE_INITIALS_ALREADY_USED_TYPE = URI.create(
         PROBLEM_BASE_URL + "/document-type-initials-already-used"
     );
+    public static final URI JUSTIFICATION_TYPE_NAME_ALREADY_USED_TYPE = URI.create(
+        PROBLEM_BASE_URL + "/justification-type-name-already-used"
+    );
     public static final URI TRIMESTER_DATES_ORDER_TYPE = URI.create(PROBLEM_BASE_URL + "/trimester-dates-order");
     public static final URI TRIMESTER_DATES_OVERLAP_TYPE = URI.create(PROBLEM_BASE_URL + "/trimester-dates-overlap");
     public static final URI TRIMESTER_NOT_EDITABLE_TYPE = URI.create(PROBLEM_BASE_URL + "/trimester-not-editable");

@@ -13,7 +13,7 @@ public class JustificationTypeDTO implements Serializable {
 
     private String id;
 
-    @NotNull
+    @NotBlank
     @Size(max = 100)
     private String name;
 

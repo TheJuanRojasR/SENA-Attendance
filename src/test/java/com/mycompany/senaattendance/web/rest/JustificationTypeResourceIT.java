@@ -135,6 +135,42 @@ class JustificationTypeResourceIT {
     }
 
     @Test
+    void createJustificationTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        // Persist a justification type with DEFAULT_NAME so the upcoming POST collides on name only
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+        justificationTypeDTO.setId(null);
+        justificationTypeDTO.setName("aaaaaaaaaa");
+        justificationTypeDTO.setLimitPerTrimester(UPDATED_LIMIT_PER_TRIMESTER);
+
+        restJustificationTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.justificationTypeNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createJustificationTypeWithBlankNameReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        justificationType.setName("   ");
+
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
+
+        restJustificationTypeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("name"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void checkNameIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
@@ -259,6 +295,44 @@ class JustificationTypeResourceIT {
     }
 
     @Test
+    void putJustificationTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        JustificationType other = justificationTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+            JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(other);
+            justificationTypeDTO.setName(DEFAULT_NAME);
+
+            restJustificationTypeMockMvc
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.justificationTypeNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedJustificationType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            justificationTypeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putJustificationTypeKeepingOwnNameSucceeds() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(insertedJustificationType);
+
+        restJustificationTypeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationTypeDTO)))
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedJustificationType(insertedJustificationType).getName()).isEqualTo(DEFAULT_NAME);
+    }
+
+    @Test
     void partialUpdateJustificationTypeWithPatch() throws Exception {
         // Initialize the database
         insertedJustificationType = justificationTypeRepository.save(justificationType);
@@ -349,6 +423,35 @@ class JustificationTypeResourceIT {
 
         // Validate the JustificationType in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    void patchJustificationTypeWithDuplicateNameReturnsBadRequest() throws Exception {
+        insertedJustificationType = justificationTypeRepository.save(justificationType);
+
+        JustificationType other = justificationTypeRepository.save(createUpdatedEntity());
+
+        try {
+            long databaseSizeBeforeUpdate = getRepositoryCount();
+
+            JustificationType partialUpdatedJustificationType = new JustificationType();
+            partialUpdatedJustificationType.setId(other.getId());
+            partialUpdatedJustificationType.setName(DEFAULT_NAME);
+
+            restJustificationTypeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL)
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedJustificationType))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.justificationTypeNameAlreadyUsed"));
+
+            assertSameRepositoryCount(databaseSizeBeforeUpdate);
+            assertThat(getPersistedJustificationType(other).getName()).isEqualTo(UPDATED_NAME);
+        } finally {
+            justificationTypeRepository.delete(other);
+        }
     }
 
     @Test
