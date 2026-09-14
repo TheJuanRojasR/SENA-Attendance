@@ -175,6 +175,17 @@ public class ProgramResource {
     }
 
     /**
+     * {@code GET  /programs/active} : get all the active Programs.
+     *
+     * @return the list of active Programs.
+     */
+    @GetMapping("/active")
+    public List<ProgramDTO> getActivePrograms() {
+        LOG.debug("REST request to get all active Programs");
+        return programService.findActivePrograms();
+    }
+
+    /**
      * {@code GET  /programs/search} : search and filter programs.
      *
      * <p>Matches by code or name containing {@code search}, and optionally filters by

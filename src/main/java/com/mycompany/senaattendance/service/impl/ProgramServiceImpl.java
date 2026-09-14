@@ -14,7 +14,10 @@ import com.mycompany.senaattendance.web.rest.errors.ProgramCodeAlreadyUsedExcept
 import com.mycompany.senaattendance.web.rest.errors.ProgramInitialsAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.ProgramNameAlreadyUsedException;
 import java.time.Instant;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -154,6 +157,12 @@ public class ProgramServiceImpl implements ProgramService {
     public Page<ProgramDTO> findAll(Pageable pageable) {
         LOG.debug("Request to get all Programs");
         return programRepository.findAll(pageable).map(programMapper::toDto);
+    }
+
+    @Override
+    public List<ProgramDTO> findActivePrograms() {
+        LOG.debug("Request to get all active Programs");
+        return programRepository.findByStatus(true).stream().map(programMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
     }
 
     @Override

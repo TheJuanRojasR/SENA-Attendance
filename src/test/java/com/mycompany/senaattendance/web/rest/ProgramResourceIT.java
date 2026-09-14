@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.ProgramAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -456,6 +457,25 @@ class ProgramResourceIT {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)));
+    }
+
+    @Test
+    void getActivePrograms() throws Exception {
+        insertedProgram = programRepository.save(program);
+        Program inactiveProgram = programRepository.save(
+            createEntity().name("InactiveProg").initials("INACT").code("0000099").status(false)
+        );
+
+        try {
+            restProgramMockMvc
+                .perform(get(ENTITY_API_URL + "/active"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$.[*].id").value(hasItem(insertedProgram.getId())))
+                .andExpect(jsonPath("$.[*].id").value(not(hasItem(inactiveProgram.getId()))));
+        } finally {
+            programRepository.delete(inactiveProgram);
+        }
     }
 
     @Test
