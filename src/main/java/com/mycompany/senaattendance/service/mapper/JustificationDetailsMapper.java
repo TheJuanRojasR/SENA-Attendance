@@ -25,11 +25,12 @@ public interface JustificationDetailsMapper extends EntityMapper<JustificationDe
     JustificationDetailsDTO toDto(JustificationDetails s);
 
     /**
-     * The reason of an out-of-time approval is server-owned: only the decision endpoint sets it,
-     * so no client entity payload can inject it.
+     * The reason of an out-of-time approval and the late-decision mark are server-owned: only the
+     * decision endpoint sets them, so no client entity payload can inject them.
      */
     @Override
     @Mapping(target = "outOfTimeReason", ignore = true)
+    @Mapping(target = "lateDecision", ignore = true)
     JustificationDetails toEntity(JustificationDetailsDTO s);
 
     @Named("classSectionSubjectName")

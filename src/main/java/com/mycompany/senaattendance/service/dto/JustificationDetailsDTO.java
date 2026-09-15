@@ -45,6 +45,12 @@ public class JustificationDetailsDTO implements Serializable {
     @Size(max = 300)
     private String outOfTimeReason;
 
+    /**
+     * Whether the decision arrived after the configured instructor response deadline (UC010).
+     * The server computes it on the decision and exposes it; a client never sets it.
+     */
+    private Boolean lateDecision;
+
     @NotNull
     private ClassSectionDTO classSection;
 
@@ -123,6 +129,14 @@ public class JustificationDetailsDTO implements Serializable {
         this.outOfTimeReason = outOfTimeReason;
     }
 
+    public Boolean getLateDecision() {
+        return lateDecision;
+    }
+
+    public void setLateDecision(Boolean lateDecision) {
+        this.lateDecision = lateDecision;
+    }
+
     public ClassSectionDTO getClassSection() {
         return classSection;
     }
@@ -172,6 +186,7 @@ public class JustificationDetailsDTO implements Serializable {
             ", responseDate='" + getResponseDate() + "'" +
             ", requestDate='" + getRequestDate() + "'" +
             ", outOfTimeReason='" + getOutOfTimeReason() + "'" +
+            ", lateDecision='" + getLateDecision() + "'" +
             ", classSection=" + getClassSection() +
             ", justification=" + getJustification() +
             "}";

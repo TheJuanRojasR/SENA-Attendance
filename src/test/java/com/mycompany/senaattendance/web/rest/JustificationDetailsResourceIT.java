@@ -1092,6 +1092,33 @@ class JustificationDetailsResourceIT {
     }
 
     @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideWithinTheResponseDeadlineIsNotMarkedLate() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.lateDecision").value(false));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow();
+        assertThat(reloaded.getLateDecision()).isFalse();
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideAfterTheResponseDeadlineIsMarkedLate() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+        backdateRequestDate(fixture.justification(), 90);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.lateDecision").value(true));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow();
+        assertThat(reloaded.getLateDecision()).isTrue();
+    }
+
+    @Test
     void patchNonExistingJustificationDetails() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
         justificationDetails.setId(UUID.randomUUID().toString());
@@ -1289,6 +1316,16 @@ class JustificationDetailsResourceIT {
         return attendanceRepository.save(
             new Attendance().date(date).stateAttendance(stateAttendance).classSection(classSection).student(student)
         );
+    }
+
+    /**
+     * Moves the request date of the justification header back in time, so a decision taken now
+     * falls outside the configured instructor response deadline.
+     */
+    private void backdateRequestDate(Justification justification, int days) {
+        Justification persisted = justificationRepository.findById(justification.getId()).orElseThrow();
+        persisted.setCreatedDate(Instant.now(clock).minus(days, ChronoUnit.DAYS));
+        justificationRepository.save(persisted);
     }
 
     /**

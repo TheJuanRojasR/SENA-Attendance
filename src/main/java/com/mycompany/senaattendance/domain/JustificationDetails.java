@@ -59,6 +59,14 @@ public class JustificationDetails implements Serializable {
     @Field("out_of_time_reason")
     private String outOfTimeReason;
 
+    /**
+     * Whether the decision arrived after the instructor response deadline (UC010): the deadline
+     * is the request date of the header plus the configured {@code instructorResponseDays}
+     * business days. {@code null} while the part has no decision.
+     */
+    @Field("late_decision")
+    private Boolean lateDecision;
+
     @DBRef
     @Field("classSection")
     @JsonIgnoreProperties(value = { "scheduleses", "exceptionses", "instructor", "grade" }, allowSetters = true)
@@ -175,6 +183,19 @@ public class JustificationDetails implements Serializable {
         this.outOfTimeReason = outOfTimeReason;
     }
 
+    public Boolean getLateDecision() {
+        return this.lateDecision;
+    }
+
+    public JustificationDetails lateDecision(Boolean lateDecision) {
+        this.setLateDecision(lateDecision);
+        return this;
+    }
+
+    public void setLateDecision(Boolean lateDecision) {
+        this.lateDecision = lateDecision;
+    }
+
     public ClassSection getClassSection() {
         return this.classSection;
     }
@@ -232,6 +253,7 @@ public class JustificationDetails implements Serializable {
             ", correctionFileUrlContentType='" + getCorrectionFileUrlContentType() + "'" +
             ", responseDate='" + getResponseDate() + "'" +
             ", outOfTimeReason='" + getOutOfTimeReason() + "'" +
+            ", lateDecision='" + getLateDecision() + "'" +
             "}";
     }
 }

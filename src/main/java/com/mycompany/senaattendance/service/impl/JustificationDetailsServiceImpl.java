@@ -3,6 +3,7 @@ package com.mycompany.senaattendance.service.impl;
 import com.mycompany.senaattendance.domain.Attendance;
 import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.GlobalConfiguration;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.UserProfile;
@@ -11,6 +12,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsSearchCriteria;
 import com.mycompany.senaattendance.repository.JustificationRepository;
@@ -30,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -79,6 +82,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final UserProfileRepository userProfileRepository;
 
+    private final GlobalConfigurationRepository globalConfigurationRepository;
+
     private final Clock clock;
 
     public JustificationDetailsServiceImpl(
@@ -90,6 +95,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         AuditLogRepository auditLogRepository,
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
+        GlobalConfigurationRepository globalConfigurationRepository,
         Clock clock
     ) {
         this.justificationDetailsRepository = justificationDetailsRepository;
@@ -100,6 +106,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
+        this.globalConfigurationRepository = globalConfigurationRepository;
         this.clock = clock;
     }
 
@@ -180,10 +187,12 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
             part.setCorrectionFileUrlContentType(payload.getCorrectionFileUrlContentType());
         }
         if (state == StateJustification.RECHAZADA) {
-            // The part reopens as pending, so it has no response left; the rejection reason is
-            // kept as the trace of why it was rejected until the next decision (UC010) replaces it.
+            // The part reopens as pending, so it has no response left; the late mark goes with the
+            // response and the rejection reason is kept as the trace of why it was rejected until
+            // the next decision (UC010) replaces it.
             part.setStateJustification(StateJustification.PENDIENTE);
             part.setResponseDate(null);
+            part.setLateDecision(null);
         }
     }
 
@@ -285,6 +294,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      * the justified period to {@code JUSTIFICADA}, links it to the justification and audits the
      * change. The deadline mark is never recalculated and a closed trimester does not block a
      * pending decision, so the conversion applies even when the apprentice is no longer enrolled.
+     * A decision that arrives after the instructor response deadline is marked as late.
      *
      * @param id the id of the part to decide.
      * @param decision the state and the reasons of the decision.
@@ -368,8 +378,9 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     /**
      * Applies the decision over the part and, on approval, over the covered attendance. The
-     * response date is the decision instant and the deadline mark of the justification is
-     * preserved: it is never recalculated here.
+     * response date is the decision instant, the late-decision mark is derived from the response
+     * deadline of the instructor and the deadline mark of the justification is preserved: it is
+     * never recalculated here.
      *
      * @param part the part being decided.
      * @param decision the requested decision.
@@ -377,6 +388,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
     private void applyDecision(JustificationDetails part, JustificationDecisionVM decision) {
         Instant decisionDate = Instant.now(clock);
         part.setResponseDate(decisionDate);
+        part.setLateDecision(isLateDecision(part, decisionDate));
         if (decision.getStateJustification() == StateJustification.RECHAZADA) {
             part.setStateJustification(StateJustification.RECHAZADA);
             part.setRejectionReason(decision.getRejectionReason());
@@ -468,6 +480,41 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      */
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    /**
+     * Decides whether the decision arrived after the instructor response deadline (UC010): the
+     * deadline is the request date of the part header plus the configured business days, so a
+     * decision on the deadline day itself is still in time. A part without a provable request
+     * date is never late, the same way a justification without a deadline mark counts as in time.
+     *
+     * @param part the part being decided.
+     * @param decisionDate the instant of the decision.
+     * @return whether the decision is late.
+     */
+    private boolean isLateDecision(JustificationDetails part, Instant decisionDate) {
+        Justification justification = part.getJustification();
+        Instant requestDate = justification == null ? null : justification.getCreatedDate();
+        if (requestDate == null) {
+            return false;
+        }
+        ZoneId zone = clock.getZone();
+        LocalDate deadline = BusinessDays.plus(LocalDate.ofInstant(requestDate, zone), instructorResponseDays());
+        return LocalDate.ofInstant(decisionDate, zone).isAfter(deadline);
+    }
+
+    /**
+     * Reads the instructor response window (UC019). A missing or null configuration falls back to
+     * the same default the configuration service seeds.
+     *
+     * @return the configured {@code instructorResponseDays}, one or more.
+     */
+    private int instructorResponseDays() {
+        return globalConfigurationRepository
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+            .map(GlobalConfiguration::getInstructorResponseDays)
+            .filter(Objects::nonNull)
+            .orElse(GlobalConfigurationServiceImpl.DEFAULT_INSTRUCTOR_RESPONSE_DAYS);
     }
 
     /**

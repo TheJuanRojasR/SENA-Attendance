@@ -88,8 +88,9 @@ public interface JustificationDetailsService {
      * of the part can decide it, and an administrator can decide any part. Approving converts the
      * {@code FALLA} records of the apprentice in that materia inside the justified period to
      * {@code JUSTIFICADA}, with the audit entry of every change; rejecting only registers the
-     * reason. The decision applies to a pending part, records the response date and preserves the
-     * deadline mark.
+     * reason. The decision applies to a pending part, records the response date, marks the
+     * decision as late when it arrives after the instructor response deadline and preserves the
+     * deadline mark of the justification.
      *
      * @param id the id of the part to decide.
      * @param decision the state and the reasons of the decision.

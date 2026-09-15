@@ -247,8 +247,8 @@ public class JustificationDetailsResource {
      * the part can decide it, and an administrator can decide any part. The body only carries the
      * decision state and the reasons the rules require: approving a part marked out of time
      * demands the additional exception reason, and rejecting always demands the rejection reason.
-     * Approving converts the covered failures to {@code JUSTIFICADA}; the response date and the
-     * deadline mark are server-owned.
+     * Approving converts the covered failures to {@code JUSTIFICADA}; the response date, the
+     * late-decision mark and the deadline mark are server-owned.
      *
      * @param id the id of the part to decide.
      * @param decision the state and the reasons of the decision.
