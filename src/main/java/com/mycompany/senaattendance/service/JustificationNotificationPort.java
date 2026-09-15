@@ -7,18 +7,19 @@ import com.mycompany.senaattendance.domain.enumeration.StateJustification;
  * Notification hook of the justification state changes (UC011, A2 and UC010: one notification per
  * change).
  *
- * <p>The delivery itself belongs to UC018 (notifications), which is not implemented yet: the only
- * implementation is a documented no-op, so every state change is recorded once and UC018 can
- * replace the bean without touching the justification flows.
+ * <p>The delivery (UC018) persists one in-app notification for the apprentice that owns the
+ * justification on every state change, and creating a justification also notifies the instructor
+ * of each affected materia, so they know a new part is waiting for their decision (UC010, flow
+ * step 1). Delivered notifications start unread and reference the justification that originated
+ * them.
  *
  * <p>Call sites: creating a justification notifies {@code PENDIENTE}, cancelling it notifies
  * {@code CANCELADA} and deciding a part (UC010) notifies the resulting {@code ACEPTADA} or
  * {@code RECHAZADA} once per decided part.
  *
  * <p>The signature carries the header and the resulting state, not the recipient: the header
- * already resolves the apprentice of the change, so UC018 can keep this contract. If the real
- * delivery also needs the deciding profile or the changed part, UC018 extends the signature with
- * those values.
+ * already resolves the apprentice of the change and the affected materias, so the delivery keeps
+ * this contract.
  */
 public interface JustificationNotificationPort {
     /**
