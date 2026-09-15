@@ -50,7 +50,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Implementado    |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Implementado    |
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Implementado    |
-| [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Parcial         |
+| [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Implementado    |
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Implementado    |
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Implementado    |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Implementado    |
@@ -61,7 +61,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC011](#uc011--gestionar-asistencia-aprendiz)      | Gestionar asistencia (Aprendiz)    | Implementado    |
 | [UC010](#uc010--gestionar-justificaciones)          | Gestionar justificaciones          | Implementado    |
 | [UC013](#uc013--gestionar-alertas-de-inasistencia)  | Gestionar alertas de inasistencia  | No implementado |
-| [UC018](#uc018--gestionar-notificaciones)           | Gestionar notificaciones           | No implementado |
+| [UC018](#uc018--gestionar-notificaciones)           | Gestionar notificaciones           | Implementado    |
 | [UC023](#uc023--consultar-dashboard)                | Consultar dashboard                | Parcial         |
 
 ---
@@ -555,7 +555,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC006 — Gestionar perfiles
 
-**Módulo:** Usuarios | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Usuarios | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** Creación de Instructores y Administradores (y de Aprendices por excepción), modificación de datos de cualquier perfil, cambio de rol, desactivación y reactivación. Los usuarios nunca se eliminan y el login se deriva del documento.
 
@@ -569,6 +569,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | GET    | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Detalle por login; `200` o `404`.                                               |
 | GET    | `/api/admin/users/search`                       | `ROLE_ADMIN` | Búsqueda por texto, `status` y `role`; paginada con `X-Total-Count` (`UserManagementDTO`). |
 | PATCH  | `/api/admin/users/activated`                    | `ROLE_ADMIN` | Activa/desactiva por número de documento; `200` con `AdminUserDTO`.             |
+| PATCH  | `/api/admin/users/resend-credentials`           | `ROLE_ADMIN` | Reenvía el acceso (E7) por número de documento: enlace de restablecimiento; `200` con `AdminUserDTO`. |
 | DELETE | `/api/admin/users/{login}`                      | —            | **No disponible**: los usuarios nunca se eliminan; responde `405`.              |
 
 **Request — `POST /api/admin/users`**
@@ -633,6 +634,20 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 | `documentNumber` | string  | Sí          | `@NotBlank`, 1–15; identifica el perfil.      |
 | `activated`      | boolean | Sí          | `@NotNull`; `true` activa, `false` desactiva. |
 
+**Request — `PATCH /api/admin/users/resend-credentials`** (E7)
+
+```json
+{
+  "documentNumber": "1029384756"
+}
+```
+
+| Campo            | Tipo   | Obligatorio | Reglas                                   |
+| ---------------- | ------ | ----------- | ---------------------------------------- |
+| `documentNumber` | string | Sí          | `@NotBlank`, 1–15; identifica el perfil. |
+
+El reenvío **no manda la contraseña temporal**: genera un `resetKey` nuevo, marca `mustChangePassword = true` y envía el correo de restablecimiento, de modo que el usuario elige su propia contraseña. Si el usuario tiene una `Notificacion` de `CREDENTIALS` abierta (`PENDIENTE` o `REINTENTAR`), queda `ENVIADA` cuando el correo sale o `REINTENTAR` cuando falla (UC018, E3); sin notificación abierta el reenvío igual manda el correo y no es un error. La entrega es la de UC018 y el estado de entrega es interno: la respuesta no lo expone.
+
 **Response — `POST /api/admin/users`:** `201 Created`; el cuerpo es la entidad `User` (no un DTO), con el hash de contraseña y las claves internas excluidos por `@JsonIgnore`:
 
 ```json
@@ -644,7 +659,7 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
   "mustChangePassword": true,
   "langKey": "es",
   "imageUrl": null,
-  "resetDate": null,
+  "resetDate": "2026-09-11T15:04:05Z",
   "createdBy": "admin",
   "createdDate": "2026-09-11T15:04:05Z",
   "lastModifiedBy": "admin",
@@ -652,11 +667,11 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 }
 ```
 
-`PATCH /api/admin/users` y `PATCH /api/admin/users/activated` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
+`PATCH /api/admin/users`, `PATCH /api/admin/users/activated` y `PATCH /api/admin/users/resend-credentials` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
 
-**Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.adminprotected` (la cuenta `admin` está protegida), `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"), `400 error.lastInstructor` (lista las materias afectadas); `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.documentNumberNotFound` (activación/reenvío con documento inexistente), `400 error.adminprotected` (la cuenta `admin` está protegida), `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"), `400 error.lastInstructor` (lista las materias afectadas); `403`; `404`.
 
-**Notas / lo que se necesita:** reglas de UC006 implementadas; **lo único pendiente es el reenvío manual de credenciales (E7), que se resuelve en UC018 (REST de notificaciones)**. Un solo rol por cuenta (`ROLE_USER` + rol de dominio); solo se pueden asignar **Administrador, Instructor o Aprendiz**; un rol no asignable o inexistente responde `400 error.rolenotfound`. El **cambio de rol** aplica las mismas guardas que la desactivación: no se puede degradar al **último administrador activo** (`error.lastAdmin`), ni a la **cuenta `admin`** protegida (`error.adminprotected`, que además bloquea su desactivación y el cambio de su documento), ni al **último instructor** de materias de fichas operativas (`error.lastInstructor`, considerando fichas en estado `PENDIENTE` o `ACTIVA`; los estados `FINALIZADA`, `APLAZADA` y `CANCELADA` no cuentan como operativos). El **login se recalcula** cuando cambia el número **o el tipo** de documento. **Los usuarios nunca se eliminan**: el endpoint `DELETE /api/admin/users/{login}` se retiró y responde `405`; el estado se cambia con `PATCH /api/admin/users/activated`. `GET /api/admin/users/search` filtra por texto (nombre, documento o correo), `status` y `role`, y pagina con `X-Total-Count`/`Link` (20 por defecto). Las cuentas creadas por un Administrador nacen con `mustChangePassword = true`; el flujo de cambio obligatorio en el primer inicio es del frontend. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero el **reenvío manual (E7) queda a cargo de UC018** (REST de notificaciones). Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (deuda transversal).
+**Notas / lo que se necesita:** reglas de UC006 implementadas, incluido el reenvío manual de credenciales (E7). Un solo rol por cuenta (`ROLE_USER` + rol de dominio); solo se pueden asignar **Administrador, Instructor o Aprendiz**; un rol no asignable o inexistente responde `400 error.rolenotfound`. El **cambio de rol** aplica las mismas guardas que la desactivación: no se puede degradar al **último administrador activo** (`error.lastAdmin`), ni a la **cuenta `admin`** protegida (`error.adminprotected`, que además bloquea su desactivación y el cambio de su documento), ni al **último instructor** de materias de fichas operativas (`error.lastInstructor`, considerando fichas en estado `PENDIENTE` o `ACTIVA`; los estados `FINALIZADA`, `APLAZADA` y `CANCELADA` no cuentan como operativos). El **login se recalcula** cuando cambia el número **o el tipo** de documento. **Los usuarios nunca se eliminan**: el endpoint `DELETE /api/admin/users/{login}` se retiró y responde `405`; el estado se cambia con `PATCH /api/admin/users/activated`. `GET /api/admin/users/search` filtra por texto (nombre, documento o correo), `status` y `role`, y pagina con `X-Total-Count`/`Link` (20 por defecto). Las cuentas creadas por un Administrador nacen con `mustChangePassword = true`; el flujo de cambio obligatorio en el primer inicio es del frontend. El correo de credenciales se envía de forma síncrona al crear y usa el `resetKey` generado en el alta, así que su enlace de restablecimiento nunca va vacío; si el envío falla, se guarda una `Notificacion` pendiente que el Administrador cierra con `PATCH /api/admin/users/resend-credentials` (E7, ver UC018). Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (deuda transversal).
 
 ---
 
@@ -1503,36 +1518,43 @@ Forma sugerida de la alerta (sujeta al modelo nuevo):
 
 ## UC018 — Gestionar notificaciones
 
-**Módulo:** Alertas y notificaciones | **Actor:** Usuario | **Estado:** No implementado
+**Módulo:** Alertas y notificaciones | **Actor:** Usuario | **Estado:** Implementado
 
-**Feature:** Bandeja in-app de notificaciones del usuario, con estado de entrega interno y estado de lectura independiente.
+**Feature:** Bandeja in-app de notificaciones del usuario, con estado de entrega interno y estado de lectura independiente. Incluye el cierre del fallback de credenciales de UC006 (E7) con el reenvío manual del Administrador.
 
-**Endpoints:** no existen. La entidad `Notificacion` sí existe en el modelo (`user`, `tipo`, `estado`, `mensaje`), pero no tiene controlador. Hoy solo se usa internamente: al crear un usuario, si falla el correo de credenciales se guarda una notificación con `tipo: CREDENTIALS` y `estado: PENDIENTE`. Los enums actuales son `NotificacionTipo`: `CREDENTIALS`; `NotificacionEstado`: `PENDIENTE`, `ENVIADA`, `REINTENTAR`. No hay estado de lectura ni referencia al objeto de origen.
+**Endpoints:**
 
-**Propuesta** (no implementada):
+| Método | Ruta                                                         | Acceso       | Descripción                                                                                                             |
+| ------ | ------------------------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/notifications?read=&type=&from=&to=&page=&size=&sort=` | Autenticado  | Bandeja del usuario autenticado, más reciente primero; filtros combinables y paginación (20 por defecto).                |
+| PATCH  | `/api/notifications/{id}/read`                               | Autenticado  | Marca una notificación del usuario como leída; `200` con `NotificacionDTO`, `404` si no existe o es de otro usuario.      |
+| PATCH  | `/api/notifications/read-all`                                | Autenticado  | Marca todas las no leídas del usuario como leídas (A1); `200` sin cuerpo.                                                |
+| PATCH  | `/api/admin/users/resend-credentials`                        | `ROLE_ADMIN` | Reenvía el acceso con un enlace de restablecimiento (E7 de UC006); `200` con `AdminUserDTO`.                            |
 
-| Método | Ruta propuesta                                         | Propósito                                                                |
-| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------ |
-| GET    | `/api/notifications?read=&type=&from=&to=&page=&size=` | Bandeja del usuario autenticado, ordenada de más reciente a más antigua. |
-| PATCH  | `/api/notifications/{id}/read`                         | Marca una notificación como leída.                                       |
-| PATCH  | `/api/notifications/read-all`                          | Marca todas las no leídas como leídas (A1).                              |
-
-Forma sugerida (sujeta a ampliación del modelo):
+**Response — `GET /api/notifications`:** `200 OK`; arreglo JSON con la página actual y las cabeceras `X-Total-Count`, `Link` y **`X-Unread-Count`** (indicador de no leídas del usuario, A3).
 
 ```json
 {
   "id": "665f1c2a9e13b7a1f2c8d9f10",
-  "tipo": "ALERTA",
-  "mensaje": "Alerta de inasistencia acumulada",
-  "estado": "ENVIADA",
+  "tipo": "JUSTIFICACION",
+  "mensaje": "Tu justificación fue aprobada.",
+  "estado": "PENDIENTE",
   "read": false,
-  "referenceType": "ALERT",
+  "referenceType": "JUSTIFICATION",
   "referenceId": "665f1c2a9e13b7a1f2c8d9f00",
   "createdDate": "2026-09-11T15:04:05Z"
 }
 ```
 
-**Notas / lo que se necesita:** falta el estado de lectura, la referencia al objeto de origen y los tipos para alertas y justificaciones. Tampoco existe endpoint para que el Administrador reenvíe la notificación de credenciales pendiente (caso E7 de UC006).
+**Filtros y orden:** `read` (booleano), `type` (tipo de notificación), `from`/`to` (rango de `createdDate`, ISO-8601) y la paginación estándar; el orden por defecto es `createdDate,desc`. Cada usuario ve solo sus notificaciones: bandeja, conteo, marcar una y marcar todas están acotados al autenticado, y una notificación ajena responde `404` (no revela su existencia). El estado de entrega (`estado`) y el de lectura (`read`) son independientes.
+
+**Entrega real (tipos y destinatarios):** las notificaciones son in-app y nacen `PENDIENTE` y no leídas (`read = false`); el canal correo usa `ENVIADA` y una entrega fallida queda `REINTENTAR` (E3). Cada evento de UC010/UC011 persiste una notificación `JUSTIFICACION` con `referenceType = "JUSTIFICATION"` y el id de la justificación: la creación (`PENDIENTE`) notifica al aprendiz dueño y a cada instructor de las materias afectadas (una por instructor); `ACEPTADA`, `RECHAZADA` y `CANCELADA` notifican solo al aprendiz. El tipo `CREDENTIALS` cubre el fallback de UC006: al fallar el correo de creación se persiste `PENDIENTE`, y el reenvío la cierra como `ENVIADA` o `REINTENTAR`. El tipo `ALERTA` queda reservado para UC013 (ver abajo).
+
+**Reenvío de credenciales (E7 de UC006):** `PATCH /api/admin/users/resend-credentials` recibe `{ "documentNumber": "..." }`; resuelve el perfil (documento inexistente → `400 error.documentNumberNotFound`), genera un `resetKey` nuevo, marca `mustChangePassword = true` y envía el correo de restablecimiento, de modo que el usuario elige su propia contraseña y nunca viaja una contraseña en texto plano. Si hay una notificación `CREDENTIALS` abierta (`PENDIENTE` o `REINTENTAR`) pasa a `ENVIADA` cuando el correo sale o a `REINTENTAR` cuando falla; sin notificación abierta el reenvío igual manda el correo.
+
+**Migración:** 014 `notificacion-read-state` hace backfill de `read = false` en los documentos previos al estado de lectura.
+
+**Diferido a UC013:** el tipo `ALERTA` con sus destinatarios (aún sin entidad `Alerta` ni evaluación de umbrales) y los **reintentos automáticos** de la entrega fallida: hoy `REINTENTAR` queda registrado, pero no hay job de reintento.
 
 ---
 

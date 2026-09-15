@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (18 UCs implementadas y 3 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (20 UCs implementadas y 2 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -274,7 +274,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC006 — Gestionar perfiles
 
-**Estado del backend:** parcial (solo queda el **reenvío de credenciales E7**, que se resuelve en UC018). Un solo rol por cuenta; solo se pueden asignar Administrador, Instructor o Aprendiz. El **cambio de rol** respeta las guardas de último administrador, último instructor y cuenta `admin` protegida. El **login se recalcula** al corregir el tipo o el número de documento. **Los usuarios nunca se eliminan.** Ver [`docs/api-contracts.md#uc006--gestionar-perfiles`](./api-contracts.md#uc006--gestionar-perfiles).
+**Estado del backend:** implementado, incluido el **reenvío de credenciales (E7)** por `PATCH /api/admin/users/resend-credentials`. Un solo rol por cuenta; solo se pueden asignar Administrador, Instructor o Aprendiz. El **cambio de rol** respeta las guardas de último administrador, último instructor y cuenta `admin` protegida. El **login se recalcula** al corregir el tipo o el número de documento. **Los usuarios nunca se eliminan.** Ver [`docs/api-contracts.md#uc006--gestionar-perfiles`](./api-contracts.md#uc006--gestionar-perfiles).
 
 **Estado del frontend:** pendiente.
 
@@ -285,7 +285,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 3   | En `PATCH /api/admin/users` enviar el `id` en el body; el `rol` solo admite `ROLE_ADMIN`, `ROLE_INSTRUCTOR` o `ROLE_APPRENTICE` (sin Coordinador).                                                                                       | `Pendiente` |
 | 4   | Refrescar el **login derivado** que se muestra cuando el Administrador corrige el tipo o el número de documento.                                                                                                                        | `Pendiente` |
 | 5   | La búsqueda `GET /api/admin/users/search` admite también el parámetro `role` y pagina con `X-Total-Count`/`Link` (20 por defecto).                                                                                                       | `Pendiente` |
-| 6   | En el alta no enviar estado: la cuenta nace `mustChangePassword = true`; el **reenvío de credenciales (E7)** depende de UC018.                                                                                                            | `Pendiente` |
+| 6   | En el alta no enviar estado: la cuenta nace `mustChangePassword = true`; el **reenvío de credenciales (E7)** ya tiene endpoint (`PATCH /api/admin/users/resend-credentials`, ver UC018).                                                                                                            | `Pendiente` |
 
 ---
 
@@ -506,6 +506,22 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC018 — Gestionar notificaciones
+
+**Estado del backend:** implementado. Bandeja in-app del usuario autenticado con filtros, paginación e indicador de no leídas, marcado de lectura individual y masivo, entrega real de las notificaciones de justificaciones y reenvío manual de credenciales del Administrador (E7 de UC006). Ver [`docs/api-contracts.md#uc018--gestionar-notificaciones`](./api-contracts.md#uc018--gestionar-notificaciones).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** los endpoints de la bandeja y del reenvío son nuevos; cada notificación pasa a tener dos estados (`read` y `estado`), la bandeja agrega `referenceType`/`referenceId` y el indicador de no leídas viaja en la cabecera `X-Unread-Count`.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Estado      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Bandeja (pasos 1–2): consumir `GET /api/notifications` paginado (20 por defecto, `X-Total-Count`/`Link`) con `sort=createdDate,desc` y los filtros `read`, `type`, `from` y `to`; mostrar tipo, mensaje, fecha y estado leída/no leída, destacando las no leídas; sin datos → "No tienes notificaciones" (E1).                                                                                                                                                                                  | `Pendiente` |
+| 2   | Abrir una notificación (paso 3): enviar `PATCH /api/notifications/{id}/read`, refrescar el estado con la respuesta y, si `referenceType`/`referenceId` están presentes, navegar al detalle del objeto; sin referencia, mostrar solo el mensaje (E2). El `404` de una notificación ajena no debe confundirse con "no encontrada".                                                                                                                                                                  | `Pendiente` |
+| 3   | Marcar todas (A1): `PATCH /api/notifications/read-all` y refrescar la bandeja.                                                                                                                                                                                                                                                                                                                                                                                                                 | `Pendiente` |
+| 4   | Indicador de no leídas (A3): leer la cabecera `X-Unread-Count` de la bandeja y refrescarlo tras leer o marcar todas; no hay endpoint de conteo aparte.                                                                                                                                                                                                                                                                                                                                          | `Pendiente` |
+| 5   | Reenvío del Administrador (E7 de UC006): en la gestión de usuarios, `PATCH /api/admin/users/resend-credentials` con `{ documentNumber }`; `200` con `AdminUserDTO` y `400 error.documentNumberNotFound` si el documento no existe. El backend genera el enlace de restablecimiento y cierra la notificación abierta como `ENVIADA` o `REINTENTAR`; el estado de entrega es interno y la respuesta no lo expone, así que la UI no debe prometer la entrega.                                          | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. La siguiente UC tiene backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -514,7 +530,7 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | ----- | ------------------------------- | ----------------------------------------------------- |
 | UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
 
-UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementadas** en el backend y no se listan aquí hasta que su contrato exista.
+UC013 (alertas de inasistencia) sigue **no implementada** en el backend y no se lista aquí hasta que su contrato exista; el tipo `ALERTA` y los reintentos automáticos de la entrega de notificaciones quedan diferidos a esa UC (UC018 ya está implementada, ver arriba).
 
 ---
 
@@ -553,6 +569,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.justificationTypeInUse`          | "No es posible eliminar el tipo: ya fue usado en justificaciones. Puedes desactivarlo."            | Eliminación de tipo de justificación (UC016-E3).       |
 | `error.adminprotected`         | "La cuenta admin está protegida y no puede desactivarse."                                          | Desactivar/degradar al super admin (UC006-E6).         |
 | `error.rolenotfound`           | "Rol no válido."                                                                                   | Crear/editar usuario con un rol no asignable (UC006).  |
+| `error.documentNumberNotFound` | "No existe un usuario con ese número de documento."                                                | Activación y reenvío de credenciales del Administrador (UC006-E7). |
 | `error.trimestersoutofrange`   | "La cantidad de trimestres debe estar entre 1 y 12."                                               | Alta/edición de programa (UC012-E6).                   |
 | `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5) y de ficha (UC007-E4). |
 | `error.programInUse`           | "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."                 | Eliminación de programa (UC012-E8).                    |
