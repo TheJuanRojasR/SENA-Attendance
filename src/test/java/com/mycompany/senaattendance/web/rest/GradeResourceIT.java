@@ -1705,6 +1705,67 @@ class GradeResourceIT {
         assertThat(classExceptionRepository.findById(insertedException.getId())).isEmpty();
     }
 
+    // -----------------------------------------------------------------
+    // Authorization: writes are restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createGradeAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        GradeDTO gradeDTO = gradeMapper.toDto(grade);
+
+        restGradeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateGradeAsNonAdminReturnsForbidden() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        GradeDTO gradeDTO = gradeMapper.toDto(insertedGrade);
+
+        restGradeMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateGradeAsNonAdminReturnsForbidden() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        GradeDTO gradeDTO = gradeMapper.toDto(insertedGrade);
+
+        restGradeMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteGradeAsNonAdminReturnsForbidden() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restGradeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedGrade.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
     protected long getRepositoryCount() {
         return gradeRepository.count();
     }
