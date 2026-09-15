@@ -26,4 +26,17 @@ public interface ApprenticeRepository extends MongoRepository<Apprentice, String
     // ------- SEARCH BY GRADE ID -------
     @Query("{'grade._id': ?0}")
     List<Apprentice> findByGradeId(String gradeId);
+
+    /**
+     * Returns whether the apprentice already has a record in the ficha, in any academic state.
+     * A previously unenrolled apprentice cannot rejoin the same ficha, so the check ignores
+     * the state. The references are matched through {@code _id} because both are {@code @DBRef}
+     * fields of entities with String ids.
+     *
+     * @param studentId the apprentice profile id.
+     * @param gradeId the ficha id.
+     * @return {@code true} when a record already links that apprentice to that ficha.
+     */
+    @Query(value = "{'student._id': ?0, 'grade._id': ?1}", exists = true)
+    boolean existsByStudentIdAndGradeId(String studentId, String gradeId);
 }

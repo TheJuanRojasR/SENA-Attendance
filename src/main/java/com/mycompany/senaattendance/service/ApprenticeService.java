@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
+import com.mycompany.senaattendance.web.rest.vm.EnrollApprenticeVM;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,28 +11,13 @@ import org.springframework.data.domain.Pageable;
  */
 public interface ApprenticeService {
     /**
-     * Save a apprentice.
+     * Enrolls the apprentice identified by the document number in the requested ficha, with the
+     * academic state fixed by the server as Matriculado (UC008).
      *
-     * @param apprenticeDTO the entity to save.
-     * @return the persisted entity.
+     * @param enrollApprenticeVM the document number of the apprentice and the target ficha.
+     * @return the persisted enrollment.
      */
-    ApprenticeDTO save(ApprenticeDTO apprenticeDTO);
-
-    /**
-     * Updates a apprentice.
-     *
-     * @param apprenticeDTO the entity to update.
-     * @return the persisted entity.
-     */
-    ApprenticeDTO update(ApprenticeDTO apprenticeDTO);
-
-    /**
-     * Partially updates a apprentice.
-     *
-     * @param apprenticeDTO the entity to update partially.
-     * @return the persisted entity.
-     */
-    Optional<ApprenticeDTO> partialUpdate(ApprenticeDTO apprenticeDTO);
+    ApprenticeDTO enroll(EnrollApprenticeVM enrollApprenticeVM);
 
     /**
      * Get all the apprentices.
@@ -56,11 +42,4 @@ public interface ApprenticeService {
      * @return the entity.
      */
     Optional<ApprenticeDTO> findOne(String id);
-
-    /**
-     * Delete the "id" apprentice.
-     *
-     * @param id the id of the entity.
-     */
-    void delete(String id);
 }
