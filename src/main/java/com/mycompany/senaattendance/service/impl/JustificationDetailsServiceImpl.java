@@ -21,6 +21,7 @@ import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
+import com.mycompany.senaattendance.service.JustificationNotificationPort;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
@@ -84,6 +85,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
+    private final JustificationNotificationPort justificationNotificationPort;
+
     private final Clock clock;
 
     public JustificationDetailsServiceImpl(
@@ -96,6 +99,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
         GlobalConfigurationRepository globalConfigurationRepository,
+        JustificationNotificationPort justificationNotificationPort,
         Clock clock
     ) {
         this.justificationDetailsRepository = justificationDetailsRepository;
@@ -107,6 +111,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.globalConfigurationRepository = globalConfigurationRepository;
+        this.justificationNotificationPort = justificationNotificationPort;
         this.clock = clock;
     }
 
@@ -294,7 +299,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      * the justified period to {@code JUSTIFICADA}, links it to the justification and audits the
      * change. The deadline mark is never recalculated and a closed trimester does not block a
      * pending decision, so the conversion applies even when the apprentice is no longer enrolled.
-     * A decision that arrives after the instructor response deadline is marked as late.
+     * A decision that arrives after the instructor response deadline is marked as late. Every
+     * decision notifies the resulting state once through the UC018 port.
      *
      * @param id the id of the part to decide.
      * @param decision the state and the reasons of the decision.
@@ -312,7 +318,9 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
             }
             validateDecisionReasons(part, decision);
             applyDecision(part, decision);
-            return justificationDetailsMapper.toDto(justificationDetailsRepository.save(part));
+            JustificationDetails decided = justificationDetailsRepository.save(part);
+            notifyDecision(decided);
+            return justificationDetailsMapper.toDto(decided);
         });
     }
 
@@ -399,6 +407,21 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         part.setRejectionReason("");
         part.setOutOfTimeReason(decision.getOutOfTimeReason());
         justifyFailures(part, decisionDate);
+    }
+
+    /**
+     * Notifies the state change of one decision through the UC018 port, exactly once per decided
+     * part. The port receives the header and the resulting state; a part without a resolvable
+     * header has no apprentice to notify and is skipped.
+     *
+     * @param part the decided part.
+     */
+    private void notifyDecision(JustificationDetails part) {
+        Justification justification = part.getJustification();
+        if (justification == null) {
+            return;
+        }
+        justificationNotificationPort.stateChanged(justification, part.getStateJustification());
     }
 
     /**

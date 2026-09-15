@@ -28,6 +28,7 @@ import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
+import com.mycompany.senaattendance.service.JustificationNotificationPort;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
 import java.time.Clock;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +54,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -126,6 +129,9 @@ class JustificationDetailsResourceIT {
 
     @Mock
     private JustificationDetailsService justificationDetailsServiceMock;
+
+    @MockitoBean
+    private JustificationNotificationPort justificationNotificationPort;
 
     @Autowired
     private MockMvc restJustificationDetailsMockMvc;
@@ -1116,6 +1122,36 @@ class JustificationDetailsResourceIT {
 
         JustificationDetails reloaded = justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow();
         assertThat(reloaded.getLateDecision()).isTrue();
+    }
+
+    // -----------------------------------------------------------------
+    // UC010 — Una notificación por decisión (use-cases.md:1005, A2)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideAcceptedPartNotifiesTheStateChangeOnce() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "ACEPTADA")).andExpect(status().isOk());
+
+        ArgumentCaptor<Justification> notified = ArgumentCaptor.forClass(Justification.class);
+        verify(justificationNotificationPort, times(1)).stateChanged(notified.capture(), eq(StateJustification.ACEPTADA));
+        verifyNoMoreInteractions(justificationNotificationPort);
+        assertThat(notified.getValue().getId()).isEqualTo(fixture.justification().getId());
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideRejectedPartNotifiesTheStateChangeOnce() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "RECHAZADA", "rejectionReason", "Soporte no legible")).andExpect(
+            status().isOk()
+        );
+
+        verify(justificationNotificationPort, times(1)).stateChanged(any(Justification.class), eq(StateJustification.RECHAZADA));
+        verifyNoMoreInteractions(justificationNotificationPort);
     }
 
     @Test

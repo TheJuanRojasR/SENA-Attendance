@@ -89,8 +89,9 @@ public interface JustificationDetailsService {
      * {@code FALLA} records of the apprentice in that materia inside the justified period to
      * {@code JUSTIFICADA}, with the audit entry of every change; rejecting only registers the
      * reason. The decision applies to a pending part, records the response date, marks the
-     * decision as late when it arrives after the instructor response deadline and preserves the
-     * deadline mark of the justification.
+     * decision as late when it arrives after the instructor response deadline, preserves the
+     * deadline mark of the justification and notifies the resulting state once through the UC018
+     * port.
      *
      * @param id the id of the part to decide.
      * @param decision the state and the reasons of the decision.
