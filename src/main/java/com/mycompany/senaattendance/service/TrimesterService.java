@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.service;
 
+import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import java.util.Optional;
@@ -71,6 +72,17 @@ public interface TrimesterService {
      * from the persisted status are rewritten.
      */
     void syncStatuses();
+
+    /**
+     * Classifies a trimester from its {@code [startDate, endDate]} range and the current
+     * day, ignoring its persisted {@code status}. This is the single source of truth for
+     * the state computation, so callers that cannot accept the up-to-24-hour window left
+     * by the daily job classify by dates through this method.
+     *
+     * @param trimester the trimester to classify.
+     * @return the academic state derived from today versus the date range.
+     */
+    StateTrimester classify(Trimester trimester);
 
     /**
      * Delete the "id" trimester.

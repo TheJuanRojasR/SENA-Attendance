@@ -4,11 +4,15 @@ import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassScheduleService;
+import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.ClassScheduleDTO;
 import com.mycompany.senaattendance.service.mapper.ClassScheduleMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
@@ -39,16 +43,24 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
 
     private final GradeRepository gradeRepository;
 
+    private final TrimesterRepository trimesterRepository;
+
+    private final TrimesterService trimesterService;
+
     public ClassScheduleServiceImpl(
         ClassScheduleRepository classScheduleRepository,
         ClassScheduleMapper classScheduleMapper,
         ClassSectionRepository classSectionRepository,
-        GradeRepository gradeRepository
+        GradeRepository gradeRepository,
+        TrimesterRepository trimesterRepository,
+        TrimesterService trimesterService
     ) {
         this.classScheduleRepository = classScheduleRepository;
         this.classScheduleMapper = classScheduleMapper;
         this.classSectionRepository = classSectionRepository;
         this.gradeRepository = gradeRepository;
+        this.trimesterRepository = trimesterRepository;
+        this.trimesterService = trimesterService;
     }
 
     @Override
@@ -56,6 +68,7 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
         LOG.debug("Request to save ClassSchedule : {}", classScheduleDTO);
         ClassSchedule classSchedule = classScheduleMapper.toEntity(classScheduleDTO);
 
+        validateTrimesterIsNotClosed(classSchedule.getTrimester());
         validateSchedule(classSchedule, null);
 
         classSchedule.setCreatedDate(Instant.now());
@@ -73,9 +86,11 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
         LOG.debug("Request to update ClassSchedule : {}", classScheduleDTO);
         ClassSchedule classSchedule = classScheduleMapper.toEntity(classScheduleDTO);
 
+        Optional<ClassSchedule> optionalClassSchedule = classScheduleRepository.findById(classSchedule.getId());
+        optionalClassSchedule.ifPresent(existingClassSchedule -> validateTrimesterIsNotClosed(existingClassSchedule.getTrimester()));
+        validateTrimesterIsNotClosed(classSchedule.getTrimester());
         validateSchedule(classSchedule, classSchedule.getId());
 
-        Optional<ClassSchedule> optionalClassSchedule = classScheduleRepository.findById(classSchedule.getId());
         if (optionalClassSchedule.isPresent()) {
             ClassSchedule existingClassSchedule = optionalClassSchedule.get();
             classSchedule.setCreatedBy(existingClassSchedule.getCreatedBy());
@@ -100,6 +115,7 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
             .findById(classScheduleDTO.getId())
             .map(existingClassSchedule -> {
                 classScheduleMapper.partialUpdate(existingClassSchedule, classScheduleDTO);
+                validateTrimesterIsNotClosed(existingClassSchedule.getTrimester());
                 validateSchedule(existingClassSchedule, existingClassSchedule.getId());
 
                 return existingClassSchedule;
@@ -127,7 +143,36 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete ClassSchedule : {}", id);
+        classScheduleRepository.findById(id).ifPresent(classSchedule -> validateTrimesterIsNotClosed(classSchedule.getTrimester()));
         classScheduleRepository.deleteById(id);
+    }
+
+    /**
+     * Rejects any write on a schedule of a closed trimester (E6). The trimester is classified by
+     * its dates against the current day instead of its persisted {@code status}, because the daily
+     * sync job leaves a window of up to 24 hours after the trimester ends. The trimester is
+     * resolved by id because the payload may only carry a reference; when the reference or the
+     * trimester cannot be resolved, the check is skipped so the other validations report their own
+     * error.
+     *
+     * @param trimester the trimester referenced by the schedule being written.
+     * @throws BadRequestAlertException when the trimester exists and is CERRADO.
+     */
+    private void validateTrimesterIsNotClosed(Trimester trimester) {
+        if (trimester == null || trimester.getId() == null) {
+            return;
+        }
+        Trimester persistedTrimester = trimesterRepository.findById(trimester.getId()).orElse(null);
+        if (persistedTrimester == null) {
+            return;
+        }
+        if (trimesterService.classify(persistedTrimester) == StateTrimester.CERRADO) {
+            throw new BadRequestAlertException(
+                "No se pueden modificar los horarios: el trimestre ya fue cerrado",
+                ENTITY_NAME,
+                "trimesterClosed"
+            );
+        }
     }
 
     /**

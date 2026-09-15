@@ -284,6 +284,19 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     /**
+     * Classifies a trimester by its date range against the current day, ignoring the persisted
+     * {@code status}. Exposes the private {@code classifyState} rule so other services can apply
+     * the same state computation without duplicating it.
+     *
+     * @param trimester the trimester to classify.
+     * @return the academic state derived from today versus the date range.
+     */
+    @Override
+    public StateTrimester classify(Trimester trimester) {
+        return classifyState(LocalDate.now(clock), trimester.getStartDate(), trimester.getEndDate());
+    }
+
+    /**
      * Classifies a trimester as {@code CERRADO} ({@code end < today}), {@code ACTIVO}
      * ({@code today ∈ [start, end]}) or {@code FUTURO} ({@code start > today}).
      *

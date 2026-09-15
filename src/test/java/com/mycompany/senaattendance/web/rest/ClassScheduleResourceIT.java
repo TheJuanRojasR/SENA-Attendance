@@ -16,6 +16,7 @@ import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
@@ -25,7 +26,9 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassScheduleService;
 import com.mycompany.senaattendance.service.dto.ClassScheduleDTO;
 import com.mycompany.senaattendance.service.mapper.ClassScheduleMapper;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +37,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +70,17 @@ class ClassScheduleResourceIT {
 
     private static final LocalTime UPDATED_START_TIME = LocalTime.of(12, 30);
     private static final LocalTime UPDATED_END_TIME = LocalTime.of(13, 30);
+
+    // Date ranges anchored to the test day so the trimester classification is exercised by dates:
+    // a closed trimester ends before today, an active one contains today and a future one starts
+    // after today.
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.systemDefault());
+    private static final LocalDate CLOSED_START_DATE = TODAY.minusDays(40);
+    private static final LocalDate CLOSED_END_DATE = TODAY.minusDays(10);
+    private static final LocalDate ACTIVE_START_DATE = TODAY.minusDays(10);
+    private static final LocalDate ACTIVE_END_DATE = TODAY.plusDays(10);
+    private static final LocalDate FUTURE_START_DATE = TODAY.plusDays(10);
+    private static final LocalDate FUTURE_END_DATE = TODAY.plusDays(100);
 
     private static final String ENTITY_API_URL = "/api/class-schedules";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -246,6 +262,39 @@ class ClassScheduleResourceIT {
         trimester.setId(null);
         trimester.setName(name);
         return trimesterRepository.save(trimester);
+    }
+
+    /**
+     * Persists a trimester with the given date range, so the schedule write rules can be exercised
+     * against closed, active and future trimesters. The persisted status is left as the future one
+     * of {@link TrimesterResourceIT#createEntity()} on purpose: the state must be classified from
+     * the dates. The seeded trimester is removed by the trimester cleanup of {@link #cleanup()}.
+     *
+     * @param startDate the trimester start date (inclusive).
+     * @param endDate the trimester end date (inclusive).
+     * @return the persisted trimester.
+     */
+    private Trimester persistTrimester(LocalDate startDate, LocalDate endDate) {
+        Trimester trimester = TrimesterResourceIT.createEntity();
+        trimester.setId(null);
+        trimester.setStartDate(startDate);
+        trimester.setEndDate(endDate);
+        return trimesterRepository.save(trimester);
+    }
+
+    /**
+     * Persists a trimester whose date range classifies to the given state, used to exercise the
+     * rule that a closed trimester freezes its schedules (E6).
+     *
+     * @param state the state the seeded date range must classify to.
+     * @return the persisted trimester.
+     */
+    private Trimester persistTrimesterInState(StateTrimester state) {
+        return switch (state) {
+            case CERRADO -> persistTrimester(CLOSED_START_DATE, CLOSED_END_DATE);
+            case ACTIVO -> persistTrimester(ACTIVE_START_DATE, ACTIVE_END_DATE);
+            case FUTURO -> persistTrimester(FUTURE_START_DATE, FUTURE_END_DATE);
+        };
     }
 
     /**
@@ -612,6 +661,161 @@ class ClassScheduleResourceIT {
             .andExpect(jsonPath("$.message").value("error.scheduleOverlap"));
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    // -----------------------------------------------------------------
+    // A closed trimester freezes its schedules (E6)
+    // -----------------------------------------------------------------
+
+    @Test
+    void createClassScheduleInClosedTrimesterIsRejected() throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(StateTrimester.CERRADO));
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        // Creating a session in a closed trimester fails
+        restClassScheduleMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classScheduleMapper.toDto(classSchedule)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void putClassScheduleInClosedTrimesterIsRejected() throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(StateTrimester.CERRADO));
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        ClassSchedule stored = classScheduleRepository.findById(classSchedule.getId()).orElseThrow();
+        stored.dayOfWeek(UPDATED_DAY_OF_WEEK).startTime(UPDATED_START_TIME).endTime(UPDATED_END_TIME);
+        ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(stored);
+
+        // Modifying a session of a closed trimester fails
+        restClassScheduleMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, classScheduleDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classScheduleDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        ClassSchedule persisted = getPersistedClassSchedule(stored);
+        assertThat(persisted.getDayOfWeek()).isEqualTo(DEFAULT_DAY_OF_WEEK);
+        assertThat(persisted.getStartTime()).isEqualTo(DEFAULT_START_TIME);
+        assertThat(persisted.getEndTime()).isEqualTo(DEFAULT_END_TIME);
+    }
+
+    @Test
+    void patchClassScheduleInClosedTrimesterIsRejected() throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(StateTrimester.CERRADO));
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        ClassSchedule partialUpdatedClassSchedule = new ClassSchedule();
+        partialUpdatedClassSchedule.setId(classSchedule.getId());
+        partialUpdatedClassSchedule.dayOfWeek(UPDATED_DAY_OF_WEEK);
+
+        // Partially modifying a session of a closed trimester fails
+        restClassScheduleMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, classSchedule.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSchedule(classSchedule).getDayOfWeek()).isEqualTo(DEFAULT_DAY_OF_WEEK);
+    }
+
+    @Test
+    void deleteClassScheduleInClosedTrimesterIsRejected() throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(StateTrimester.CERRADO));
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        // Deleting a session of a closed trimester fails
+        restClassScheduleMockMvc
+            .perform(delete(ENTITY_API_URL_ID, classSchedule.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateTrimester.class, names = { "FUTURO", "ACTIVO" })
+    void createClassScheduleInOpenTrimesterSucceeds(StateTrimester state) throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(state));
+
+        // Creating a session in a future or active trimester keeps working
+        createScheduleExpectingCreated(classScheduleMapper.toDto(classSchedule));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateTrimester.class, names = { "FUTURO", "ACTIVO" })
+    void putClassScheduleInOpenTrimesterSucceeds(StateTrimester state) throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(state));
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        ClassSchedule updatedClassSchedule = classScheduleRepository.findById(classSchedule.getId()).orElseThrow();
+        updatedClassSchedule.dayOfWeek(UPDATED_DAY_OF_WEEK).startTime(UPDATED_START_TIME).endTime(UPDATED_END_TIME);
+
+        // Modifying a session of a future or active trimester keeps working
+        restClassScheduleMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, updatedClassSchedule.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classScheduleMapper.toDto(updatedClassSchedule)))
+            )
+            .andExpect(status().isOk());
+
+        assertPersistedClassScheduleToMatchAllProperties(updatedClassSchedule);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateTrimester.class, names = { "FUTURO", "ACTIVO" })
+    void patchClassScheduleInOpenTrimesterSucceeds(StateTrimester state) throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(state));
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        ClassSchedule partialUpdatedClassSchedule = new ClassSchedule();
+        partialUpdatedClassSchedule.setId(classSchedule.getId());
+        partialUpdatedClassSchedule.dayOfWeek(UPDATED_DAY_OF_WEEK);
+
+        // Partially modifying a session of a future or active trimester keeps working
+        restClassScheduleMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, classSchedule.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedClassSchedule(classSchedule).getDayOfWeek()).isEqualTo(UPDATED_DAY_OF_WEEK);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateTrimester.class, names = { "FUTURO", "ACTIVO" })
+    void deleteClassScheduleInOpenTrimesterSucceeds(StateTrimester state) throws Exception {
+        classSchedule.setTrimester(persistTrimesterInState(state));
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        // Deleting a session of a future or active trimester keeps working
+        restClassScheduleMockMvc
+            .perform(delete(ENTITY_API_URL_ID, classSchedule.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
+        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
     @Test
