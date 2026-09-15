@@ -37,4 +37,16 @@ class NotificacionTest {
         assertThat(notificacion.getEstado()).isEqualTo(NotificacionEstado.PENDIENTE);
         assertThat(notificacion.getMensaje()).isEqualTo("Could not send credentials email");
     }
+
+    @Test
+    void readStateAndOriginReferenceAssigned() {
+        Notificacion notificacion = new Notificacion().read(false).referenceType("JUSTIFICATION").referenceId("justification-1");
+
+        assertThat(notificacion.getRead()).isFalse();
+        assertThat(notificacion.getReferenceType()).isEqualTo("JUSTIFICATION");
+        assertThat(notificacion.getReferenceId()).isEqualTo("justification-1");
+
+        notificacion.setRead(true);
+        assertThat(notificacion.getRead()).isTrue();
+    }
 }

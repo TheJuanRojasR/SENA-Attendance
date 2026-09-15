@@ -11,6 +11,6 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the {@link Notificacion} entity.
  */
 @Repository
-public interface NotificacionRepository extends MongoRepository<Notificacion, String> {
+public interface NotificacionRepository extends MongoRepository<Notificacion, String>, NotificacionRepositoryCustom {
     Page<Notificacion> findByUser(User user, Pageable pageable);
 }
