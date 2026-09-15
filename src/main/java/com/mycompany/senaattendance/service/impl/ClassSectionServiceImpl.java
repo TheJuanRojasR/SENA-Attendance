@@ -1,9 +1,12 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
@@ -39,24 +42,28 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     private final ClassSectionMapper classSectionMapper;
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final GradeRepository gradeRepository;
 
     public ClassSectionServiceImpl(
         ClassSectionRepository classSectionRepository,
         ClassSectionMapper classSectionMapper,
         UserRepository userRepository,
-        UserProfileRepository userProfileRepository
+        UserProfileRepository userProfileRepository,
+        GradeRepository gradeRepository
     ) {
         this.classSectionRepository = classSectionRepository;
         this.classSectionMapper = classSectionMapper;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
+        this.gradeRepository = gradeRepository;
     }
 
     @Override
     public ClassSectionDTO save(ClassSectionDTO classSectionDTO) {
         LOG.debug("Request to save ClassSection : {}", classSectionDTO);
-        validateInstructor(classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
+        validateGradeIsOperable(classSection);
+        validateInstructor(classSectionDTO);
         validateAndNormalizeSubjectName(classSection, null);
 
         classSection.setCreatedDate(Instant.now());
@@ -72,8 +79,9 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     @Override
     public ClassSectionDTO update(ClassSectionDTO classSectionDTO) {
         LOG.debug("Request to update ClassSection : {}", classSectionDTO);
-        validateInstructor(classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
+        validateGradeIsOperable(classSection);
+        validateInstructor(classSectionDTO);
         validateAndNormalizeSubjectName(classSection, classSection.getId());
 
         Optional<ClassSection> optionalClassSection = classSectionRepository.findById(classSection.getId());
@@ -100,8 +108,9 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         return classSectionRepository
             .findById(classSectionDTO.getId())
             .map(existingClassSection -> {
-                validateInstructor(classSectionDTO);
                 classSectionMapper.partialUpdate(existingClassSection, classSectionDTO);
+                validateGradeIsOperable(existingClassSection);
+                validateInstructor(classSectionDTO);
                 validateAndNormalizeSubjectName(existingClassSection, existingClassSection.getId());
 
                 return existingClassSection;
@@ -153,6 +162,32 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         String profileId = profileOpt.get().getId();
 
         return classSectionRepository.findByInstructorId(profileId).stream().map(classSectionMapper::toDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Rejects a write on a ficha that is not PENDIENTE or ACTIVA. The ficha is resolved by id
+     * because the payload may only carry a reference to it; when the reference or the ficha
+     * cannot be resolved, the check is skipped so the other validations report their own error.
+     *
+     * @param classSection the class section about to be persisted.
+     * @throws BadRequestAlertException when the ficha exists and is not operable.
+     */
+    private void validateGradeIsOperable(ClassSection classSection) {
+        Grade grade = classSection.getGrade();
+        if (grade == null || grade.getId() == null) {
+            return;
+        }
+        Grade persistedGrade = gradeRepository.findById(grade.getId()).orElse(null);
+        if (persistedGrade == null) {
+            return;
+        }
+        if (persistedGrade.getState() != StateGrade.PENDIENTE && persistedGrade.getState() != StateGrade.ACTIVA) {
+            throw new BadRequestAlertException(
+                "No se pueden crear ni modificar materias en una ficha en su estado actual",
+                ENTITY_NAME,
+                "gradeNotOperable"
+            );
+        }
     }
 
     /**

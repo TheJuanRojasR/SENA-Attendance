@@ -14,6 +14,7 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
@@ -30,6 +31,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -179,6 +182,38 @@ class ClassSectionResourceIT {
         );
         extraInsertedClassSections.add(persisted);
         return persisted;
+    }
+
+    /**
+     * Persists a ficha in the given state, used to exercise the rule that only PENDIENTE and
+     * ACTIVA fichas accept class section writes. The seeded ficha is removed by the grade
+     * cleanup of {@link #cleanup()}.
+     *
+     * @param id the ficha id to use.
+     * @param state the state to persist.
+     * @return the persisted ficha.
+     */
+    private Grade persistGradeWithState(String id, StateGrade state) {
+        Grade grade = GradeResourceIT.createEntity();
+        grade.setId(id);
+        grade.setState(state);
+        return gradeRepository.save(grade);
+    }
+
+    /**
+     * @param state a state that must reject class section writes.
+     * @return a stable ficha id for the seeded state.
+     */
+    private String nonOperableGradeId(StateGrade state) {
+        return "non-operable-" + state.name().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * @param state a state that must accept class section writes.
+     * @return a stable ficha id for the seeded state.
+     */
+    private String operableGradeId(StateGrade state) {
+        return "operable-" + state.name().toLowerCase(Locale.ROOT);
     }
 
     @BeforeEach
@@ -833,6 +868,177 @@ class ClassSectionResourceIT {
         // Validate the ClassSection in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertThat(getPersistedClassSection(classSection).getInstructor()).isNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "FINALIZADA", "APLAZADA", "CANCELADA" })
+    void createClassSectionInNonOperableGradeIsRejected(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(nonOperableGradeId(state), state));
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        // Creating a subject in a ficha that is not PENDIENTE or ACTIVA fails
+        restClassSectionMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(classSection)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeNotOperable"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "FINALIZADA", "APLAZADA", "CANCELADA" })
+    void putClassSectionInNonOperableGradeIsRejected(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(nonOperableGradeId(state), state));
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Modifying a subject of a ficha that is not PENDIENTE or ACTIVA fails
+        ClassSection updatedClassSection = classSectionRepository.findById(classSection.getId()).orElseThrow();
+        updatedClassSection.subjectName(UPDATED_SUBJECT_NAME);
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
+
+        restClassSectionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, classSectionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeNotOperable"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "FINALIZADA", "APLAZADA", "CANCELADA" })
+    void patchClassSectionInNonOperableGradeIsRejected(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(nonOperableGradeId(state), state));
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Partially modifying a subject of a ficha that is not PENDIENTE or ACTIVA fails
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setSubjectName(UPDATED_SUBJECT_NAME);
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, classSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeNotOperable"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "FINALIZADA", "APLAZADA", "CANCELADA" })
+    void reactivateClassSectionInNonOperableGradeIsRejected(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(nonOperableGradeId(state), state));
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Reactivating a deactivated subject is a modification, so it is rejected as well
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setIsActive(true);
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, classSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeNotOperable"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getIsActive()).isFalse();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "PENDIENTE", "ACTIVA" })
+    void createClassSectionInOperableGradeSucceeds(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(operableGradeId(state), state));
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        // Creating a subject in a PENDIENTE or ACTIVA ficha keeps working
+        var returnedClassSectionDTO = om.readValue(
+            restClassSectionMockMvc
+                .perform(
+                    post(ENTITY_API_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsBytes(classSectionMapper.toDto(classSection)))
+                )
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ClassSectionDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        extraInsertedClassSections.add(classSectionMapper.toEntity(returnedClassSectionDTO));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "PENDIENTE", "ACTIVA" })
+    void putClassSectionInOperableGradeSucceeds(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(operableGradeId(state), state));
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Modifying a subject of a PENDIENTE or ACTIVA ficha keeps working
+        ClassSection updatedClassSection = classSectionRepository.findById(classSection.getId()).orElseThrow();
+        updatedClassSection.subjectName(UPDATED_SUBJECT_NAME).isActive(UPDATED_IS_ACTIVE);
+
+        restClassSectionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, updatedClassSection.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(updatedClassSection)))
+            )
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertPersistedClassSectionToMatchAllProperties(updatedClassSection);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "PENDIENTE", "ACTIVA" })
+    void patchClassSectionInOperableGradeSucceeds(StateGrade state) throws Exception {
+        classSection.setGrade(persistGradeWithState(operableGradeId(state), state));
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Partially modifying a subject of a PENDIENTE or ACTIVA ficha keeps working
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setSubjectName(UPDATED_SUBJECT_NAME);
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, classSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getSubjectName()).isEqualTo(UPDATED_SUBJECT_NAME);
     }
 
     @Test
