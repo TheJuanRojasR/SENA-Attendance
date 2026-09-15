@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
@@ -8,6 +9,7 @@ import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.vm.AttendanceSessionVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -98,18 +101,30 @@ public class AttendanceResource {
     }
 
     /**
-     * {@code GET  /attendances} : gets the attendance history the current user can read. An
-     * administrator reads every record; an instructor only the records of the materias assigned
-     * to them. Any other role is rejected before reaching the query.
+     * {@code GET  /attendances} : gets the attendance history the current user can read, with the
+     * optional filters of A1 combined. An administrator reads every record; an instructor only the
+     * records of the materias assigned to them, so filtering by a materia outside that scope
+     * returns an empty page. {@code studentId} is the apprentice profile id, the same identity the
+     * session registration uses and the response exposes.
      *
-     * @param pageable the pagination information.
+     * @param pageable the pagination information, 20 records per page by default.
+     * @param classSectionId the materia to filter by (optional).
+     * @param date the session date to filter by (optional).
+     * @param studentId the apprentice profile id to filter by (optional).
+     * @param stateAttendance the state to filter by (optional).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the page of records.
      */
     @GetMapping("")
     @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
-    public ResponseEntity<List<AttendanceDTO>> getAllAttendances(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
+    public ResponseEntity<List<AttendanceDTO>> getAllAttendances(
+        @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(name = "classSectionId", required = false) String classSectionId,
+        @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(name = "studentId", required = false) String studentId,
+        @RequestParam(name = "stateAttendance", required = false) StateAttendance stateAttendance
+    ) {
         LOG.debug("REST request to get a page of Attendances");
-        Page<AttendanceDTO> page = attendanceService.findAllForCurrentUser(pageable);
+        Page<AttendanceDTO> page = attendanceService.findAllForCurrentUser(classSectionId, date, studentId, stateAttendance, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }

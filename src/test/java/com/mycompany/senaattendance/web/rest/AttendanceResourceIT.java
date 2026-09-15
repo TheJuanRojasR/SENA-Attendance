@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -51,6 +52,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -461,6 +463,134 @@ class AttendanceResourceIT {
     @WithMockUser(username = "attendance_coordinator", authorities = AuthoritiesConstants.COORDINATOR)
     void getAttendancesAsCoordinatorReturnsForbidden() throws Exception {
         restAttendanceMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
+    }
+
+    // -----------------------------------------------------------------
+    // A1 — Attendance history filters
+    // -----------------------------------------------------------------
+
+    @Test
+    void getAttendancesFilteredByClassSection() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+        persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("classSectionId", classSection.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "2"))
+            .andExpect(jsonPath("$", hasSize(2)))
+            .andExpect(jsonPath("$[*].classSection.id", containsInAnyOrder(classSection.getId(), classSection.getId())));
+    }
+
+    @Test
+    void getAttendancesFilteredByDate() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(classSection, secondStudent, sessionDate.minusDays(1), StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("date", sessionDate.toString()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].date").value(sessionDate.toString()))
+            .andExpect(jsonPath("$[0].student.documentNumber").value("2000000001"));
+    }
+
+    @Test
+    void getAttendancesFilteredByStudent() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("studentId", firstStudent.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].student.id").value(firstStudent.getId()))
+            .andExpect(jsonPath("$[0].student.documentNumber").value("2000000001"));
+    }
+
+    @Test
+    void getAttendancesFilteredByState() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("stateAttendance", StateAttendance.FALLA.name()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].stateAttendance").value(StateAttendance.FALLA.toString()))
+            .andExpect(jsonPath("$[0].student.documentNumber").value("2000000002"));
+    }
+
+    @Test
+    void getAttendancesFilteredByStudentAndState() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(classSection, firstStudent, sessionDate.minusDays(1), StateAttendance.FALLA);
+        persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(
+                get(ENTITY_API_URL)
+                    .param("studentId", firstStudent.getId())
+                    .param("stateAttendance", StateAttendance.FALLA.name())
+                    .accept(MediaType.APPLICATION_JSON)
+            )
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].date").value(sessionDate.minusDays(1).toString()))
+            .andExpect(jsonPath("$[0].student.documentNumber").value("2000000001"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAttendancesFilteredByAnotherInstructorsClassSectionReturnsEmpty() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("classSectionId", otherClassSection.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "0"))
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void getAttendancesPaginateTwentyRecordsByDefault() throws Exception {
+        LocalDate firstDate = sessionDate.minusDays(20);
+        for (int day = 0; day < 21; day++) {
+            persistAttendance(classSection, firstStudent, firstDate.plusDays(day), StateAttendance.PRESENTE);
+        }
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "21"))
+            .andExpect(header().string(HttpHeaders.LINK, containsString("page=1")))
+            .andExpect(jsonPath("$", hasSize(20)));
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("page", "1").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    void getAttendancesExposeTheMateriaAndTheApprentice() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].classSection.id").value(classSection.getId()))
+            .andExpect(jsonPath("$[0].classSection.subjectName").value("Materia de sesión"))
+            .andExpect(jsonPath("$[0].student.id").value(firstStudent.getId()))
+            .andExpect(jsonPath("$[0].student.documentNumber").value("2000000001"))
+            .andExpect(jsonPath("$[0].student.firstName").value("AAAAAAAAAA"))
+            .andExpect(jsonPath("$[0].student.firstLastName").value("AAAAAAAAAA"));
     }
 
     // -----------------------------------------------------------------

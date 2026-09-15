@@ -12,6 +12,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.AttendanceSearchCriteria;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
@@ -162,18 +163,30 @@ public class AttendanceServiceImpl implements AttendanceService {
         });
     }
 
+    /**
+     * Reads the attendance history (A1) with the optional filters combined into one query. An
+     * administrator reads every record; an instructor reads only the records of the materias
+     * assigned to them, so a filter outside that scope resolves as an empty page.
+     *
+     * @param classSectionId the materia to filter by (may be null for every materia).
+     * @param date the session date to filter by (may be null for every date).
+     * @param studentId the apprentice profile id to filter by (may be null for every apprentice).
+     * @param stateAttendance the state to filter by (may be null for every state).
+     * @param pageable the pagination information.
+     * @return the page of readable records matching the filters.
+     */
     @Override
-    public Page<AttendanceDTO> findAllForCurrentUser(Pageable pageable) {
+    public Page<AttendanceDTO> findAllForCurrentUser(
+        String classSectionId,
+        LocalDate date,
+        String studentId,
+        StateAttendance stateAttendance,
+        Pageable pageable
+    ) {
         LOG.debug("Request to get the page of Attendances the current user can read");
-        if (isCurrentUserAdmin()) {
-            return attendanceRepository.findAll(pageable).map(attendanceMapper::toDto);
-        }
-
-        List<ObjectId> classSectionIds = currentInstructorClassSectionIds();
-        if (classSectionIds.isEmpty()) {
-            return Page.empty(pageable);
-        }
-        return attendanceRepository.findByClassSection_IdIn(classSectionIds, pageable).map(attendanceMapper::toDto);
+        List<ObjectId> classSectionScope = isCurrentUserAdmin() ? null : currentInstructorClassSectionIds();
+        AttendanceSearchCriteria criteria = new AttendanceSearchCriteria(classSectionId, date, studentId, stateAttendance);
+        return attendanceRepository.searchAttendanceHistory(criteria, classSectionScope, pageable).map(attendanceMapper::toDto);
     }
 
     @Override

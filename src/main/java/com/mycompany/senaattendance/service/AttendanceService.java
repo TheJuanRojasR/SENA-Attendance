@@ -4,6 +4,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
 import com.mycompany.senaattendance.service.dto.AttendanceSessionDTO;
 import com.mycompany.senaattendance.web.rest.vm.AttendanceSessionVM;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,13 +35,24 @@ public interface AttendanceService {
     Optional<AttendanceDTO> updateState(String id, StateAttendance stateAttendance);
 
     /**
-     * Gets a page of the attendance history the current user can read: every record for an
-     * administrator, and only the records of the assigned materias for an instructor.
+     * Gets a page of the attendance history the current user can read (A1): every record for an
+     * administrator, and only the records of the assigned materias for an instructor. The filters
+     * are optional and combine with each other and with that scope.
      *
+     * @param classSectionId the materia to filter by (may be null for every materia).
+     * @param date the session date to filter by (may be null for every date).
+     * @param studentId the apprentice profile id to filter by (may be null for every apprentice).
+     * @param stateAttendance the state to filter by (may be null for every state).
      * @param pageable the pagination information.
-     * @return the page of readable records.
+     * @return the page of readable records matching the filters.
      */
-    Page<AttendanceDTO> findAllForCurrentUser(Pageable pageable);
+    Page<AttendanceDTO> findAllForCurrentUser(
+        String classSectionId,
+        LocalDate date,
+        String studentId,
+        StateAttendance stateAttendance,
+        Pageable pageable
+    );
 
     /**
      * Gets one attendance record when the current user can read it: every record for an

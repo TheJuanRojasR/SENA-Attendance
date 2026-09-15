@@ -15,22 +15,9 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the Attendance entity.
  */
 @Repository
-public interface AttendanceRepository extends MongoRepository<Attendance, String> {
+public interface AttendanceRepository extends MongoRepository<Attendance, String>, AttendanceRepositoryCustom {
     @Query("{'id': ?0}")
     Optional<Attendance> findOneWithEagerRelationships(String id);
-
-    /**
-     * Finds the attendance records of the given class sections. Used to scope the history of an
-     * instructor to the materias assigned to them. The class section is matched through the DBRef
-     * id ({@code classSection.$id}), and a String does not resolve to a referenced id in an
-     * {@code $in} lookup, so the ids arrive as explicit {@link ObjectId} values.
-     *
-     * @param classSectionIds the ObjectId values of the class sections to include.
-     * @param pageable the pagination information.
-     * @return the page of records of those class sections.
-     */
-    @Query("{ 'classSection.$id': { $in: ?0 } }")
-    Page<Attendance> findByClassSection_IdIn(List<ObjectId> classSectionIds, Pageable pageable);
 
     // ------- SEARCH COUNT CLASS SECTION BY ID -------
     @Query(value = "{ 'classSection.$id': { $in: ?0 } }", count = true)
