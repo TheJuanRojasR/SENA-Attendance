@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (14 UCs implementadas y 7 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (15 UCs implementadas y 6 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -368,7 +368,6 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 8   | No permitir crear, editar ni eliminar horarios de un trimestre **cerrado** (el cliente puede calcularlo por fechas); el backend responde `400 error.trimesterClosed` (E6) con la clasificación por fechas, sin ventana de gracia.                                                 | `Pendiente` |
 | 9   | Al eliminar una materia con asistencias, manejar `400 error.classSectionInUse` con el mensaje del UC y ofrecer **desactivarla** con `PATCH /api/class-sections` (`isActive: false`, `id` en el body) en lugar de reintentar. Si no tiene asistencias, el backend borra en cascada sus horarios y excepciones. | `Pendiente` |
 | 10  | Mostrar la **gestión de materias, horarios y excepciones solo a `ROLE_ADMIN`**: el backend restringe todas las escrituras a ese rol y responde `403` a los demás. La lectura sigue disponible para cualquier usuario autenticado.                                                | `Pendiente` |
-| 11  | En "Mis materias" (UC017) consumir `GET /api/class-sections/mine`, disponible solo para `ROLE_INSTRUCTOR` o `ROLE_ADMIN` (ya no para Coordinador).                                                                                                                                | `Pendiente` |
 
 ---
 
@@ -393,6 +392,23 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC017 — Consultar mis fichas y materias
+
+**Estado del backend:** implementado. No hay endpoint dedicado de "mis fichas": la vinculación del instructor con una ficha nace de sus materias asignadas, así que las fichas se **derivan** de `GET /api/class-sections/mine`. Ese endpoint exige `ROLE_INSTRUCTOR` o `ROLE_ADMIN` y acepta el filtro opcional `gradeCode` (búsqueda parcial por número de ficha, sin distinguir mayúsculas y solo entre las materias del instructor). Ver [`docs/api-contracts.md#uc017--consultar-mis-fichas-y-materias`](./api-contracts.md#uc017--consultar-mis-fichas-y-materias) y [`docs/use-cases.md`](./use-cases.md) (UC017).
+
+**Estado del frontend:** pendiente. La pantalla "Mis fichas" debe agrupar por ficha las materias que devuelve `/mine`: cada materia trae `id`, `subjectName`, `isActive` y la ficha anidada con `id`, `code`, `state`, `startDate`, `endDate` y `program { id, name }`; el `instructor` anidado solo trae `id` y `documentNumber` (es el propio instructor autenticado). El listado llega completo (**no es paginado**) y sin filtrar: las materias inactivas y las fichas no operativas vienen incluidas con su estado.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                                                                                            | Estado      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Consumir `GET /api/class-sections/mine` y **derivar las fichas** agrupando sus materias por `grade.id`; no existe un endpoint de "mis fichas". No paginar: el arreglo llega completo.                                                                                                                                                                                                             | `Pendiente` |
+| 2   | Buscador por número de ficha (flujo alternativo): enviar `?gradeCode=<texto>` y renderizar la respuesta del backend tal cual. La coincidencia es **parcial** y sin distinguir mayúsculas, y busca **solo entre las materias del instructor**; si no hay coincidencias el backend responde `200 []` y la UI muestra "No se encontraron fichas con ese número" (E1).                                  | `Pendiente` |
+| 3   | Si el arreglo llega vacío **sin filtro**, mostrar "Aún no tienes materias asignadas. Contacta al Administrador." (E3); el backend responde `200 []` y no emite ninguna clave de error.                                                                                                                                                                                                           | `Pendiente` |
+| 4   | Mostrar las fichas no operativas (`APLAZADA`, `CANCELADA` o `FINALIZADA`) con su estado correspondiente y sin acciones operativas (E2), y las materias con `isActive: false` tal cual: el backend no las filtra.                                                                                                                                                                                 | `Pendiente` |
+| 5   | Mostrar la pantalla "Mis fichas" solo a `ROLE_INSTRUCTOR` o `ROLE_ADMIN`: `/mine` responde `403` al resto de los roles.                                                                                                                                                                                                                                                                          | `Pendiente` |
+| 6   | Los textos de E1 y E3 los aporta el frontend: no viajan en `message` del backend, así que no deben mapearse como `error.<clave>` (no hay claves de error nuevas en el backend).                                                                                                                                                                                                                  | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -402,7 +418,6 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | UC009 | Gestionar listas de asistencia  | [`docs/api-contracts.md`](./api-contracts.md) — UC009 |
 | UC010 | Gestionar justificaciones       | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
 | UC011 | Gestionar asistencia (Aprendiz) | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
-| UC017 | Consultar mis fichas y materias | [`docs/api-contracts.md`](./api-contracts.md) — UC017 |
 | UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
 
 UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementadas** en el backend y no se listan aquí hasta que su contrato exista.

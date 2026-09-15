@@ -56,7 +56,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Implementado    |
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Implementado    |
 | [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Implementado    |
-| [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Parcial         |
+| [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Implementado    |
 | [UC009](#uc009--gestionar-listas-de-asistencia)     | Gestionar listas de asistencia     | Parcial         |
 | [UC011](#uc011--gestionar-asistencia-aprendiz)      | Gestionar asistencia (Aprendiz)    | Parcial         |
 | [UC010](#uc010--gestionar-justificaciones)          | Gestionar justificaciones          | Parcial         |
@@ -1054,17 +1054,17 @@ El estado académico **no viaja en el request**: el servidor fija `MATRICULADO` 
 
 ## UC017 — Consultar mis fichas y materias
 
-**Módulo:** Aprendices e instructor | **Actor:** Instructor | **Estado:** Parcial
+**Módulo:** Aprendices e instructor | **Actor:** Instructor | **Estado:** Implementado
 
-**Feature:** Consulta de solo lectura de las materias asignadas al instructor y, a través de ellas, de las fichas en las que participa.
+**Feature:** Consulta de solo lectura de las materias asignadas al instructor y, a través de ellas, de las fichas en las que participa. No hay endpoint dedicado de "mis fichas": la vinculación del instructor nace de sus materias, así que las fichas se **derivan** de `GET /api/class-sections/mine` (`docs/use-cases.md:910`).
 
 **Endpoints:**
 
 | Método | Ruta                       | Acceso                                               | Descripción                                                |
 | ------ | -------------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/class-sections/mine` | `ROLE_INSTRUCTOR` o `ROLE_ADMIN`                     | Materias del instructor autenticado, con la ficha anidada. |
-| GET    | `/api/class-sections/{id}` | Autenticado                                          | Detalle de una materia.                                    |
-| GET    | `/api/grades`              | `ROLE_ADMIN` o `ROLE_USER`                           | Fichas visibles (paginado).                                |
+| GET    | `/api/class-sections/mine` | `ROLE_INSTRUCTOR` o `ROLE_ADMIN`                     | Materias del instructor autenticado, con la ficha anidada. Acepta `?gradeCode=` opcional. |
+| GET    | `/api/class-sections/{id}` | Autenticado                                          | Detalle de una materia. Endpoint **genérico**: no está acotado a las materias del instructor (ver deuda transversal en [`docs/backend-debt.md`](./backend-debt.md)). |
+| GET    | `/api/grades`              | `ROLE_ADMIN` o `ROLE_USER`                           | Listado paginado de fichas. Endpoint **genérico**: no está acotado a las fichas del instructor (ver deuda transversal en [`docs/backend-debt.md`](./backend-debt.md)). |
 
 **Response — `GET /api/class-sections/mine`:** `200 OK`
 
@@ -1076,26 +1076,26 @@ El estado académico **no viaja en el request**: el servidor fija `MATRICULADO` 
     "isActive": true,
     "instructor": {
       "id": "665f1c2a9e13b7a1f2c8d9e80",
-      "firstName": "Carlos",
-      "firstLastName": "Pérez",
-      "documentNumber": "1029384756",
-      "phoneNumber": "3001234567",
-      "documentType": { "id": "64f1c2a9e13b7a1f2c8d9e01", "name": "Cédula de ciudadanía", "initials": "CC" }
+      "documentNumber": "1029384756"
     },
     "grade": {
       "id": "665f1c2a9e13b7a1f2c8d9e70",
       "code": "3412345",
       "state": "ACTIVA",
       "startDate": "2026-09-01",
-      "endDate": "2027-03-31"
+      "endDate": "2027-03-31",
+      "program": {
+        "id": "665f1c2a9e13b7a1f2c8d9e30",
+        "name": "Análisis y Desarrollo de Software"
+      }
     }
   }
 ]
 ```
 
-**Errores:** `401` sin sesión; `403` para roles sin permiso; las materias se resuelven por el perfil del usuario autenticado, por lo que un instructor sin perfil o sin asignaciones recibe `200` con arreglo vacío.
+**Errores:** `401` sin sesión; `403` para roles sin permiso (solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN`); un `gradeCode` sin coincidencias o un instructor sin perfil o sin asignaciones recibe `200` con arreglo vacío. No hay claves de error nuevas: los textos de E1 y E3 los aporta el frontend.
 
-**Notas / lo que se necesita:** no hay endpoint dedicado de "mis fichas": el frontend debe derivarlas de las materias. No existe búsqueda por número de ficha (flujo alternativo del UC), no se filtran materias inactivas ni fichas finalizadas, y el listado no se pagina. La asignación se consulta por `UserProfile`, no se valida el estado de la cuenta del instructor.
+**Notas / lo que se necesita:** implementado y verificado (`ClassSectionResourceIT` 61/61). Las fichas se **derivan** de las materias porque la pertenencia del instructor a una ficha nace de sus asignaciones (`docs/use-cases.md:910`); el listado resuelve el perfil autenticado por `UserProfile` y sus materias por instructor, y no valida el estado de la cuenta. La **búsqueda** del flujo alternativo es el parámetro opcional `gradeCode` de `/mine`: coincidencia **parcial** y **sin distinguir mayúsculas** contra el `code` de la ficha, aplicada **solo entre las materias del instructor** (`docs/use-cases.md:916`); sin coincidencias responde `200 []`. El payload es **aditivo**: la ficha anidada expone `state`, `startDate`, `endDate` y `program { id, name }` además de `id` y `code`, y la materia mantiene `subjectName` e `isActive`. El `instructor` anidado sigue exponiendo solo `{ id, documentNumber }`: para "mis materias" el instructor es el propio usuario autenticado, así que no aporta enriquecerlo. **Decisiones:** no se pagina (la spec no lo pide y es una lista personal); no se filtran las materias inactivas ni las fichas no operativas porque E2 pide mostrarlas con su estado (`docs/use-cases.md:921`); y un instructor sin materias asignadas recibe `200 []`, con el mensaje de E3 a cargo del frontend. Sin migración Mongock (próximo orden libre: 011).
 
 ---
 
