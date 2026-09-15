@@ -63,4 +63,25 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // ------- SEARCH USERPROFILE BY ID -------
     @Query("{ 'user._id': { $in: ?0 } }")
     Page<UserProfile> findByUserIdIn(List<String> userIds, Pageable pageable);
+
+    /**
+     * Returns the profiles whose document number contains the given fragment, ignoring case.
+     * Used to resolve the text filters of the apprentice list (UC008, A2), because the
+     * enrollment stores the student as a {@code @DBRef} and cannot be filtered by profile
+     * fields in the same query.
+     *
+     * @param documentNumber the document number fragment to look for.
+     * @return the matching profiles, possibly empty.
+     */
+    List<UserProfile> findByDocumentNumberContainingIgnoreCase(String documentNumber);
+
+    /**
+     * Returns the profiles whose first name or first last name contains the given fragment,
+     * ignoring case.
+     *
+     * @param firstName the first name fragment to look for.
+     * @param firstLastName the first last name fragment to look for.
+     * @return the matching profiles, possibly empty.
+     */
+    List<UserProfile> findByFirstNameContainingIgnoreCaseOrFirstLastNameContainingIgnoreCase(String firstName, String firstLastName);
 }

@@ -22,12 +22,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * Service Implementation for managing {@link com.mycompany.senaattendance.domain.Apprentice}.
@@ -204,13 +206,97 @@ public class ApprenticeServiceImpl implements ApprenticeService {
     }
 
     @Override
-    public Page<ApprenticeDTO> findAll(Pageable pageable) {
-        LOG.debug("Request to get all Apprentices");
-        return apprenticeRepository.findAll(pageable).map(apprenticeMapper::toDto);
+    public Page<ApprenticeDTO> findAll(String gradeId, String documentNumber, String name, StateAcademic stateAcademic, Pageable pageable) {
+        return findAllFiltered(gradeId, documentNumber, name, stateAcademic, pageable);
     }
 
-    public Page<ApprenticeDTO> findAllWithEagerRelationships(Pageable pageable) {
-        return apprenticeRepository.findAllWithEagerRelationships(pageable).map(apprenticeMapper::toDto);
+    @Override
+    public Page<ApprenticeDTO> findAllWithEagerRelationships(
+        String gradeId,
+        String documentNumber,
+        String name,
+        StateAcademic stateAcademic,
+        Pageable pageable
+    ) {
+        return findAllFiltered(gradeId, documentNumber, name, stateAcademic, pageable);
+    }
+
+    /**
+     * Filters the apprentice list (UC008, A2). The student is a {@code @DBRef}, so the document
+     * number and name filters cannot run against the enrollment query directly: the matching
+     * profiles are resolved first and the enrollments are then filtered by their ObjectId.
+     *
+     * @return the page of matching apprentices, empty when a text filter matches no profile.
+     */
+    private Page<ApprenticeDTO> findAllFiltered(
+        String gradeId,
+        String documentNumber,
+        String name,
+        StateAcademic stateAcademic,
+        Pageable pageable
+    ) {
+        LOG.debug(
+            "Request to get Apprentices filtered by grade {}, document {}, name {} and state {}",
+            gradeId,
+            documentNumber,
+            name,
+            stateAcademic
+        );
+
+        List<ObjectId> studentIds = resolveStudentIds(documentNumber, name);
+        if (studentIds != null && studentIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        String gradeFilter = StringUtils.hasText(gradeId) ? gradeId.trim() : null;
+        if (gradeFilter != null && !ObjectId.isValid(gradeFilter)) {
+            return Page.empty(pageable);
+        }
+
+        Page<Apprentice> page =
+            studentIds == null
+                ? apprenticeRepository.findByFilters(gradeFilter, stateAcademic, pageable)
+                : apprenticeRepository.findByFiltersAndStudentIds(gradeFilter, stateAcademic, studentIds, pageable);
+        return page.map(apprenticeMapper::toDto);
+    }
+
+    /**
+     * Resolves the apprentice profiles matched by the optional document number and name filters.
+     * Both filters combine with AND: when both are present, a profile must match both of them.
+     *
+     * @return {@code null} when no text filter was given, otherwise the ObjectId values of the
+     *         matching profiles.
+     */
+    private List<ObjectId> resolveStudentIds(String documentNumber, String name) {
+        boolean hasDocument = StringUtils.hasText(documentNumber);
+        boolean hasName = StringUtils.hasText(name);
+        if (!hasDocument && !hasName) {
+            return null;
+        }
+
+        Set<String> matchedIds = null;
+        if (hasDocument) {
+            matchedIds = userProfileRepository
+                .findByDocumentNumberContainingIgnoreCase(documentNumber.trim())
+                .stream()
+                .map(UserProfile::getId)
+                .collect(Collectors.toSet());
+        }
+        if (hasName) {
+            String nameTerm = name.trim();
+            Set<String> nameIds = userProfileRepository
+                .findByFirstNameContainingIgnoreCaseOrFirstLastNameContainingIgnoreCase(nameTerm, nameTerm)
+                .stream()
+                .map(UserProfile::getId)
+                .collect(Collectors.toSet());
+            if (matchedIds == null) {
+                matchedIds = nameIds;
+            } else {
+                matchedIds.retainAll(nameIds);
+            }
+        }
+
+        return matchedIds.stream().filter(ApprenticeServiceImpl::isObjectId).map(ObjectId::new).toList();
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
+import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ApprenticeService;
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
@@ -93,23 +94,33 @@ public class ApprenticeResource {
     }
 
     /**
-     * {@code GET  /apprentices} : get all the Apprentices.
+     * {@code GET  /apprentices} : get all the Apprentices, optionally filtered by ficha,
+     * document number, name and academic state (UC008, A2). Every filter is optional and the
+     * result is paginated.
      *
+     * @param gradeId the ficha id to filter by (optional).
+     * @param documentNumber the document number fragment to filter by (optional).
+     * @param name the first name or first last name fragment to filter by (optional).
+     * @param stateAcademic the academic state to filter by (optional).
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Apprentices in body.
      */
     @GetMapping("")
     public ResponseEntity<List<ApprenticeDTO>> getAllApprentices(
+        @RequestParam(name = "gradeId", required = false) String gradeId,
+        @RequestParam(name = "documentNumber", required = false) String documentNumber,
+        @RequestParam(name = "name", required = false) String name,
+        @RequestParam(name = "stateAcademic", required = false) StateAcademic stateAcademic,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
     ) {
         LOG.debug("REST request to get a page of Apprentices");
         Page<ApprenticeDTO> page;
         if (eagerload) {
-            page = apprenticeService.findAllWithEagerRelationships(pageable);
+            page = apprenticeService.findAllWithEagerRelationships(gradeId, documentNumber, name, stateAcademic, pageable);
         } else {
-            page = apprenticeService.findAll(pageable);
+            page = apprenticeService.findAll(gradeId, documentNumber, name, stateAcademic, pageable);
         }
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());

@@ -165,6 +165,22 @@ class ApprenticeResourceIT {
     }
 
     /**
+     * Persists an activated apprentice profile with an explicit name, so the list text filters
+     * can be exercised by name.
+     *
+     * @param documentNumber the document number that identifies the apprentice.
+     * @param firstName the apprentice first name.
+     * @param firstLastName the apprentice first last name.
+     * @return the persisted apprentice profile.
+     */
+    private UserProfile persistApprenticeProfile(String documentNumber, String firstName, String firstLastName) {
+        UserProfile profile = persistApprenticeProfile(documentNumber, true);
+        profile.setFirstName(firstName);
+        profile.setFirstLastName(firstLastName);
+        return userProfileRepository.save(profile);
+    }
+
+    /**
      * Persists a document type so a profile can reference a real one.
      *
      * @return the persisted document type.
@@ -432,7 +448,7 @@ class ApprenticeResourceIT {
 
     @Test
     void getAllApprentices() throws Exception {
-        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true);
+        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, "Ana Maria", "Gomez Ruiz");
         Grade grade = persistGrade("UC00808", StateGrade.ACTIVA);
         Apprentice apprentice = persistEnrollment(student, grade, StateAcademic.MATRICULADO);
 
@@ -444,7 +460,125 @@ class ApprenticeResourceIT {
             .andExpect(jsonPath("$.[*].id").value(hasItem(apprentice.getId())))
             .andExpect(jsonPath("$.[*].stateAcademic").value(hasItem(StateAcademic.MATRICULADO.name())))
             .andExpect(jsonPath("$.[*].student.documentNumber").value(hasItem(DEFAULT_DOCUMENT_NUMBER)))
+            .andExpect(jsonPath("$.[*].student.firstName").value(hasItem("Ana Maria")))
+            .andExpect(jsonPath("$.[*].student.firstLastName").value(hasItem("Gomez Ruiz")))
             .andExpect(jsonPath("$.[*].grade.id").value(hasItem(grade.getId())));
+    }
+
+    @Test
+    void getAllApprenticesFilteredByGradeId() throws Exception {
+        Grade firstGrade = persistGrade("UC00820", StateGrade.ACTIVA);
+        Grade secondGrade = persistGrade("UC00821", StateGrade.ACTIVA);
+        UserProfile firstStudent = persistApprenticeProfile("2000000001", true);
+        UserProfile secondStudent = persistApprenticeProfile("2000000002", true);
+        Apprentice first = persistEnrollment(firstStudent, firstGrade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, secondGrade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("gradeId", firstGrade.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(first.getId())))
+            .andExpect(jsonPath("$.[*].grade.id").value(hasItem(firstGrade.getId())))
+            .andExpect(header().string("X-Total-Count", "1"));
+    }
+
+    @Test
+    void getAllApprenticesFilteredByDocumentNumber() throws Exception {
+        UserProfile firstStudent = persistApprenticeProfile("2100000001", "Ana Maria", "Gomez");
+        UserProfile secondStudent = persistApprenticeProfile("2100000002", "Carlos Andres", "Perez");
+        Grade grade = persistGrade("UC00822", StateGrade.ACTIVA);
+        Apprentice first = persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("documentNumber", "2100000001"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(first.getId())))
+            .andExpect(jsonPath("$.[*].student.documentNumber").value(hasItem("2100000001")))
+            .andExpect(header().string("X-Total-Count", "1"));
+    }
+
+    @Test
+    void getAllApprenticesFilteredByNameIsPartialAndCaseInsensitive() throws Exception {
+        UserProfile firstStudent = persistApprenticeProfile("2200000001", "Maria Fernanda", "Gomez Ruiz");
+        UserProfile secondStudent = persistApprenticeProfile("2200000002", "Carlos Andres", "Perez Mora");
+        Grade grade = persistGrade("UC00823", StateGrade.ACTIVA);
+        Apprentice first = persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("name", "maria"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(first.getId())))
+            .andExpect(jsonPath("$.[*].student.firstName").value(hasItem("Maria Fernanda")))
+            .andExpect(header().string("X-Total-Count", "1"));
+    }
+
+    @Test
+    void getAllApprenticesFilteredByStateAcademic() throws Exception {
+        UserProfile firstStudent = persistApprenticeProfile("2300000001", true);
+        UserProfile secondStudent = persistApprenticeProfile("2300000002", true);
+        Grade grade = persistGrade("UC00824", StateGrade.ACTIVA);
+        Apprentice matriculado = persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, grade, StateAcademic.RETIRO_VOLUNTARIO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("stateAcademic", StateAcademic.MATRICULADO.name()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(matriculado.getId())))
+            .andExpect(jsonPath("$.[*].stateAcademic").value(hasItem(StateAcademic.MATRICULADO.name())))
+            .andExpect(header().string("X-Total-Count", "1"));
+    }
+
+    @Test
+    void getAllApprenticesFilteredByDocumentNumberAndNameCombinesBothFilters() throws Exception {
+        // Both students share the name, so only the document drives them apart: a query that
+        // ORs the filters would return both records.
+        UserProfile firstStudent = persistApprenticeProfile("2400000001", "Pedro Jose", "Ruiz");
+        UserProfile secondStudent = persistApprenticeProfile("2400000002", "Pedro Jose", "Ruiz");
+        Grade grade = persistGrade("UC00825", StateGrade.ACTIVA);
+        Apprentice first = persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("documentNumber", "2400000001").param("name", "pedro"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(first.getId())))
+            .andExpect(header().string("X-Total-Count", "1"));
+    }
+
+    @Test
+    void getAllApprenticesFilteredWithoutMatchesReturnsEmptyList() throws Exception {
+        UserProfile student = persistApprenticeProfile("2500000001", "Maria Fernanda", "Gomez Ruiz");
+        Grade grade = persistGrade("UC00826", StateGrade.ACTIVA);
+        persistEnrollment(student, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("name", "nombre que no existe"))
+            .andExpect(status().isOk())
+            .andExpect(content().json("[]"))
+            .andExpect(header().string("X-Total-Count", "0"));
+    }
+
+    @Test
+    void getAllApprenticesFilteredByNamePaginatesTheMatches() throws Exception {
+        UserProfile firstStudent = persistApprenticeProfile("2600000001", "Paginado Uno", "Apellido");
+        UserProfile secondStudent = persistApprenticeProfile("2600000002", "Paginado Dos", "Apellido");
+        Grade grade = persistGrade("UC00827", StateGrade.ACTIVA);
+        persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL).param("name", "paginado").param("size", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(header().string("X-Total-Count", "2"));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.service;
 
+import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
 import com.mycompany.senaattendance.web.rest.vm.EnrollApprenticeVM;
 import com.mycompany.senaattendance.web.rest.vm.UnlinkApprenticeVM;
@@ -31,20 +32,37 @@ public interface ApprenticeService {
     Optional<ApprenticeDTO> unlink(UnlinkApprenticeVM unlinkApprenticeVM);
 
     /**
-     * Get all the apprentices.
+     * Get the apprentices filtered by any combination of ficha, document number, name and
+     * academic state (UC008, A2). Every filter is optional: a filter that is not given does not
+     * restrict the result, and a text filter that matches no profile returns an empty page.
      *
+     * @param gradeId the ficha id to filter by (optional).
+     * @param documentNumber the document number fragment to filter by (optional).
+     * @param name the first name or first last name fragment to filter by (optional).
+     * @param stateAcademic the academic state to filter by (optional).
      * @param pageable the pagination information.
-     * @return the list of entities.
+     * @return the page of matching apprentices.
      */
-    Page<ApprenticeDTO> findAll(Pageable pageable);
+    Page<ApprenticeDTO> findAll(String gradeId, String documentNumber, String name, StateAcademic stateAcademic, Pageable pageable);
 
     /**
-     * Get all the apprentices with eager load of many-to-many relationships.
+     * Get the apprentices filtered by ficha, document number, name and academic state, with
+     * eager load of many-to-many relationships.
      *
+     * @param gradeId the ficha id to filter by (optional).
+     * @param documentNumber the document number fragment to filter by (optional).
+     * @param name the first name or first last name fragment to filter by (optional).
+     * @param stateAcademic the academic state to filter by (optional).
      * @param pageable the pagination information.
-     * @return the list of entities.
+     * @return the page of matching apprentices.
      */
-    Page<ApprenticeDTO> findAllWithEagerRelationships(Pageable pageable);
+    Page<ApprenticeDTO> findAllWithEagerRelationships(
+        String gradeId,
+        String documentNumber,
+        String name,
+        StateAcademic stateAcademic,
+        Pageable pageable
+    );
 
     /**
      * Get the "id" apprentice.
