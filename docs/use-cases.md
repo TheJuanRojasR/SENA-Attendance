@@ -1293,12 +1293,6 @@ Estos cambios acompañan las reglas nuevas y aún no están implementados:
 
 - Entidad **`Alerta`** nueva (dos tipos, estados, trazabilidad) y **descarte** de `DesertionCounter`.
 - `Notificacion`: estado de **lectura**, **referencia** al objeto de origen y nuevos **tipos** (alertas, justificaciones).
-- `GlobalConfiguration`: **dos umbrales** de alerta (consecutivas y acumuladas).
 - `StateJustification`: agregar **CANCELADA** y la marca de plazo separada.
-- `StateGrade`: los **cinco estados** (Pendiente, Activa, Finalizada, Aplazada, Cancelada).
-- `DocumentType`: agregar **estado** (activo/inactivo).
 - Utilidad de **días hábiles** (lunes a viernes) para los plazos.
-- Validación del **código numérico** de programa.
-- Indicador **`mustChangePassword`**.
 - Lógica de negocio de asistencia, justificaciones y alertas (hoy son CRUD sin reglas).
-- Cambio obligatorio de contraseña y complejidad completa en todos los flujos.

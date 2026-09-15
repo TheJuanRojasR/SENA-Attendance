@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** UC001 tiene backend implementado y verificado; el frontend sigue en su mayor parte con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (14 UCs implementadas y 7 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -25,7 +25,7 @@ Estas convenciones aplican a todo el frontend.
 | Autenticación JWT | Enviar `Authorization: Bearer <token>` en cada petición autenticada. El login es por **tipo de documento + número de documento + contraseña**. El token dura **24 horas**; `rememberMe` lo extiende a **30 días**. `rememberMe` es una decisión de UI: **no está contemplado en los UCs**.                   |
 | Errores           | La clave de negocio viaja en el cuerpo como `message: error.<clave>` y el nombre de la entidad afectada en `params`. Los errores de validación agregan `fieldErrors` (`objectName`, `field`, `message`). El backend **no** emite cabeceras `X-...-error` propias: no intentar leer el error desde cabeceras. |
 | Paginación        | Los endpoints paginados devuelven un **arreglo JSON** con la página actual (no un objeto `Page`) y las cabeceras `X-Total-Count` y `Link`. Parámetros `page` (base 0), `size` y `sort=campo,asc\|desc`; tamaño por defecto **20**.                                                                           |
-| Cuenta actual     | `GET /api/account` devuelve solo un `AdminUserDTO` (cuenta: `id`, `login`, `email`, `activated`, `langKey`, `authorities`, auditoría), **sin nombres, apellidos ni documento del perfil**. Queda **por confirmar** cómo obtiene el front el perfil actual.                                                   |
+| Cuenta actual     | `GET /api/account` devuelve solo un `AdminUserDTO` (cuenta: `id`, `login`, `email`, `activated`, `langKey`, `authorities`, auditoría), **sin nombres, apellidos ni documento del perfil**. El perfil actual (nombres, tipo y número de documento, teléfono y correo) se consulta con `GET /api/account/profile` (UC003).                                                   |
 | Roles             | El sistema emite `ROLE_ADMIN`, `ROLE_INSTRUCTOR`, `ROLE_APPRENTICE` y `ROLE_USER` (los tres primeros siempre acompañados de `ROLE_USER`).                                                                                                                                                                    |
 | Content-Type      | `application/json`; los `PATCH` aceptan además `application/merge-patch+json`.                                                                                                                                                                                                                               |
 
@@ -140,7 +140,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC003 — Modificar datos
 
-**Estado del backend:** parcial. Ver [`docs/api-contracts.md#uc003--modificar-datos`](./api-contracts.md#uc003--modificar-datos).
+**Estado del backend:** implementado. Ver [`docs/api-contracts.md#uc003--modificar-datos`](./api-contracts.md#uc003--modificar-datos).
 
 | #   | Ítem                                                                                                                                                                                                                                         | Estado      |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -167,7 +167,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC005 — Recuperar contraseña
 
-**Estado del backend:** parcial. El enlace de recuperación es de **un solo uso** y vence a los **30 minutos** (ver [`docs/api-contracts.md#uc005--recuperar-contraseña`](./api-contracts.md#uc005--recuperar-contraseña)). Al completar el reset, el backend **limpia** `mustChangePassword` si estaba activo (el usuario eligió su propia contraseña), por lo que no debe forzarse la pantalla de cambio obligatorio después de un reset.
+**Estado del backend:** implementado. El enlace de recuperación es de **un solo uso** y vence a los **30 minutos** (ver [`docs/api-contracts.md#uc005--recuperar-contraseña`](./api-contracts.md#uc005--recuperar-contraseña)). Al completar el reset, el backend **limpia** `mustChangePassword` si estaba activo (el usuario eligió su propia contraseña), por lo que no debe forzarse la pantalla de cambio obligatorio después de un reset.
 
 | #   | Ítem                                                                                                                                                                            | Estado      |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -180,7 +180,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC019 — Gestionar configuración global
 
-**Estado del backend:** parcial. La configuración global es un **singleton** con `id` fijo `global-configuration` y ya expone los **cuatro** parámetros del UC: `studentJustificationDays` (default 5), `instructorResponseDays` (default 2), `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5). Ver [`docs/api-contracts.md#uc019--gestionar-configuración-global`](./api-contracts.md#uc019--gestionar-configuración-global).
+**Estado del backend:** implementado. La configuración global es un **singleton** con `id` fijo `global-configuration` y ya expone los **cuatro** parámetros del UC: `studentJustificationDays` (default 5), `instructorResponseDays` (default 2), `consecutiveAbsenceAlertThreshold` (default 3) y `accumulatedAbsenceAlertThreshold` (default 5). Ver [`docs/api-contracts.md#uc019--gestionar-configuración-global`](./api-contracts.md#uc019--gestionar-configuración-global).
 
 **Estado del frontend:** pendiente. La pantalla de configuración debe editar y guardar los cuatro parámetros. Los endpoints de configuración (`GET` y `PATCH /api/global-configurations`) requieren el rol `ROLE_ADMIN`.
 
@@ -195,7 +195,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC020 — Gestionar jornadas
 
-**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.timeSlotNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. También está implementado el **rechazo de horas iguales** (E2): si `startTime` y `endTime` son iguales el backend responde `400` con `error.timeSlotSameTime`, mientras que un rango que cruza medianoche (`endTime` menor que `startTime`, p. ej. 22:00–06:00) se permite. También está implementado el **bloqueo de eliminación** (E3): si una o más fichas usan la jornada, `DELETE /api/time-slots/{id}` responde `400` con `error.timeSlotInUse`; en ese caso la jornada no se elimina y debe **desactivarse** con `PATCH /api/time-slots` (`isActive: false`). El listado `GET /api/time-slots` está **paginado** (`page`/`size`/`sort`, 20 por defecto) y devuelve `X-Total-Count`/`Link`; `GET /api/time-slots/active` sigue sin paginar. La **escritura** (`POST`/`PUT`/`PATCH`/`DELETE`) quedó restringida a `ROLE_ADMIN`: los demás roles autenticados reciben `403`; la **lectura** sigue disponible para cualquier usuario autenticado. Ver [`docs/api-contracts.md#uc020--gestionar-jornadas`](./api-contracts.md#uc020--gestionar-jornadas).
+**Estado del backend:** implementado. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.timeSlotNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. También está implementado el **rechazo de horas iguales** (E2): si `startTime` y `endTime` son iguales el backend responde `400` con `error.timeSlotSameTime`, mientras que un rango que cruza medianoche (`endTime` menor que `startTime`, p. ej. 22:00–06:00) se permite. También está implementado el **bloqueo de eliminación** (E3): si una o más fichas usan la jornada, `DELETE /api/time-slots/{id}` responde `400` con `error.timeSlotInUse`; en ese caso la jornada no se elimina y debe **desactivarse** con `PATCH /api/time-slots` (`isActive: false`). El listado `GET /api/time-slots` está **paginado** (`page`/`size`/`sort`, 20 por defecto) y devuelve `X-Total-Count`/`Link`; `GET /api/time-slots/active` sigue sin paginar. La **escritura** (`POST`/`PUT`/`PATCH`/`DELETE`) quedó restringida a `ROLE_ADMIN`: los demás roles autenticados reciben `403`; la **lectura** sigue disponible para cualquier usuario autenticado. Ver [`docs/api-contracts.md#uc020--gestionar-jornadas`](./api-contracts.md#uc020--gestionar-jornadas).
 
 **Estado del frontend:** pendiente. La pantalla de jornadas debe manejar los errores de nombre duplicado y de horas iguales, y evitar enviar nombres en blanco. El formulario de creación solo envía `name`, `startTime` y `endTime`: el backend crea la jornada como Activa e ignora `isActive` en el `POST`; el estado se cambia luego con el `PATCH`. En `PUT` y `PATCH` el `id` de la jornada debe enviarse **en el body**, no en la ruta. El listado debe consumir `GET /api/time-slots` como **paginado** (enviar `page`/`size` y leer `X-Total-Count` para el total de registros), usando `GET /api/time-slots/active` solo para selectores.
 
@@ -215,7 +215,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC021 — Gestionar modalidades
 
-**Estado del backend:** parcial. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear, la modalidad nace **Activa**: el backend fuerza `isActive = true` e ignora el valor enviado. También está implementado el **bloqueo de eliminación** (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400` con `error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`). El listado `GET /api/modalities` está **paginado** (`page`/`size`/`sort`, 20 por defecto) y devuelve `X-Total-Count`/`Link`; `GET /api/modalities/active` sigue sin paginar. La **escritura** (`POST`/`PUT`/`PATCH`/`DELETE`) quedó restringida a `ROLE_ADMIN`: los demás roles autenticados reciben `403`; la **lectura** sigue disponible para cualquier usuario autenticado. Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
+**Estado del backend:** implementado. Ya está implementado el **nombre único** (E1): el backend recorta el nombre y lo compara sin distinguir mayúsculas; un duplicado responde `400` con `error.modalityNameAlreadyUsed`, y un nombre vacío o en blanco responde `400 error.validation` con una entrada en `fieldErrors`. Al crear, la modalidad nace **Activa**: el backend fuerza `isActive = true` e ignora el valor enviado. También está implementado el **bloqueo de eliminación** (E2): si una o más fichas usan la modalidad, `DELETE /api/modalities/{id}` responde `400` con `error.modalityInUse`; en ese caso la modalidad no se elimina y debe **desactivarse** con `PATCH /api/modalities` (`isActive: false`). El listado `GET /api/modalities` está **paginado** (`page`/`size`/`sort`, 20 por defecto) y devuelve `X-Total-Count`/`Link`; `GET /api/modalities/active` sigue sin paginar. La **escritura** (`POST`/`PUT`/`PATCH`/`DELETE`) quedó restringida a `ROLE_ADMIN`: los demás roles autenticados reciben `403`; la **lectura** sigue disponible para cualquier usuario autenticado. Ver [`docs/api-contracts.md#uc021--gestionar-modalidades`](./api-contracts.md#uc021--gestionar-modalidades).
 
 **Estado del frontend:** pendiente. La pantalla de modalidades debe manejar el error de nombre duplicado y evitar enviar nombres en blanco. El listado debe consumir `GET /api/modalities` como **paginado** (enviar `page`/`size` y leer `X-Total-Count` para el total de registros), usando `GET /api/modalities/active` solo para selectores.
 
@@ -274,7 +274,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ## UC006 — Gestionar perfiles
 
-**Estado del backend:** implementado (salvo el **reenvío de credenciales E7**, que llega con UC018). Un solo rol por cuenta; solo se pueden asignar Administrador, Instructor o Aprendiz. El **cambio de rol** respeta las guardas de último administrador, último instructor y cuenta `admin` protegida. El **login se recalcula** al corregir el tipo o el número de documento. **Los usuarios nunca se eliminan.** Ver [`docs/api-contracts.md#uc006--gestionar-perfiles`](./api-contracts.md#uc006--gestionar-perfiles).
+**Estado del backend:** parcial (solo queda el **reenvío de credenciales E7**, que se resuelve en UC018). Un solo rol por cuenta; solo se pueden asignar Administrador, Instructor o Aprendiz. El **cambio de rol** respeta las guardas de último administrador, último instructor y cuenta `admin` protegida. El **login se recalcula** al corregir el tipo o el número de documento. **Los usuarios nunca se eliminan.** Ver [`docs/api-contracts.md#uc006--gestionar-perfiles`](./api-contracts.md#uc006--gestionar-perfiles).
 
 **Estado del frontend:** pendiente.
 
@@ -397,21 +397,13 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
 
-| UC    | Nombre                             | Contrato                                              |
-| ----- | ---------------------------------- | ----------------------------------------------------- |
-| UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006 |
-| UC009 | Gestionar listas de asistencia     | [`docs/api-contracts.md`](./api-contracts.md) — UC009 |
-| UC010 | Gestionar justificaciones          | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
-| UC011 | Gestionar asistencia (Aprendiz)    | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
-| UC012 | Gestionar programas de aprendizaje | [`docs/api-contracts.md`](./api-contracts.md) — UC012 |
-| UC014 | Gestionar trimestres académicos    | [`docs/api-contracts.md`](./api-contracts.md) — UC014 |
-| UC016 | Gestionar tipos de justificación   | [`docs/api-contracts.md`](./api-contracts.md) — UC016 |
-| UC017 | Consultar mis fichas y materias    | [`docs/api-contracts.md`](./api-contracts.md) — UC017 |
-| UC019 | Gestionar configuración global     | [`docs/api-contracts.md`](./api-contracts.md) — UC019 |
-| UC020 | Gestionar jornadas                 | [`docs/api-contracts.md`](./api-contracts.md) — UC020 |
-| UC021 | Gestionar modalidades              | [`docs/api-contracts.md`](./api-contracts.md) — UC021 |
-| UC022 | Gestionar tipos de documento       | [`docs/api-contracts.md`](./api-contracts.md) — UC022 |
-| UC023 | Consultar dashboard                | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
+| UC    | Nombre                          | Contrato                                              |
+| ----- | ------------------------------- | ----------------------------------------------------- |
+| UC009 | Gestionar listas de asistencia  | [`docs/api-contracts.md`](./api-contracts.md) — UC009 |
+| UC010 | Gestionar justificaciones       | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
+| UC011 | Gestionar asistencia (Aprendiz) | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
+| UC017 | Consultar mis fichas y materias | [`docs/api-contracts.md`](./api-contracts.md) — UC017 |
+| UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
 
 UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementadas** en el backend y no se listan aquí hasta que su contrato exista.
 
@@ -453,7 +445,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.adminprotected`         | "La cuenta admin está protegida y no puede desactivarse."                                          | Desactivar/degradar al super admin (UC006-E6).         |
 | `error.rolenotfound`           | "Rol no válido."                                                                                   | Crear/editar usuario con un rol no asignable (UC006).  |
 | `error.trimestersoutofrange`   | "La cantidad de trimestres debe estar entre 1 y 12."                                               | Alta/edición de programa (UC012-E6).                   |
-| `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5) y de ficha (UC007-E5). |
+| `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5) y de ficha (UC007-E4). |
 | `error.programInUse`           | "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."                 | Eliminación de programa (UC012-E8).                    |
 | `error.trimesterInUse`         | "No es posible eliminar el trimestre: tiene horarios o asistencias registradas."                   | Eliminación de trimestre (UC014-E6).                   |
 | `trimesterStateFuture`         | "Futuro"                                                                                            | Etiqueta del estado del trimestre (UC014).             |
