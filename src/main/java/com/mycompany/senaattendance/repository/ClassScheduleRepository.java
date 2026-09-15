@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.ClassSchedule;
+import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -45,4 +46,17 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
     // ------- SEARCH CLASS SCHEDULES BY CLASS SECTION ID -------
     @Query("{ 'classSection._id': ?0 }")
     List<ClassSchedule> findByClassSectionId(String classSectionId);
+
+    /**
+     * Finds the schedules of a class section on a given weekday inside a trimester. Used to
+     * detect overlapping sessions of the same ficha, because the overlap check must consider
+     * both the schedule's own subject and every other subject of the ficha.
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @param dayOfWeek the weekday the schedule must match.
+     * @return the schedules of that class section, trimester and weekday.
+     */
+    @Query("{ 'classSection._id': ?0, 'trimester._id': ?1, 'day_of_week': ?2 }")
+    List<ClassSchedule> findByClassSectionIdAndTrimesterIdAndDayOfWeek(String classSectionId, String trimesterId, DayOfWeek dayOfWeek);
 }
