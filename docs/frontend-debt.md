@@ -327,6 +327,29 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC007 — Gestionar fichas
+
+**Estado del backend:** implementado. El `state` de la ficha es un **enum persistido** (`StateGrade`: `PENDIENTE`, `ACTIVA`, `FINALIZADA`, `APLAZADA`, `CANCELADA`): los tres primeros los calcula el servidor por fechas y un job diario los sincroniza, mientras que `APLAZADA` y `CANCELADA` son manuales y el cálculo por fechas nunca las pisa. La migración Mongock orden 010 (`MigrateGradeInactivaToAplazada`) convierte el valor legado `INACTIVA` a `APLAZADA`. Ver [`docs/api-contracts.md#uc007--gestionar-fichas`](./api-contracts.md#uc007--gestionar-fichas).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** `state` pasó de tres valores (`ACTIVA`, `INACTIVA`, `APLAZADA`) a cinco (`PENDIENTE`, `ACTIVA`, `FINALIZADA`, `APLAZADA`, `CANCELADA`) y **ya no se envía** en `POST`/`PUT`/`PATCH` (el servidor lo calcula por fechas e ignora el valor recibido); `PUT` y `PATCH` ya no llevan `/{id}` (el `id` va **solo en el body**) y aparecen tres acciones nuevas. El frontend stock sigue enviando `state` (con `ACTIVA` por defecto), lista `INACTIVA` en su modelo de estados y arma `PUT`/`PATCH` con el `id` en la ruta.
+
+| #   | Ítem                                                                                                                                                                                                                                          | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Actualizar el enum `StateGrade` en `src/main/webapp/app/shared/model/enumerations/state-grade.model.ts`: quitar `INACTIVA` y agregar `PENDIENTE`, `FINALIZADA` y `CANCELADA`; actualizar también las etiquetas de `src/main/webapp/i18n/es/stateGrade.json` (**cambio incompatible**). | `Pendiente` |
+| 2   | No enviar `state` en `POST`/`PUT`/`PATCH`: el servidor lo calcula por fechas e ignora el valor enviado. Quitar el select de estado del formulario; en el alta, la ficha nace `PENDIENTE` si la fecha de inicio es futura y `ACTIVA` si ya arrancó. | `Pendiente` |
+| 3   | Enviar el `id` **solo en el body** para `PUT /api/grades` y `PATCH /api/grades` (la ruta ya no lleva `/{id}`); el reducer stock usa `api/grades/${entity.id}`. Si falta, `400 error.idnull`, y si no existe, `400 error.idnotfound`; ya no se emite `error.idinvalid`. | `Pendiente` |
+| 4   | Agregar las acciones **Aplazar**, **Reanudar** y **Cancelar** con `PATCH /api/grades/postponed`, `/resumed` y `/cancelled`, enviando `{ "id": "<ficha>" }` en el body. Pedir confirmación (la cancelación es definitiva) y manejar `400 error.invalidtransition` cuando la acción no aplique al estado actual. | `Pendiente` |
+| 5   | Aplicar las **reglas de edición por estado** en el formulario: `FINALIZADA` no permite ningún cambio (`400 error.noteditable`); `ACTIVA` solo fecha fin, programa y código; `APLAZADA` solo fecha fin; `PENDIENTE` y `CANCELADA` permiten todo. Ocultar o deshabilitar los campos bloqueados y mapear `400 error.fieldlocked`. | `Pendiente` |
+| 6   | Validar el **código solo numérico y único**: un duplicado responde `400 error.gradeCodeAlreadyUsed` (E1); un código no numérico responde `400 error.validation` con `code` en `fieldErrors` en `POST`/`PUT` y `400 error.codenotnumeric` en `PATCH`. | `Pendiente` |
+| 7   | Manejar `400 error.gradeCodeLocked` al cambiar el código de una ficha que ya tiene materias o aprendices (el candado aplica aunque el estado permita editar el código). | `Pendiente` |
+| 8   | Validar las **fechas** en el cliente: `endDate` no anterior a `startDate` (`400 error.datesorder`) y `startDate` no anterior a hoy al crear o al cambiarla (`400 error.startdateinpast`). | `Pendiente` |
+| 9   | Refrescar los selectores con los **catálogos activos** (`GET /api/programs/active`, `GET /api/modalities/active` y `GET /api/time-slots/active`) y manejar la desactivación al guardar: `400 error.programInactive`, `400 error.modalityInactive` y `400 error.timeSlotInactive` (E3). | `Pendiente` |
+| 10  | Al eliminar, manejar `400 error.gradeInUse` mostrando el mensaje del UC y ofreciendo **Cancelar ficha** en lugar de reintentar la eliminación (una ficha con aprendices o asistencias nunca se elimina). | `Pendiente` |
+| 11  | Mostrar la **gestión de fichas solo a `ROLE_ADMIN`**: el backend restringe todas las escrituras a ese rol y responde `403` a los demás. Las lecturas no cambian: `GET /api/grades` y `GET /api/grades/{id}` aceptan `ROLE_ADMIN` o `ROLE_USER`, y `GET /api/grades/active` cualquier usuario autenticado. | `Pendiente` |
+| 12  | Mostrar los **cinco estados** en el listado y el detalle con las etiquetas i18n de `stateGrade.json` (hoy solo existen `ACTIVA`, `INACTIVA` y `APLAZADA`). | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -334,7 +357,6 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | UC    | Nombre                             | Contrato                                              |
 | ----- | ---------------------------------- | ----------------------------------------------------- |
 | UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006 |
-| UC007 | Gestionar fichas                   | [`docs/api-contracts.md`](./api-contracts.md) — UC007 |
 | UC008 | Gestionar aprendices               | [`docs/api-contracts.md`](./api-contracts.md) — UC008 |
 | UC009 | Gestionar listas de asistencia     | [`docs/api-contracts.md`](./api-contracts.md) — UC009 |
 | UC010 | Gestionar justificaciones          | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
@@ -390,12 +412,23 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.adminprotected`         | "La cuenta admin está protegida y no puede desactivarse."                                          | Desactivar/degradar al super admin (UC006-E6).         |
 | `error.rolenotfound`           | "Rol no válido."                                                                                   | Crear/editar usuario con un rol no asignable (UC006).  |
 | `error.trimestersoutofrange`   | "La cantidad de trimestres debe estar entre 1 y 12."                                               | Alta/edición de programa (UC012-E6).                   |
-| `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5).                   |
+| `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5) y de ficha (UC007-E5). |
 | `error.programInUse`           | "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."                 | Eliminación de programa (UC012-E8).                    |
 | `error.trimesterInUse`         | "No es posible eliminar el trimestre: tiene horarios o asistencias registradas."                   | Eliminación de trimestre (UC014-E6).                   |
 | `trimesterStateFuture`         | "Futuro"                                                                                            | Etiqueta del estado del trimestre (UC014).             |
 | `trimesterStateActive`         | "Activo"                                                                                            | Etiqueta del estado del trimestre (UC014).             |
 | `trimesterStateClosed`         | "Cerrado"                                                                                           | Etiqueta del estado del trimestre (UC014).             |
+| `error.gradeCodeAlreadyUsed`   | "El código de ficha ya está en uso."                                                                 | Alta/edición de ficha (UC007-E1).                      |
+| `error.datesorder`             | "La fecha de fin no puede ser anterior a la fecha de inicio."                                        | Fichas (UC007) y trimestres (UC014); clave compartida, el texto debe servir para ambos formularios. |
+| `error.startdateinpast`        | "La fecha de inicio no puede ser anterior a hoy."                                                    | Alta/edición de ficha (UC007).                         |
+| `error.programInactive`        | "No se pueden crear fichas para un programa inactivo."                                              | Alta/edición de ficha (UC007-E3).                      |
+| `error.modalityInactive`       | "No se pueden crear fichas para una modalidad inactiva."                                            | Alta/edición de ficha (UC007-E3).                      |
+| `error.timeSlotInactive`       | "No se pueden crear fichas para una jornada inactiva."                                              | Alta/edición de ficha (UC007-E3).                      |
+| `error.noteditable`            | "No se puede modificar: el registro está cerrado o finalizado."                                     | Trimestres cerrados (UC014) y fichas finalizadas (UC007); clave compartida. |
+| `error.fieldlocked`            | "El campo no se puede modificar en el estado actual de la ficha."                                   | Edición de ficha (UC007-A1).                           |
+| `error.gradeCodeLocked`        | "El código solo puede cambiarse mientras la ficha no tenga materias ni aprendices."                 | Edición de ficha (UC007-A1).                           |
+| `error.invalidtransition`      | "La ficha no se puede aplazar, reanudar o cancelar en su estado actual."                            | Acciones de ficha (UC007-A2/A3).                       |
+| `error.gradeInUse`             | "No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha." | Eliminación de ficha (UC007).                          |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

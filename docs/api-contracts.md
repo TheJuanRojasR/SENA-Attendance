@@ -53,7 +53,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Implementado    |
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Implementado    |
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Implementado    |
-| [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Parcial         |
+| [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Implementado    |
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Parcial         |
 | [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Parcial         |
 | [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Parcial         |
@@ -656,7 +656,7 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 **Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.adminprotected` (la cuenta `admin` está protegida), `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"), `400 error.lastInstructor` (lista las materias afectadas); `403`; `404`.
 
-**Notas / lo que se necesita:** reglas de UC006 implementadas. Un solo rol por cuenta (`ROLE_USER` + rol de dominio); solo se pueden asignar **Administrador, Instructor o Aprendiz** —`ROLE_COORDINATOR` o un rol inexistente responden `400 error.rolenotfound`. El **cambio de rol** aplica las mismas guardas que la desactivación: no se puede degradar al **último administrador activo** (`error.lastAdmin`), ni a la **cuenta `admin`** protegida (`error.adminprotected`, que además bloquea su desactivación y el cambio de su documento), ni al **último instructor** de materias de fichas operativas (`error.lastInstructor`, considerando fichas en estado `ACTIVA`; el estado `Pendiente` no existe aún y se agregará en UC007). El **login se recalcula** cuando cambia el número **o el tipo** de documento. **Los usuarios nunca se eliminan**: el endpoint `DELETE /api/admin/users/{login}` se retiró y responde `405`; el estado se cambia con `PATCH /api/admin/users/activated`. `GET /api/admin/users/search` filtra por texto (nombre, documento o correo), `status` y `role`, y pagina con `X-Total-Count`/`Link` (20 por defecto). Las cuentas creadas por un Administrador nacen con `mustChangePassword = true`; el flujo de cambio obligatorio en el primer inicio es del frontend. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero el **reenvío manual (E7) queda a cargo de UC018** (REST de notificaciones). Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (deuda transversal).
+**Notas / lo que se necesita:** reglas de UC006 implementadas. Un solo rol por cuenta (`ROLE_USER` + rol de dominio); solo se pueden asignar **Administrador, Instructor o Aprendiz** —`ROLE_COORDINATOR` o un rol inexistente responden `400 error.rolenotfound`. El **cambio de rol** aplica las mismas guardas que la desactivación: no se puede degradar al **último administrador activo** (`error.lastAdmin`), ni a la **cuenta `admin`** protegida (`error.adminprotected`, que además bloquea su desactivación y el cambio de su documento), ni al **último instructor** de materias de fichas operativas (`error.lastInstructor`, considerando fichas en estado `ACTIVA`; los demás estados, `PENDIENTE` incluido, no cuentan como operativos). El **login se recalcula** cuando cambia el número **o el tipo** de documento. **Los usuarios nunca se eliminan**: el endpoint `DELETE /api/admin/users/{login}` se retiró y responde `405`; el estado se cambia con `PATCH /api/admin/users/activated`. `GET /api/admin/users/search` filtra por texto (nombre, documento o correo), `status` y `role`, y pagina con `X-Total-Count`/`Link` (20 por defecto). Las cuentas creadas por un Administrador nacen con `mustChangePassword = true`; el flujo de cambio obligatorio en el primer inicio es del frontend. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero el **reenvío manual (E7) queda a cargo de UC018** (REST de notificaciones). Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (deuda transversal).
 
 ---
 
@@ -805,29 +805,31 @@ El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CE
 
 ## UC007 — Gestionar fichas
 
-**Módulo:** Fichas y materias | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Fichas y materias | **Actor:** Administrador | **Estado:** Implementado
 
-**Feature:** CRUD de fichas (en el código, `Grade`). Una ficha agrupa aprendices de un programa y define jornada, modalidad y rango de fechas.
+**Feature:** CRUD de fichas (en el código, `Grade`). Una ficha agrupa aprendices de un programa y define jornada, modalidad y rango de fechas. Su `state` es un enum persistido (`StateGrade`: `PENDIENTE`, `ACTIVA`, `FINALIZADA`, `APLAZADA`, `CANCELADA`) que el servidor calcula por fechas; `APLAZADA` y `CANCELADA` son decisiones manuales del Administrador.
 
 **Endpoints:**
 
-| Método | Ruta                 | Acceso                            | Descripción                                                                      |
-| ------ | -------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
-| GET    | `/api/grades`        | `ROLE_ADMIN` o `ROLE_USER`        | Lista paginada de fichas (relaciones cargadas con `eagerload=true` por defecto). |
-| GET    | `/api/grades/active` | Autenticado                       | Lista de fichas con estado `ACTIVA` (sin paginar).                               |
-| GET    | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_USER`        | Detalle con relaciones.                                                          |
-| POST   | `/api/grades`        | `ROLE_ADMIN` | Crea; `201` con el recurso.                                                      |
-| PUT    | `/api/grades/{id}`   | `ROLE_ADMIN` | Reemplaza; `200`.                                                                |
-| PATCH  | `/api/grades/{id}`   | `ROLE_ADMIN` | Actualización parcial; `200`.                                                    |
-| DELETE | `/api/grades/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                                  |
+| Método | Ruta                    | Acceso                     | Descripción                                                                       |
+| ------ | ----------------------- | -------------------------- | --------------------------------------------------------------------------------- |
+| GET    | `/api/grades`           | `ROLE_ADMIN` o `ROLE_USER` | Lista paginada de fichas (relaciones cargadas con `eagerload=true` por defecto).  |
+| GET    | `/api/grades/active`    | Autenticado                | Lista de fichas con estado `ACTIVA` (sin paginar).                                 |
+| GET    | `/api/grades/{id}`      | `ROLE_ADMIN` o `ROLE_USER` | Detalle con relaciones.                                                           |
+| POST   | `/api/grades`           | `ROLE_ADMIN`               | Crea y calcula `state`; `201` con el recurso.                                      |
+| PUT    | `/api/grades`           | `ROLE_ADMIN`               | Reemplaza; `200`. El `id` viaja **solo en el body**.                               |
+| PATCH  | `/api/grades`           | `ROLE_ADMIN`               | Actualización parcial; `200`. El `id` viaja **solo en el body**.                   |
+| PATCH  | `/api/grades/postponed` | `ROLE_ADMIN`               | Aplaza una ficha `PENDIENTE` o `ACTIVA` → `APLAZADA`; body con `id`.               |
+| PATCH  | `/api/grades/resumed`   | `ROLE_ADMIN`               | Reanuda una ficha `APLAZADA` y recalcula `state` por fechas; body con `id`.        |
+| PATCH  | `/api/grades/cancelled` | `ROLE_ADMIN`               | Cancela cualquier ficha que no esté `CANCELADA` → `CANCELADA`; body con `id`.     |
+| DELETE | `/api/grades/{id}`      | `ROLE_ADMIN`               | Elimina; `204`.                                                                    |
 
 **Request — `POST /api/grades`**
 
 ```json
 {
   "code": "3412345",
-  "state": "ACTIVA",
-  "startDate": "2026-09-01",
+  "startDate": "2026-10-01",
   "endDate": "2027-03-31",
   "program": { "id": "665f1c2a9e13b7a1f2c8d9e30" },
   "modality": { "id": "665f1c2a9e13b7a1f2c8d9e50" },
@@ -835,15 +837,15 @@ El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CE
 }
 ```
 
-| Campo       | Tipo                  | Obligatorio | Reglas                                                                                             |
-| ----------- | --------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
-| `code`      | string                | Sí          | `@NotNull`, máximo 20. No se valida que sea numérico ni único.                                     |
-| `state`     | string                | Sí          | `@NotNull`; enum `StateGrade`: `ACTIVA`, `INACTIVA`, `APLAZADA`. Lo define el cliente.             |
-| `startDate` | string (`YYYY-MM-DD`) | Sí          | `@NotNull`. No se valida contra `endDate` ni contra hoy.                                           |
-| `endDate`   | string (`YYYY-MM-DD`) | Sí          | `@NotNull`.                                                                                        |
-| `program`   | objeto                | Sí          | `@NotNull`; referencia por `id`. En creación, si el programa está inactivo: `400 programInactive`. |
-| `modality`  | objeto                | Sí          | `@NotNull`; referencia por `id`.                                                                   |
-| `timeSlot`  | objeto                | Sí          | `@NotNull`; referencia por `id`.                                                                   |
+| Campo       | Tipo                  | Obligatorio | Reglas                                                                                                                                                                                                                                                    |
+| ----------- | --------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`      | string                | Sí          | `@NotNull`, máximo 20 y **solo números**; único entre fichas. Un código no numérico responde `400 error.validation` con `code` en `fieldErrors` en `POST`/`PUT` (`@Pattern`) y `400 error.codenotnumeric` en `PATCH`; un duplicado responde `400 error.gradeCodeAlreadyUsed` (E1). |
+| `state`     | string                | No          | Enum `StateGrade`: `PENDIENTE`, `ACTIVA`, `FINALIZADA`, `APLAZADA`, `CANCELADA`. Lo calcula el servidor por fechas y el valor enviado se **ignora** en `POST`, `PUT` y `PATCH`.                                                                            |
+| `startDate` | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; no posterior a `endDate` (`error.datesorder`). Al crear, y en `PUT`/`PATCH` cuando la fecha cambia, no anterior a hoy (`error.startdateinpast`).                                                                                                 |
+| `endDate`   | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; no anterior a `startDate` (`error.datesorder`).                                                                                                                                                                                                 |
+| `program`   | objeto                | Sí          | `@NotNull`; referencia por `id`. Si la referencia existe y está inactiva: `400 error.programInactive`.                                                                                                                                                      |
+| `modality`  | objeto                | Sí          | `@NotNull`; referencia por `id`. Si la referencia existe y está inactiva: `400 error.modalityInactive`.                                                                                                                                                     |
+| `timeSlot`  | objeto                | Sí          | `@NotNull`; referencia por `id`. Si la referencia existe y está inactiva: `400 error.timeSlotInactive`.                                                                                                                                                     |
 
 **Response:** `201 Created`
 
@@ -851,8 +853,8 @@ El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CE
 {
   "id": "665f1c2a9e13b7a1f2c8d9e70",
   "code": "3412345",
-  "state": "ACTIVA",
-  "startDate": "2026-09-01",
+  "state": "PENDIENTE",
+  "startDate": "2026-10-01",
   "endDate": "2027-03-31",
   "program": {
     "id": "665f1c2a9e13b7a1f2c8d9e30",
@@ -877,9 +879,11 @@ El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CE
 }
 ```
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.programInactive` ("No se pueden crear fichas para un programa inactivo"), `400 error.validation`; `403`; `404`.
+**Errores:** `400 error.gradeCodeAlreadyUsed` ("El código de ficha ya está en uso"), `400 error.codenotnumeric` ("El código debe contener solo números", solo en `PATCH`), `400 error.datesorder` ("La fecha de fin no puede ser anterior a la fecha de inicio"), `400 error.startdateinpast` ("La fecha de inicio no puede ser anterior a hoy"), `400 error.programInactive` ("No se pueden crear fichas para un programa inactivo"), `400 error.modalityInactive` ("No se pueden crear fichas para una modalidad inactiva"), `400 error.timeSlotInactive` ("No se pueden crear fichas para una jornada inactiva"), `400 error.noteditable` ("No se puede modificar una ficha finalizada"), `400 error.fieldlocked` ("El campo no se puede modificar en el estado actual de la ficha"), `400 error.gradeCodeLocked` ("El código solo puede cambiarse mientras la ficha no tenga materias ni aprendices"), `400 error.invalidtransition` (la acción no aplica al estado actual de la ficha), `400 error.gradeInUse` ("No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha"); además de `error.idexists`, `error.idnull`, `error.idnotfound` y de validación; `403`; `404`.
 
-**Notas / lo que se necesita:** no existe cálculo automático de Pendiente/Activa/Finalizada por fechas, ni acciones de Aplazar, Reanudar o Cancelar, ni los cinco estados del UC (el enum solo tiene `ACTIVA`, `INACTIVA`, `APLAZADA`). No se valida el código numérico ni su unicidad (E1), ni las reglas de edición por estado (A1), ni la guarda de eliminación por aprendices o asistencias. El guardado de programa activo solo aplica en `POST`; `PUT` y `PATCH` no lo revalidan. `GET /api/grades/active` quedó sin `@PreAuthorize`: cualquier usuario autenticado puede consultarlo.
+**Notas / lo que se necesita:** reglas de UC007 implementadas. Las reglas de edición por estado son las de la tabla "Reglas por estado" de UC007 en [`docs/use-cases.md`](./use-cases.md): `FINALIZADA` no admite ningún cambio (`error.noteditable`); `ACTIVA` solo permite `endDate`, `program` y `code`; `APLAZADA` solo `endDate`; `PENDIENTE` y `CANCELADA` admiten todos los campos. Un cambio de `code` sobre una ficha con materias o aprendices responde `400 error.gradeCodeLocked`. Las acciones `PATCH /api/grades/postponed`, `/resumed` y `/cancelled` reciben el `id` en el body y una transición inválida responde `400 error.invalidtransition`. **Eliminar en uso:** si la ficha tiene aprendices o asistencias, `DELETE` responde `400 error.gradeInUse`; si no, elimina la ficha y **borra en cascada** sus materias, y de cada materia sus horarios y excepciones. En `PUT` y `PATCH` el `id` viaja **solo en el body** (ruta sin `{id}`, ya no existe `error.idinvalid`): si falta, `400 error.idnull`; si no existe, `400 error.idnotfound`. Las **escrituras** (`POST`, `PUT`, `PATCH`, las tres acciones y `DELETE`) quedan restringidas a `ROLE_ADMIN`; las lecturas no cambian (`GET /api/grades` y `GET /api/grades/{id}` aceptan `ROLE_ADMIN` o `ROLE_USER`, y `GET /api/grades/active` está disponible para cualquier usuario autenticado).
+
+El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENTE` (fecha de inicio futura), `ACTIVA` (hoy dentro del rango) y `FINALIZADA` (fecha de fin pasada) los calcula el servidor por fechas, mientras que `APLAZADA` y `CANCELADA` son manuales y el cálculo por fechas **nunca** las pisa. Un **job diario** (01:00) mantiene el estado sincronizado, y la **migración Mongock orden 010** (`MigrateGradeInactivaToAplazada`) convierte los documentos con el estado eliminado `INACTIVA` a `APLAZADA` (rollback no-op por pérdida de información). El `state` enviado por el cliente se ignora en `POST`, `PUT` y `PATCH`, y ya no es obligatorio en el request.
 
 ---
 
