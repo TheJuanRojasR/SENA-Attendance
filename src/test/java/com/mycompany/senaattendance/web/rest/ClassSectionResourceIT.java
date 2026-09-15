@@ -12,15 +12,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +54,9 @@ class ClassSectionResourceIT {
     private static final Boolean DEFAULT_IS_ACTIVE = false;
     private static final Boolean UPDATED_IS_ACTIVE = true;
 
+    private static final String ACTIVE_INSTRUCTOR_ID = "active-instructor";
+    private static final String INACTIVE_INSTRUCTOR_ID = "inactive-instructor";
+
     private static final String ENTITY_API_URL = "/api/class-sections";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
@@ -65,6 +71,9 @@ class ClassSectionResourceIT {
 
     @Autowired
     private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Mock
     private ClassSectionRepository classSectionRepositoryMock;
@@ -82,6 +91,8 @@ class ClassSectionResourceIT {
 
     private ClassSection insertedClassSection;
 
+    private final List<User> insertedInstructorUsers = new ArrayList<>();
+
     /**
      * Create an entity for this test.
      *
@@ -90,11 +101,6 @@ class ClassSectionResourceIT {
      */
     public static ClassSection createEntity() {
         ClassSection classSection = new ClassSection().subjectName(DEFAULT_SUBJECT_NAME).isActive(DEFAULT_IS_ACTIVE);
-        // Add required entity
-        UserProfile userProfile;
-        userProfile = UserProfileResourceIT.createEntity();
-        userProfile.setId("fixed-id-for-tests");
-        classSection.setInstructor(userProfile);
         // Add required entity
         Grade grade;
         grade = GradeResourceIT.createEntity();
@@ -112,16 +118,48 @@ class ClassSectionResourceIT {
     public static ClassSection createUpdatedEntity() {
         ClassSection updatedClassSection = new ClassSection().subjectName(UPDATED_SUBJECT_NAME).isActive(UPDATED_IS_ACTIVE);
         // Add required entity
-        UserProfile userProfile;
-        userProfile = UserProfileResourceIT.createUpdatedEntity();
-        userProfile.setId("fixed-id-for-tests");
-        updatedClassSection.setInstructor(userProfile);
-        // Add required entity
         Grade grade;
         grade = GradeResourceIT.createUpdatedEntity();
         grade.setId("fixed-id-for-tests");
         updatedClassSection.setGrade(grade);
         return updatedClassSection;
+    }
+
+    /**
+     * Persists an instructor profile backed by a user account with the requested activation
+     * state. The service validates that an assigned instructor exists and is active, so the
+     * profile needs a real user document behind it.
+     *
+     * @param id the user and profile id to use.
+     * @param activated whether the instructor account is active.
+     * @return the persisted instructor profile.
+     */
+    private UserProfile persistInstructor(String id, boolean activated) {
+        User user = UserResourceIT.createEntity();
+        user.setId(id);
+        user.setLogin("instructor_" + id);
+        user.setEmail(id + "@example.com");
+        user.setActivated(activated);
+        insertedInstructorUsers.add(userRepository.save(user));
+
+        UserProfile instructor = UserProfileResourceIT.createEntity();
+        instructor.setId(id);
+        instructor.setUser(user);
+        // Keep the (documentType, documentNumber) compound index unique across seeded profiles.
+        instructor.setDocumentNumber(UUID.randomUUID().toString().replace("-", "").substring(0, 15));
+        return userProfileRepository.save(instructor);
+    }
+
+    /**
+     * Builds an instructor profile that is never persisted, so it resolves as non-existing.
+     *
+     * @return the unattached instructor profile.
+     */
+    private UserProfile nonExistingInstructor() {
+        UserProfile instructor = UserProfileResourceIT.createEntity();
+        instructor.setId(UUID.randomUUID().toString());
+        instructor.setDocumentNumber(UUID.randomUUID().toString().replace("-", "").substring(0, 15));
+        return instructor;
     }
 
     @BeforeEach
@@ -138,12 +176,16 @@ class ClassSectionResourceIT {
         // Remove the related documents persisted for the PUT tests
         gradeRepository.deleteAll();
         userProfileRepository.deleteAll();
+        // Remove the user accounts seeded as instructors
+        insertedInstructorUsers.forEach(userRepository::delete);
+        insertedInstructorUsers.clear();
     }
 
     @Test
-    void createClassSection() throws Exception {
+    void createClassSectionWithoutInstructor() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
-        // Create the ClassSection
+        // Create the ClassSection without an instructor, which is optional
+        assertThat(classSection.getInstructor()).isNull();
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
         var returnedClassSectionDTO = om.readValue(
             restClassSectionMockMvc
@@ -157,10 +199,69 @@ class ClassSectionResourceIT {
 
         // Validate the ClassSection in the database
         assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedClassSectionDTO.getInstructor()).isNull();
         var returnedClassSection = classSectionMapper.toEntity(returnedClassSectionDTO);
         assertClassSectionUpdatableFieldsEquals(returnedClassSection, getPersistedClassSection(returnedClassSection));
+        assertThat(getPersistedClassSection(returnedClassSection).getInstructor()).isNull();
 
         insertedClassSection = returnedClassSection;
+    }
+
+    @Test
+    void createClassSectionWithActiveInstructor() throws Exception {
+        classSection.setInstructor(persistInstructor(ACTIVE_INSTRUCTOR_ID, true));
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        // Create the ClassSection with an existing and active instructor
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+        var returnedClassSectionDTO = om.readValue(
+            restClassSectionMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ClassSectionDTO.class
+        );
+
+        // Validate the ClassSection in the database
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedClassSectionDTO.getInstructor().getId()).isEqualTo(ACTIVE_INSTRUCTOR_ID);
+        insertedClassSection = classSectionMapper.toEntity(returnedClassSectionDTO);
+        assertThat(getPersistedClassSection(insertedClassSection).getInstructor().getId()).isEqualTo(ACTIVE_INSTRUCTOR_ID);
+    }
+
+    @Test
+    void createClassSectionWithNonExistingInstructor() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        classSection.setInstructor(nonExistingInstructor());
+
+        // Create the ClassSection, which fails because the instructor does not exist
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+
+        restClassSectionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createClassSectionWithInactiveInstructor() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        classSection.setInstructor(persistInstructor(INACTIVE_INSTRUCTOR_ID, false));
+
+        // Create the ClassSection, which fails because the instructor account is deactivated
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+
+        restClassSectionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
     }
 
     @Test
@@ -269,7 +370,7 @@ class ClassSectionResourceIT {
     void putExistingClassSection() throws Exception {
         // Persist the @DBRef targets so they resolve on reload
         gradeRepository.save(classSection.getGrade());
-        userProfileRepository.save(classSection.getInstructor());
+        classSection.setInstructor(persistInstructor(ACTIVE_INSTRUCTOR_ID, true));
 
         // Initialize the database
         insertedClassSection = classSectionRepository.save(classSection);
@@ -292,6 +393,58 @@ class ClassSectionResourceIT {
         // Validate the ClassSection in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertPersistedClassSectionToMatchAllProperties(updatedClassSection);
+    }
+
+    @Test
+    void putClassSectionWithNonExistingInstructor() throws Exception {
+        gradeRepository.save(classSection.getGrade());
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Update the classSection assigning an instructor that does not exist
+        ClassSection updatedClassSection = classSectionRepository.findById(classSection.getId()).orElseThrow();
+        updatedClassSection.setInstructor(nonExistingInstructor());
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
+
+        restClassSectionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, classSectionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        // Validate the ClassSection in the database
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getInstructor()).isNull();
+    }
+
+    @Test
+    void putClassSectionWithInactiveInstructor() throws Exception {
+        gradeRepository.save(classSection.getGrade());
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Update the classSection assigning an instructor whose account is deactivated
+        ClassSection updatedClassSection = classSectionRepository.findById(classSection.getId()).orElseThrow();
+        updatedClassSection.setInstructor(persistInstructor(INACTIVE_INSTRUCTOR_ID, false));
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
+
+        restClassSectionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, classSectionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        // Validate the ClassSection in the database
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getInstructor()).isNull();
     }
 
     @Test
@@ -406,6 +559,83 @@ class ClassSectionResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertClassSectionUpdatableFieldsEquals(partialUpdatedClassSection, getPersistedClassSection(partialUpdatedClassSection));
+    }
+
+    @Test
+    void partialUpdateClassSectionWithActiveInstructor() throws Exception {
+        // Initialize the database
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Assign an active instructor through partial update
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setInstructor(persistInstructor(ACTIVE_INSTRUCTOR_ID, true));
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isOk());
+
+        // Validate the instructor was persisted
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getInstructor().getId()).isEqualTo(ACTIVE_INSTRUCTOR_ID);
+    }
+
+    @Test
+    void partialUpdateClassSectionWithNonExistingInstructor() throws Exception {
+        // Initialize the database
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Assign an instructor that does not exist through partial update
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setInstructor(nonExistingInstructor());
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        // Validate the ClassSection in the database
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getInstructor()).isNull();
+    }
+
+    @Test
+    void partialUpdateClassSectionWithInactiveInstructor() throws Exception {
+        // Initialize the database
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Assign an instructor whose account is deactivated through partial update
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setInstructor(persistInstructor(INACTIVE_INSTRUCTOR_ID, false));
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        // Validate the ClassSection in the database
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        assertThat(getPersistedClassSection(classSection).getInstructor()).isNull();
     }
 
     @Test

@@ -9,7 +9,9 @@ import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
+import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -28,6 +30,8 @@ import org.springframework.stereotype.Service;
 public class ClassSectionServiceImpl implements ClassSectionService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ClassSectionServiceImpl.class);
+
+    private static final String ENTITY_NAME = "classSection";
 
     private final ClassSectionRepository classSectionRepository;
 
@@ -50,6 +54,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     @Override
     public ClassSectionDTO save(ClassSectionDTO classSectionDTO) {
         LOG.debug("Request to save ClassSection : {}", classSectionDTO);
+        validateInstructor(classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
 
         classSection.setCreatedDate(Instant.now());
@@ -65,6 +70,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     @Override
     public ClassSectionDTO update(ClassSectionDTO classSectionDTO) {
         LOG.debug("Request to update ClassSection : {}", classSectionDTO);
+        validateInstructor(classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
 
         Optional<ClassSection> optionalClassSection = classSectionRepository.findById(classSection.getId());
@@ -91,6 +97,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         return classSectionRepository
             .findById(classSectionDTO.getId())
             .map(existingClassSection -> {
+                validateInstructor(classSectionDTO);
                 classSectionMapper.partialUpdate(existingClassSection, classSectionDTO);
 
                 return existingClassSection;
@@ -142,5 +149,32 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         String profileId = profileOpt.get().getId();
 
         return classSectionRepository.findByInstructorId(profileId).stream().map(classSectionMapper::toDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Validates the instructor of a class section payload when one is provided. The instructor is
+     * optional, but an assigned one must still exist and belong to an activated account.
+     *
+     * @param classSectionDTO the payload to validate.
+     * @throws BadRequestAlertException when the instructor does not exist or its account is inactive.
+     */
+    private void validateInstructor(ClassSectionDTO classSectionDTO) {
+        UserProfileDTO instructor = classSectionDTO.getInstructor();
+        if (instructor == null) {
+            return;
+        }
+
+        User instructorUser = Optional.ofNullable(instructor.getId())
+            .flatMap(userProfileRepository::findById)
+            .map(UserProfile::getUser)
+            .orElse(null);
+
+        if (instructorUser == null || !instructorUser.isActivated()) {
+            throw new BadRequestAlertException(
+                "El instructor seleccionado ya no está disponible, selecciona otro",
+                ENTITY_NAME,
+                "instructorInactive"
+            );
+        }
     }
 }
