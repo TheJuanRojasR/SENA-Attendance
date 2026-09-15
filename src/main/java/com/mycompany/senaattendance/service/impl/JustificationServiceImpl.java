@@ -27,6 +27,7 @@ import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
+import com.mycompany.senaattendance.service.JustificationNotificationPort;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
@@ -101,6 +102,8 @@ public class JustificationServiceImpl implements JustificationService {
 
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
+    private final JustificationNotificationPort justificationNotificationPort;
+
     private final Clock clock;
 
     public JustificationServiceImpl(
@@ -116,6 +119,7 @@ public class JustificationServiceImpl implements JustificationService {
         TrimesterRepository trimesterRepository,
         TrimesterService trimesterService,
         GlobalConfigurationRepository globalConfigurationRepository,
+        JustificationNotificationPort justificationNotificationPort,
         Clock clock
     ) {
         this.justificationRepository = justificationRepository;
@@ -130,6 +134,7 @@ public class JustificationServiceImpl implements JustificationService {
         this.trimesterRepository = trimesterRepository;
         this.trimesterService = trimesterService;
         this.globalConfigurationRepository = globalConfigurationRepository;
+        this.justificationNotificationPort = justificationNotificationPort;
         this.clock = clock;
     }
 
@@ -160,6 +165,7 @@ public class JustificationServiceImpl implements JustificationService {
         justification = justificationRepository.save(justification);
         justification.setDetailses(persistParts(classSections, justification));
         justification = justificationRepository.save(justification);
+        justificationNotificationPort.stateChanged(justification, StateJustification.PENDIENTE);
         return justificationMapper.toDto(justification);
     }
 
@@ -283,6 +289,7 @@ public class JustificationServiceImpl implements JustificationService {
             part.setStateJustification(StateJustification.CANCELADA);
             justificationDetailsRepository.save(part);
         }
+        justificationNotificationPort.stateChanged(justification, StateJustification.CANCELADA);
         Justification cancelled = justificationRepository.findById(justification.getId()).orElseThrow();
         return justificationMapper.toDto(cancelled);
     }

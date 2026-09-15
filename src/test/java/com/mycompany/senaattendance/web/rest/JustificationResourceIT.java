@@ -46,6 +46,7 @@ import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
+import com.mycompany.senaattendance.service.JustificationNotificationPort;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationMapper;
@@ -71,6 +72,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -161,6 +163,9 @@ class JustificationResourceIT {
 
     @Mock
     private JustificationService justificationServiceMock;
+
+    @MockitoBean
+    private JustificationNotificationPort justificationNotificationPort;
 
     @Autowired
     private MockMvc restJustificationMockMvc;
@@ -1241,6 +1246,43 @@ class JustificationResourceIT {
             )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.detailses[0].stateJustification").value("CANCELADA"));
+    }
+
+    // -----------------------------------------------------------------
+    // UC011 — One notification hook per state change (use-cases.md:1005, A2)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationNotifiesTheStateChangeOnce() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+
+        createJustificationViaApi(failure, failure);
+
+        verify(justificationNotificationPort, times(1)).stateChanged(any(Justification.class), eq(StateJustification.PENDIENTE));
+        verifyNoMoreInteractions(justificationNotificationPort);
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void cancelJustificationNotifiesTheStateChangeOnce() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+        JustificationDTO created = createJustificationViaApi(failure, failure);
+
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/cancelled")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(Map.of("id", created.getId())))
+            )
+            .andExpect(status().isOk());
+
+        // One hook per change: PENDIENTE on create and CANCELADA on cancel, and nothing else.
+        verify(justificationNotificationPort, times(1)).stateChanged(any(Justification.class), eq(StateJustification.PENDIENTE));
+        verify(justificationNotificationPort, times(1)).stateChanged(any(Justification.class), eq(StateJustification.CANCELADA));
+        verifyNoMoreInteractions(justificationNotificationPort);
     }
 
     /**
