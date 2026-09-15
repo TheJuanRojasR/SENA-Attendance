@@ -41,4 +41,15 @@ public interface TrimesterRepository extends MongoRepository<Trimester, String> 
     // ------- SEARCH TRIMESTER BY OVERLAPPING DATE RANGE EXCLUDING SPECIFIC ID -------
     @Query("{ 'start_date': { $lt: ?1 }, 'end_date': { $gt: ?0 }, '_id': { $ne: ?2 } }")
     List<Trimester> findAllOverlappingExcluding(LocalDate start, LocalDate end, String id);
+
+    /**
+     * Finds the trimester whose {@code [startDate, endDate]} range contains the given day,
+     * boundaries included. Ranges do not overlap by construction, so at most one matches.
+     *
+     * @param date the day to look for.
+     * @return the matching trimester, or an empty list when the day falls outside every range.
+     */
+    // ------- SEARCH TRIMESTER CONTAINING A DATE -------
+    @Query("{ 'start_date': { $lte: ?0 }, 'end_date': { $gte: ?0 } }")
+    List<Trimester> findAllContaining(LocalDate date);
 }

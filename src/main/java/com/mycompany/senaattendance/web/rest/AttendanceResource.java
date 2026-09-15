@@ -4,7 +4,9 @@ import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
+import com.mycompany.senaattendance.service.dto.AttendanceSessionDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.AttendanceSessionVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -75,6 +77,23 @@ public class AttendanceResource {
         return ResponseEntity.created(new URI("/api/attendances/" + attendanceDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, attendanceDTO.getId()))
             .body(attendanceDTO);
+    }
+
+    /**
+     * {@code PUT  /attendances/session} : registers the attendance session of a class section on
+     * a session date (UC009). The request carries the materia, the date and the confirmed marks;
+     * every mark is upserted and the apprentices left out keep no record, so the response reports
+     * whether the session is complete. Saving the same session again is idempotent.
+     *
+     * @param attendanceSessionVM the materia, the session date and the confirmed marks.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the persisted
+     *         session, or with status {@code 400 (Bad Request)} when a UC009 rule is violated.
+     */
+    @PutMapping("/session")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    public ResponseEntity<AttendanceSessionDTO> saveAttendanceSession(@Valid @RequestBody AttendanceSessionVM attendanceSessionVM) {
+        LOG.debug("REST request to save an Attendance session : {}", attendanceSessionVM);
+        return ResponseEntity.ok().body(attendanceService.saveSession(attendanceSessionVM));
     }
 
     /**

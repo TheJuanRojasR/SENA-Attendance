@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.Attendance;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.bson.types.ObjectId;
@@ -41,4 +42,29 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
      */
     @Query(value = "{ 'student._id': ?0, 'classSection.$id': { $in: ?1 } }", exists = true)
     boolean existsByStudentIdAndClassSectionIdIn(String studentId, List<ObjectId> classSectionIds);
+
+    /**
+     * Finds the attendance records of a class section for one session date. The class section is
+     * matched through the scalar {@code classSection._id}, where a String resolves to the
+     * referenced id (unlike the {@code $id}/{$in} lookups, which need explicit ObjectIds).
+     *
+     * @param classSectionId the class section id.
+     * @param date the session date.
+     * @return the records of that session, possibly empty.
+     */
+    // ------- SEARCH ATTENDANCE BY CLASS SECTION AND DATE -------
+    @Query("{ 'classSection._id': ?0, 'date': ?1 }")
+    List<Attendance> findByClassSectionIdAndDate(String classSectionId, LocalDate date);
+
+    /**
+     * Finds the attendance record of one apprentice in a class section for a session date. This
+     * is the upsert key of the session: materia, aprendiz and fecha.
+     *
+     * @param classSectionId the class section id.
+     * @param studentId the apprentice profile id.
+     * @param date the session date.
+     * @return the matching record, or empty when the apprentice has none for that session.
+     */
+    @Query("{ 'classSection._id': ?0, 'student._id': ?1, 'date': ?2 }")
+    Optional<Attendance> findByClassSectionIdAndStudentIdAndDate(String classSectionId, String studentId, LocalDate date);
 }

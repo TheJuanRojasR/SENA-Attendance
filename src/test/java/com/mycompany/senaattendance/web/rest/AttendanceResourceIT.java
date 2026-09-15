@@ -1,40 +1,57 @@
 package com.mycompany.senaattendance.web.rest;
 
-import static com.mycompany.senaattendance.domain.AttendanceAsserts.*;
-import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.mockito.Mockito.*;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Apprentice;
 import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.DocumentType;
+import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.Modality;
+import com.mycompany.senaattendance.domain.Program;
+import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.AuthorityRepository;
+import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ModalityRepository;
+import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.repository.TimeSlotRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
-import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
 import com.mycompany.senaattendance.service.mapper.AttendanceMapper;
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,53 +60,123 @@ import org.springframework.test.web.servlet.MockMvc;
  * Integration tests for the {@link AttendanceResource} REST controller.
  */
 @IntegrationTest
-@ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
 @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class AttendanceResourceIT {
 
     private static final LocalDate DEFAULT_DATE = LocalDate.ofEpochDay(0L);
-    private static final LocalDate UPDATED_DATE = LocalDate.now(ZoneId.systemDefault());
+    private static final LocalDate UPDATED_DATE = LocalDate.now();
 
     private static final StateAttendance DEFAULT_STATE_ATTENDANCE = StateAttendance.PRESENTE;
     private static final StateAttendance UPDATED_STATE_ATTENDANCE = StateAttendance.FALLA;
 
     private static final String ENTITY_API_URL = "/api/attendances";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
+    private static final String SESSION_API_URL = ENTITY_API_URL + "/session";
+
+    private static final String INSTRUCTOR_LOGIN = "session_instructor";
+    private static final String OTHER_INSTRUCTOR_LOGIN = "other_session_instructor";
 
     @Autowired
     private ObjectMapper om;
 
     @Autowired
+    private MockMvc restAttendanceMockMvc;
+
+    @Autowired
+    private AttendanceMapper attendanceMapper;
+
+    @Autowired
     private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private ApprenticeRepository apprenticeRepository;
+
+    @Autowired
+    private AuthorityRepository authorityRepository;
+
+    @Autowired
+    private ClassExceptionRepository classExceptionRepository;
 
     @Autowired
     private ClassSectionRepository classSectionRepository;
 
     @Autowired
+    private DocumentTypeRepository documentTypeRepository;
+
+    @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
+    private ModalityRepository modalityRepository;
+
+    @Autowired
+    private ProgramRepository programRepository;
+
+    @Autowired
+    private TimeSlotRepository timeSlotRepository;
+
+    @Autowired
+    private TrimesterRepository trimesterRepository;
+
+    @Autowired
     private UserProfileRepository userProfileRepository;
 
-    @Mock
-    private AttendanceRepository attendanceRepositoryMock;
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
-    private AttendanceMapper attendanceMapper;
+    private Clock clock;
 
-    @Mock
-    private AttendanceService attendanceServiceMock;
+    private final List<Attendance> insertedAttendances = new ArrayList<>();
 
-    @Autowired
-    private MockMvc restAttendanceMockMvc;
+    private final List<ClassException> insertedExceptions = new ArrayList<>();
 
-    private Attendance attendance;
+    private final List<ClassSection> insertedClassSections = new ArrayList<>();
 
-    private Attendance insertedAttendance;
+    private final List<Apprentice> insertedApprentices = new ArrayList<>();
+
+    private final List<Grade> insertedGrades = new ArrayList<>();
+
+    private final List<Trimester> insertedTrimesters = new ArrayList<>();
+
+    private final List<Program> insertedPrograms = new ArrayList<>();
+
+    private final List<Modality> insertedModalities = new ArrayList<>();
+
+    private final List<TimeSlot> insertedTimeSlots = new ArrayList<>();
+
+    private final List<UserProfile> insertedProfiles = new ArrayList<>();
+
+    private final List<User> insertedUsers = new ArrayList<>();
+
+    private final List<DocumentType> insertedDocumentTypes = new ArrayList<>();
+
+    private DocumentType documentType;
+
+    private UserProfile instructor;
+
+    private UserProfile firstStudent;
+
+    private UserProfile secondStudent;
+
+    private UserProfile unenrolledStudent;
+
+    private Trimester trimester;
+
+    private Grade grade;
+
+    private ClassSection classSection;
+
+    private LocalDate sessionDate;
 
     /**
      * Create an entity for this test.
      *
      * This is a static method, as tests for other entities might also need it,
-     * if they test an entity which requires the current entity.
+     * if they test an entity which requires the current entity. The referenced
+     * entities are not persisted; tests that need them resolved persist their own
+     * fixture graph.
      */
     public static Attendance createEntity() {
         Attendance attendance = new Attendance().date(DEFAULT_DATE).stateAttendance(DEFAULT_STATE_ATTENDANCE);
@@ -127,392 +214,552 @@ class AttendanceResourceIT {
         return updatedAttendance;
     }
 
+    /**
+     * Persists the fixture graph the session tests need: an active trimester, one operable ficha
+     * with an assigned instructor and two enrolled apprentices, plus an extra profile without an
+     * enrollment.
+     */
     @BeforeEach
-    void initTest() {
-        attendance = createEntity();
+    void initSessionFixture() {
+        documentType = persistDocumentType();
+        instructor = persistProfile(INSTRUCTOR_LOGIN, "1000000001", AuthoritiesConstants.INSTRUCTOR);
+        persistProfile(OTHER_INSTRUCTOR_LOGIN, "1000000002", AuthoritiesConstants.INSTRUCTOR);
+        firstStudent = persistProfile("session_student_1", "2000000001", AuthoritiesConstants.APPRENTICE);
+        secondStudent = persistProfile("session_student_2", "2000000002", AuthoritiesConstants.APPRENTICE);
+        unenrolledStudent = persistProfile("session_student_3", "2000000003", AuthoritiesConstants.APPRENTICE);
+
+        LocalDate today = LocalDate.now(clock);
+        sessionDate = today;
+        trimester = persistTrimester("Trimestre de sesión", today.minusDays(60), today.plusDays(60));
+        grade = persistGrade("SES-001", today.minusDays(30), today.plusDays(30));
+        classSection = persistClassSection("Materia de sesión", grade, instructor);
+        persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
+        persistEnrollment(secondStudent, grade, StateAcademic.MATRICULADO);
     }
 
     @AfterEach
     void cleanup() {
-        if (insertedAttendance != null) {
-            attendanceRepository.delete(insertedAttendance);
-            insertedAttendance = null;
-        }
-        // Remove the related documents persisted for the PUT tests
-        classSectionRepository.deleteAll();
-        userProfileRepository.deleteAll();
+        // The session endpoint persists records the fixture cannot track, so sweep the collection.
+        attendanceRepository.deleteAll();
+        insertedAttendances.clear();
+        insertedExceptions.forEach(classExceptionRepository::delete);
+        insertedExceptions.clear();
+        insertedClassSections.forEach(classSectionRepository::delete);
+        insertedClassSections.clear();
+        insertedApprentices.forEach(apprenticeRepository::delete);
+        insertedApprentices.clear();
+        insertedGrades.forEach(gradeRepository::delete);
+        insertedGrades.clear();
+        insertedTrimesters.forEach(trimesterRepository::delete);
+        insertedTrimesters.clear();
+        insertedProfiles.forEach(userProfileRepository::delete);
+        insertedProfiles.clear();
+        insertedDocumentTypes.forEach(documentTypeRepository::delete);
+        insertedDocumentTypes.clear();
+        insertedUsers.forEach(userRepository::delete);
+        insertedUsers.clear();
+        insertedTimeSlots.forEach(timeSlotRepository::delete);
+        insertedTimeSlots.clear();
+        insertedModalities.forEach(modalityRepository::delete);
+        insertedModalities.clear();
+        insertedPrograms.forEach(programRepository::delete);
+        insertedPrograms.clear();
     }
+
+    // -----------------------------------------------------------------
+    // Generic attendance CRUD
+    // -----------------------------------------------------------------
 
     @Test
     void createAttendance() throws Exception {
-        long databaseSizeBeforeCreate = getRepositoryCount();
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-        var returnedAttendanceDTO = om.readValue(
-            restAttendanceMockMvc
-                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(attendanceDTO)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString(),
-            AttendanceDTO.class
+        long databaseSizeBeforeCreate = attendanceRepository.count();
+        AttendanceDTO attendanceDTO = attendanceMapper.toDto(
+            new Attendance().date(sessionDate).stateAttendance(StateAttendance.PRESENTE).classSection(classSection).student(firstStudent)
         );
 
-        // Validate the Attendance in the database
-        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
-        var returnedAttendance = attendanceMapper.toEntity(returnedAttendanceDTO);
-        assertAttendanceUpdatableFieldsEquals(returnedAttendance, getPersistedAttendance(returnedAttendance));
-
-        insertedAttendance = returnedAttendance;
-    }
-
-    @Test
-    void createAttendanceWithExistingId() throws Exception {
-        // Create the Attendance with an existing ID
-        attendance.setId("existing_id");
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        long databaseSizeBeforeCreate = getRepositoryCount();
-
-        // An entity with an existing ID cannot be created, so this API call must fail
         restAttendanceMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(attendanceDTO)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").isNotEmpty())
+            .andExpect(jsonPath("$.stateAttendance").value(StateAttendance.PRESENTE.toString()));
 
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeCreate);
-    }
-
-    @Test
-    void checkDateIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        attendance.setDate(null);
-
-        // Create the Attendance, which fails.
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        restAttendanceMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(attendanceDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    void checkStateAttendanceIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        attendance.setStateAttendance(null);
-
-        // Create the Attendance, which fails.
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        restAttendanceMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(attendanceDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    void getAllAttendances() throws Exception {
-        // Initialize the database
-        insertedAttendance = attendanceRepository.save(attendance);
-
-        // Get all the attendanceList
-        restAttendanceMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.[*].id").value(hasItem(attendance.getId())))
-            .andExpect(jsonPath("$.[*].date").value(hasItem(DEFAULT_DATE.toString())))
-            .andExpect(jsonPath("$.[*].stateAttendance").value(hasItem(DEFAULT_STATE_ATTENDANCE.toString())));
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllAttendancesWithEagerRelationshipsIsEnabled() throws Exception {
-        when(attendanceServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restAttendanceMockMvc.perform(get(ENTITY_API_URL + "?eagerload=true")).andExpect(status().isOk());
-
-        verify(attendanceServiceMock, times(1)).findAllWithEagerRelationships(any());
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllAttendancesWithEagerRelationshipsIsNotEnabled() throws Exception {
-        when(attendanceServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restAttendanceMockMvc.perform(get(ENTITY_API_URL + "?eagerload=false")).andExpect(status().isOk());
-        verify(attendanceRepositoryMock, times(1)).findAll(any(Pageable.class));
+        assertThat(attendanceRepository.count()).isEqualTo(databaseSizeBeforeCreate + 1);
     }
 
     @Test
     void getAttendance() throws Exception {
-        // Initialize the database
-        insertedAttendance = attendanceRepository.save(attendance);
+        insertedAttendances.add(
+            attendanceRepository.save(
+                new Attendance()
+                    .date(sessionDate)
+                    .stateAttendance(StateAttendance.PRESENTE)
+                    .classSection(classSection)
+                    .student(firstStudent)
+            )
+        );
 
-        // Get the attendance
         restAttendanceMockMvc
-            .perform(get(ENTITY_API_URL_ID, attendance.getId()))
+            .perform(get(ENTITY_API_URL_ID, insertedAttendances.get(0).getId()))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(attendance.getId()))
-            .andExpect(jsonPath("$.date").value(DEFAULT_DATE.toString()))
-            .andExpect(jsonPath("$.stateAttendance").value(DEFAULT_STATE_ATTENDANCE.toString()));
+            .andExpect(jsonPath("$.date").value(sessionDate.toString()))
+            .andExpect(jsonPath("$.stateAttendance").value(StateAttendance.PRESENTE.toString()));
     }
 
     @Test
     void getNonExistingAttendance() throws Exception {
-        // Get the attendance
-        restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, Long.MAX_VALUE)).andExpect(status().isNotFound());
-    }
-
-    @Test
-    void putExistingAttendance() throws Exception {
-        // Persist the @DBRef targets so they resolve on reload
-        classSectionRepository.save(attendance.getClassSection());
-        userProfileRepository.save(attendance.getStudent());
-
-        // Initialize the database
-        insertedAttendance = attendanceRepository.save(attendance);
-
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the attendance
-        Attendance updatedAttendance = attendanceRepository.findById(attendance.getId()).orElseThrow();
-        updatedAttendance.date(UPDATED_DATE).stateAttendance(UPDATED_STATE_ATTENDANCE);
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(updatedAttendance);
-
-        restAttendanceMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, attendanceDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(attendanceDTO))
-            )
-            .andExpect(status().isOk());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertPersistedAttendanceToMatchAllProperties(updatedAttendance);
-    }
-
-    @Test
-    void putNonExistingAttendance() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        attendance.setId(UUID.randomUUID().toString());
-
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        // If the entity doesn't have an ID, it will throw BadRequestAlertException
-        restAttendanceMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, attendanceDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(attendanceDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithIdMismatchAttendance() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        attendance.setId(UUID.randomUUID().toString());
-
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restAttendanceMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(attendanceDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamAttendance() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        attendance.setId(UUID.randomUUID().toString());
-
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restAttendanceMockMvc
-            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(attendanceDTO)))
-            .andExpect(status().isMethodNotAllowed());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void partialUpdateAttendanceWithPatch() throws Exception {
-        // Initialize the database
-        insertedAttendance = attendanceRepository.save(attendance);
-
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the attendance using partial update
-        Attendance partialUpdatedAttendance = new Attendance();
-        partialUpdatedAttendance.setId(attendance.getId());
-
-        partialUpdatedAttendance.date(UPDATED_DATE);
-
-        restAttendanceMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedAttendance.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedAttendance))
-            )
-            .andExpect(status().isOk());
-
-        // Validate the Attendance in the database
-
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertAttendanceUpdatableFieldsEquals(
-            createUpdateProxyForBean(partialUpdatedAttendance, attendance),
-            getPersistedAttendance(attendance)
-        );
-    }
-
-    @Test
-    void fullUpdateAttendanceWithPatch() throws Exception {
-        // Initialize the database
-        insertedAttendance = attendanceRepository.save(attendance);
-
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the attendance using partial update
-        Attendance partialUpdatedAttendance = new Attendance();
-        partialUpdatedAttendance.setId(attendance.getId());
-
-        partialUpdatedAttendance.date(UPDATED_DATE).stateAttendance(UPDATED_STATE_ATTENDANCE);
-
-        restAttendanceMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedAttendance.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedAttendance))
-            )
-            .andExpect(status().isOk());
-
-        // Validate the Attendance in the database
-
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertAttendanceUpdatableFieldsEquals(partialUpdatedAttendance, getPersistedAttendance(partialUpdatedAttendance));
-    }
-
-    @Test
-    void patchNonExistingAttendance() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        attendance.setId(UUID.randomUUID().toString());
-
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        // If the entity doesn't have an ID, it will throw BadRequestAlertException
-        restAttendanceMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, attendanceDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(attendanceDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithIdMismatchAttendance() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        attendance.setId(UUID.randomUUID().toString());
-
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restAttendanceMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(attendanceDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamAttendance() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        attendance.setId(UUID.randomUUID().toString());
-
-        // Create the Attendance
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(attendance);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restAttendanceMockMvc
-            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(attendanceDTO)))
-            .andExpect(status().isMethodNotAllowed());
-
-        // Validate the Attendance in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isNotFound());
     }
 
     @Test
     void deleteAttendance() throws Exception {
-        // Initialize the database
-        insertedAttendance = attendanceRepository.save(attendance);
+        insertedAttendances.add(
+            attendanceRepository.save(
+                new Attendance().date(sessionDate).stateAttendance(StateAttendance.FALLA).classSection(classSection).student(firstStudent)
+            )
+        );
 
-        long databaseSizeBeforeDelete = getRepositoryCount();
-
-        // Delete the attendance
         restAttendanceMockMvc
-            .perform(delete(ENTITY_API_URL_ID, attendance.getId()).accept(MediaType.APPLICATION_JSON))
+            .perform(delete(ENTITY_API_URL_ID, insertedAttendances.get(0).getId()).accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isNoContent());
 
-        // Validate the database contains one less item
-        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(attendanceRepository.findById(insertedAttendances.get(0).getId())).isEmpty();
     }
 
-    protected long getRepositoryCount() {
-        return attendanceRepository.count();
+    // -----------------------------------------------------------------
+    // UC009 — Attendance session
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithAllApprenticesReturnsCompleteSession() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(
+                confirmation(firstStudent.getId(), StateAttendance.PRESENTE),
+                confirmation(secondStudent.getId(), StateAttendance.FALLA)
+            )
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.classSection.id").value(classSection.getId()))
+            .andExpect(jsonPath("$.classSection.subjectName").value("Materia de sesión"))
+            .andExpect(jsonPath("$.date").value(sessionDate.toString()))
+            .andExpect(jsonPath("$.complete").value(true))
+            .andExpect(jsonPath("$.enrolledCount").value(2))
+            .andExpect(jsonPath("$.recordedCount").value(2))
+            .andExpect(jsonPath("$.records.length()").value(2))
+            .andExpect(jsonPath("$.records[*].student.documentNumber").value(containsInAnyOrder("2000000001", "2000000002")))
+            .andExpect(jsonPath("$.records[*].stateAttendance").value(containsInAnyOrder("PRESENTE", "FALLA")));
+
+        assertThat(attendanceRepository.findByClassSectionIdAndDate(classSection.getId(), sessionDate)).hasSize(2);
     }
 
-    protected void assertIncrementedRepositoryCount(long countBefore) {
-        assertThat(countBefore + 1).isEqualTo(getRepositoryCount());
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithPartialMarksLeavesUnconfirmedApprenticesWithoutRecord() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.complete").value(false))
+            .andExpect(jsonPath("$.enrolledCount").value(2))
+            .andExpect(jsonPath("$.recordedCount").value(1))
+            .andExpect(jsonPath("$.records.length()").value(1))
+            .andExpect(jsonPath("$.records[0].student.documentNumber").value("2000000001"));
+
+        assertThat(
+            attendanceRepository.findByClassSectionIdAndStudentIdAndDate(classSection.getId(), firstStudent.getId(), sessionDate)
+        ).isPresent();
+        assertThat(
+            attendanceRepository.findByClassSectionIdAndStudentIdAndDate(classSection.getId(), secondStudent.getId(), sessionDate)
+        ).isEmpty();
     }
 
-    protected void assertDecrementedRepositoryCount(long countBefore) {
-        assertThat(countBefore - 1).isEqualTo(getRepositoryCount());
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionAgainUpdatesStatesWithoutDuplicatingRecords() throws Exception {
+        saveSession(
+            sessionPayload(
+                classSection.getId(),
+                sessionDate,
+                List.of(
+                    confirmation(firstStudent.getId(), StateAttendance.PRESENTE),
+                    confirmation(secondStudent.getId(), StateAttendance.PRESENTE)
+                )
+            )
+        );
+
+        saveSession(
+            sessionPayload(
+                classSection.getId(),
+                sessionDate,
+                List.of(
+                    confirmation(firstStudent.getId(), StateAttendance.FALLA),
+                    confirmation(secondStudent.getId(), StateAttendance.FALLA)
+                )
+            )
+        );
+
+        assertThat(attendanceRepository.findByClassSectionIdAndDate(classSection.getId(), sessionDate)).hasSize(2);
+        assertThat(
+            attendanceRepository
+                .findByClassSectionIdAndStudentIdAndDate(classSection.getId(), firstStudent.getId(), sessionDate)
+                .orElseThrow()
+                .getStateAttendance()
+        ).isEqualTo(StateAttendance.FALLA);
+        assertThat(
+            attendanceRepository
+                .findByClassSectionIdAndStudentIdAndDate(classSection.getId(), secondStudent.getId(), sessionDate)
+                .orElseThrow()
+                .getStateAttendance()
+        ).isEqualTo(StateAttendance.FALLA);
     }
 
-    protected void assertSameRepositoryCount(long countBefore) {
-        assertThat(countBefore).isEqualTo(getRepositoryCount());
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionIgnoresTheIdSentInConfirmations() throws Exception {
+        saveSession(
+            sessionPayload(
+                classSection.getId(),
+                sessionDate,
+                List.of(
+                    confirmation(firstStudent.getId(), StateAttendance.PRESENTE),
+                    confirmation(secondStudent.getId(), StateAttendance.PRESENTE)
+                )
+            )
+        );
+        String originalRecordId = attendanceRepository
+            .findByClassSectionIdAndStudentIdAndDate(classSection.getId(), firstStudent.getId(), sessionDate)
+            .orElseThrow()
+            .getId();
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(
+                confirmationWithId(UUID.randomUUID().toString(), firstStudent.getId(), StateAttendance.FALLA),
+                confirmation(secondStudent.getId(), StateAttendance.PRESENTE)
+            )
+        );
+        saveSession(payload);
+
+        Attendance reloaded = attendanceRepository
+            .findByClassSectionIdAndStudentIdAndDate(classSection.getId(), firstStudent.getId(), sessionDate)
+            .orElseThrow();
+        assertThat(reloaded.getId()).isEqualTo(originalRecordId);
+        assertThat(reloaded.getStateAttendance()).isEqualTo(StateAttendance.FALLA);
+        assertThat(attendanceRepository.findByClassSectionIdAndDate(classSection.getId(), sessionDate)).hasSize(2);
     }
 
-    protected Attendance getPersistedAttendance(Attendance attendance) {
-        return attendanceRepository.findById(attendance.getId()).orElseThrow();
+    @Test
+    @WithMockUser(username = OTHER_INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionForAnotherInstructorReturnsBadRequest() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourClassSection"));
+
+        assertThat(attendanceRepository.findByClassSectionIdAndDate(classSection.getId(), sessionDate)).isEmpty();
     }
 
-    protected void assertPersistedAttendanceToMatchAllProperties(Attendance expectedAttendance) {
-        assertAttendanceAllPropertiesEquals(expectedAttendance, getPersistedAttendance(expectedAttendance));
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithoutAssignedInstructorReturnsBadRequest() throws Exception {
+        classSection.setInstructor(null);
+        classSectionRepository.save(classSection);
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionWithoutInstructor"));
+
+        assertThat(attendanceRepository.findByClassSectionIdAndDate(classSection.getId(), sessionDate)).isEmpty();
     }
 
-    protected void assertPersistedAttendanceToMatchUpdatableProperties(Attendance expectedAttendance) {
-        assertAttendanceAllUpdatablePropertiesEquals(expectedAttendance, getPersistedAttendance(expectedAttendance));
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithJustifiedStateReturnsBadRequest() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(
+                confirmation(firstStudent.getId(), StateAttendance.PRESENTE),
+                confirmation(secondStudent.getId(), StateAttendance.JUSTIFICADA)
+            )
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidAttendanceState"));
+
+        assertThat(attendanceRepository.findByClassSectionIdAndDate(classSection.getId(), sessionDate)).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithNonEnrolledApprenticeReturnsBadRequest() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(unenrolledStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.studentNotEnrolled"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithoutEnrolledApprenticesReturnsBadRequest() throws Exception {
+        insertedApprentices.forEach(apprentice -> apprentice.setStateAcademic(StateAcademic.RETIRO_VOLUNTARIO));
+        insertedApprentices.forEach(apprenticeRepository::save);
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.noActiveApprentices"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithFutureDateReturnsBadRequest() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate.plusDays(1),
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.futureSessionDate"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionInClosedTrimesterReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        trimester.setStartDate(today.minusDays(60));
+        trimester.setEndDate(today.minusDays(5));
+        trimesterRepository.save(trimester);
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            today.minusDays(10),
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionOutsideEveryTrimesterReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        trimester.setStartDate(today.minusDays(60));
+        trimester.setEndDate(today.minusDays(5));
+        trimesterRepository.save(trimester);
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            today.minusDays(3),
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.dateOutOfTrimester"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionOutsideGradeRangeReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        grade.setStartDate(today.minusDays(10));
+        grade.setEndDate(today.plusDays(10));
+        gradeRepository.save(grade);
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            today.minusDays(20),
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.dateOutOfGradeRange"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionOnNonTeachingDateReturnsBadRequest() throws Exception {
+        insertedExceptions.add(
+            classExceptionRepository.save(new ClassException().date(sessionDate).reason("Día festivo").classSection(classSection))
+        );
+
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.nonTeachingDate"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithUnknownClassSectionReturnsBadRequest() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            UUID.randomUUID().toString(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnotfound"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+    void saveSessionAsAdminReturnsForbidden() throws Exception {
+        Map<String, Object> payload = sessionPayload(
+            classSection.getId(),
+            sessionDate,
+            List.of(confirmation(firstStudent.getId(), StateAttendance.PRESENTE))
+        );
+
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isForbidden());
+    }
+
+    // -----------------------------------------------------------------
+    // Fixture helpers
+    // -----------------------------------------------------------------
+
+    private void saveSession(Map<String, Object> payload) throws Exception {
+        restAttendanceMockMvc
+            .perform(put(SESSION_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload)))
+            .andExpect(status().isOk());
+    }
+
+    private static Map<String, Object> sessionPayload(String classSectionId, LocalDate date, List<Map<String, Object>> attendances) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("classSection", Map.of("id", classSectionId));
+        payload.put("date", date.toString());
+        payload.put("attendances", attendances);
+        return payload;
+    }
+
+    private static Map<String, Object> confirmation(String studentId, StateAttendance stateAttendance) {
+        Map<String, Object> confirmation = new HashMap<>();
+        confirmation.put("studentId", studentId);
+        confirmation.put("stateAttendance", stateAttendance.name());
+        return confirmation;
+    }
+
+    private static Map<String, Object> confirmationWithId(String id, String studentId, StateAttendance stateAttendance) {
+        Map<String, Object> confirmation = confirmation(studentId, stateAttendance);
+        confirmation.put("id", id);
+        return confirmation;
+    }
+
+    private DocumentType persistDocumentType() {
+        DocumentType persistedDocumentType = documentTypeRepository.save(DocumentTypeResourceIT.createEntity());
+        insertedDocumentTypes.add(persistedDocumentType);
+        return persistedDocumentType;
+    }
+
+    private UserProfile persistProfile(String login, String documentNumber, String authority) {
+        User user = UserResourceIT.createEntity();
+        user.setLogin(login);
+        user.setEmail(login + "@example.com");
+        user.setActivated(true);
+        user.setAuthorities(new HashSet<>(Set.of(authorityRepository.findById(authority).orElseThrow())));
+        insertedUsers.add(userRepository.save(user));
+
+        UserProfile profile = UserProfileResourceIT.createEntity();
+        profile.setDocumentNumber(documentNumber);
+        profile.setDocumentType(documentType);
+        profile.setUser(user);
+        insertedProfiles.add(userProfileRepository.save(profile));
+        return profile;
+    }
+
+    private Trimester persistTrimester(String name, LocalDate startDate, LocalDate endDate) {
+        Trimester persistedTrimester = new Trimester().name(name).startDate(startDate).endDate(endDate).status(StateTrimester.ACTIVO);
+        insertedTrimesters.add(trimesterRepository.save(persistedTrimester));
+        return persistedTrimester;
+    }
+
+    private Grade persistGrade(String code, LocalDate startDate, LocalDate endDate) {
+        Program program = programRepository.save(ProgramResourceIT.createEntity());
+        insertedPrograms.add(program);
+        Modality modality = modalityRepository.save(ModalityResourceIT.createEntity());
+        insertedModalities.add(modality);
+        TimeSlot timeSlot = timeSlotRepository.save(TimeSlotResourceIT.createEntity());
+        insertedTimeSlots.add(timeSlot);
+
+        Grade persistedGrade = GradeResourceIT.createEntity();
+        persistedGrade.setCode(code);
+        persistedGrade.setStartDate(startDate);
+        persistedGrade.setEndDate(endDate);
+        persistedGrade.setProgram(program);
+        persistedGrade.setModality(modality);
+        persistedGrade.setTimeSlot(timeSlot);
+        insertedGrades.add(gradeRepository.save(persistedGrade));
+        return persistedGrade;
+    }
+
+    private ClassSection persistClassSection(String subjectName, Grade grade, UserProfile instructor) {
+        ClassSection persistedClassSection = new ClassSection().subjectName(subjectName).isActive(true).grade(grade).instructor(instructor);
+        insertedClassSections.add(classSectionRepository.save(persistedClassSection));
+        return persistedClassSection;
+    }
+
+    private Apprentice persistEnrollment(UserProfile student, Grade grade, StateAcademic stateAcademic) {
+        Apprentice apprentice = new Apprentice().student(student).grade(grade).stateAcademic(stateAcademic);
+        insertedApprentices.add(apprenticeRepository.save(apprentice));
+        return apprentice;
     }
 }

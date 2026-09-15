@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.ClassException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -33,4 +34,16 @@ public interface ClassExceptionRepository extends MongoRepository<ClassException
     // ------- SEARCH CLASS EXCEPTIONS BY CLASS SECTION ID -------
     @Query("{ 'classSection._id': ?0 }")
     List<ClassException> findByClassSectionId(String classSectionId);
+
+    /**
+     * Returns whether the class section has a non-teaching exception on the given date. The class
+     * section is matched through the scalar {@code classSection._id}, where a String resolves to
+     * the referenced id.
+     *
+     * @param classSectionId the class section id.
+     * @param date the date to check.
+     * @return {@code true} when that date is a non-teaching exception of the class section.
+     */
+    @Query(value = "{ 'classSection._id': ?0, 'date': ?1 }", exists = true)
+    boolean existsByClassSectionIdAndDate(String classSectionId, LocalDate date);
 }
