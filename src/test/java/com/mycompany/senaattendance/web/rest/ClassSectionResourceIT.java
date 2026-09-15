@@ -24,6 +24,7 @@ import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,6 +93,8 @@ class ClassSectionResourceIT {
     private ClassSection insertedClassSection;
 
     private final List<User> insertedInstructorUsers = new ArrayList<>();
+
+    private final List<ClassSection> extraInsertedClassSections = new ArrayList<>();
 
     /**
      * Create an entity for this test.
@@ -162,6 +165,22 @@ class ClassSectionResourceIT {
         return instructor;
     }
 
+    /**
+     * Persists a class section with the given name inside the given ficha and registers it for
+     * cleanup. Used to seed duplicates without going through the REST validation.
+     *
+     * @param subjectName the subject name to store.
+     * @param grade the ficha the class section belongs to.
+     * @return the persisted class section.
+     */
+    private ClassSection persistClassSectionInGrade(String subjectName, Grade grade) {
+        ClassSection persisted = classSectionRepository.save(
+            new ClassSection().subjectName(subjectName).isActive(DEFAULT_IS_ACTIVE).grade(grade)
+        );
+        extraInsertedClassSections.add(persisted);
+        return persisted;
+    }
+
     @BeforeEach
     void initTest() {
         classSection = createEntity();
@@ -173,6 +192,9 @@ class ClassSectionResourceIT {
             classSectionRepository.delete(insertedClassSection);
             insertedClassSection = null;
         }
+        // Remove the extra sections seeded by the uniqueness tests
+        extraInsertedClassSections.forEach(classSectionRepository::delete);
+        extraInsertedClassSections.clear();
         // Remove the related documents persisted for the PUT tests
         gradeRepository.deleteAll();
         userProfileRepository.deleteAll();
@@ -260,6 +282,85 @@ class ClassSectionResourceIT {
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.instructorInactive"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createClassSectionWithDuplicateNameInSameGrade() throws Exception {
+        // Seed an existing section with the default name in the same ficha
+        persistClassSectionInGrade(DEFAULT_SUBJECT_NAME, classSection.getGrade());
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        // Create another section with the same name in the same ficha, which fails
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+
+        restClassSectionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createClassSectionWithSameNameInAnotherGrade() throws Exception {
+        // The name is taken in a different ficha, which must not block this create
+        persistClassSectionInGrade(DEFAULT_SUBJECT_NAME, classSection.getGrade());
+
+        Grade otherGrade = GradeResourceIT.createEntity();
+        otherGrade.setId("other-fixed-id-for-tests");
+        classSection.setGrade(otherGrade);
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        var returnedClassSectionDTO = om.readValue(
+            restClassSectionMockMvc
+                .perform(
+                    post(ENTITY_API_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(om.writeValueAsBytes(classSectionMapper.toDto(classSection)))
+                )
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ClassSectionDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        extraInsertedClassSections.add(classSectionMapper.toEntity(returnedClassSectionDTO));
+    }
+
+    @Test
+    void createClassSectionWithDifferentCaseDuplicateNameInSameGrade() throws Exception {
+        persistClassSectionInGrade(DEFAULT_SUBJECT_NAME, classSection.getGrade());
+        classSection.setSubjectName(DEFAULT_SUBJECT_NAME.toLowerCase(Locale.ROOT));
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+
+        restClassSectionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void createClassSectionWithSurroundingSpacesDuplicateNameInSameGrade() throws Exception {
+        persistClassSectionInGrade(DEFAULT_SUBJECT_NAME, classSection.getGrade());
+        classSection.setSubjectName("  " + DEFAULT_SUBJECT_NAME + "  ");
+
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+
+        restClassSectionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionNameAlreadyUsed"));
 
         assertSameRepositoryCount(databaseSizeBeforeCreate);
     }
@@ -393,6 +494,54 @@ class ClassSectionResourceIT {
         // Validate the ClassSection in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertPersistedClassSectionToMatchAllProperties(updatedClassSection);
+    }
+
+    @Test
+    void putClassSectionKeepingItsOwnName() throws Exception {
+        gradeRepository.save(classSection.getGrade());
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Save the section again with its own name, which must not collide with itself
+        ClassSection updatedClassSection = classSectionRepository.findById(classSection.getId()).orElseThrow();
+        updatedClassSection.setIsActive(UPDATED_IS_ACTIVE);
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
+
+        restClassSectionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, classSectionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionDTO))
+            )
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    void putClassSectionWithDuplicateNameInSameGrade() throws Exception {
+        gradeRepository.save(classSection.getGrade());
+        insertedClassSection = classSectionRepository.save(classSection);
+        ClassSection otherSection = persistClassSectionInGrade(UPDATED_SUBJECT_NAME, classSection.getGrade());
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Rename the other section to a name already used in the same ficha, which fails
+        ClassSection updatedOtherSection = classSectionRepository.findById(otherSection.getId()).orElseThrow();
+        updatedOtherSection.setSubjectName(DEFAULT_SUBJECT_NAME);
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedOtherSection);
+
+        restClassSectionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, classSectionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(classSectionDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
     @Test
@@ -559,6 +708,54 @@ class ClassSectionResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertClassSectionUpdatableFieldsEquals(partialUpdatedClassSection, getPersistedClassSection(partialUpdatedClassSection));
+    }
+
+    @Test
+    void patchClassSectionKeepingItsOwnName() throws Exception {
+        gradeRepository.save(classSection.getGrade());
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Patch the section with its own name, which must not collide with itself
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(classSection.getId());
+        partialUpdatedClassSection.setSubjectName(DEFAULT_SUBJECT_NAME);
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, classSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isOk());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    void patchClassSectionWithDuplicateNameInSameGrade() throws Exception {
+        gradeRepository.save(classSection.getGrade());
+        insertedClassSection = classSectionRepository.save(classSection);
+        ClassSection otherSection = persistClassSectionInGrade(UPDATED_SUBJECT_NAME, classSection.getGrade());
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+
+        // Rename the other section to a name already used in the same ficha, which fails
+        ClassSection partialUpdatedClassSection = new ClassSection();
+        partialUpdatedClassSection.setId(otherSection.getId());
+        partialUpdatedClassSection.setSubjectName(DEFAULT_SUBJECT_NAME);
+
+        restClassSectionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, otherSection.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionNameAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
     @Test

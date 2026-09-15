@@ -12,6 +12,7 @@ import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.errors.ClassSectionNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -56,6 +57,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         LOG.debug("Request to save ClassSection : {}", classSectionDTO);
         validateInstructor(classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
+        validateAndNormalizeSubjectName(classSection, null);
 
         classSection.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -72,6 +74,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         LOG.debug("Request to update ClassSection : {}", classSectionDTO);
         validateInstructor(classSectionDTO);
         ClassSection classSection = classSectionMapper.toEntity(classSectionDTO);
+        validateAndNormalizeSubjectName(classSection, classSection.getId());
 
         Optional<ClassSection> optionalClassSection = classSectionRepository.findById(classSection.getId());
         if (optionalClassSection.isPresent()) {
@@ -99,6 +102,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
             .map(existingClassSection -> {
                 validateInstructor(classSectionDTO);
                 classSectionMapper.partialUpdate(existingClassSection, classSectionDTO);
+                validateAndNormalizeSubjectName(existingClassSection, existingClassSection.getId());
 
                 return existingClassSection;
             })
@@ -175,6 +179,38 @@ public class ClassSectionServiceImpl implements ClassSectionService {
                 ENTITY_NAME,
                 "instructorInactive"
             );
+        }
+    }
+
+    /**
+     * Trims the subject name and enforces its uniqueness inside the ficha (grade). When
+     * {@code excludeId} is not {@code null}, the class section with that id is ignored so an
+     * update that keeps the same name does not collide with itself; on create every class
+     * section of the ficha is considered. The trimmed name is written back onto the entity so
+     * the stored value is consistent.
+     *
+     * @param classSection the class section whose subject name is normalized and validated.
+     * @param excludeId the id to exclude from the uniqueness check, or {@code null} on create.
+     * @throws ClassSectionNameAlreadyUsedException if another class section in the same ficha uses the name.
+     */
+    private void validateAndNormalizeSubjectName(ClassSection classSection, String excludeId) {
+        if (classSection.getSubjectName() == null) {
+            return;
+        }
+        String subjectName = classSection.getSubjectName().trim();
+        classSection.setSubjectName(subjectName);
+
+        String gradeId = classSection.getGrade() != null ? classSection.getGrade().getId() : null;
+        if (gradeId == null) {
+            return;
+        }
+
+        boolean duplicate =
+            excludeId == null
+                ? classSectionRepository.existsBySubjectNameIgnoreCaseAndGradeId(subjectName, gradeId)
+                : classSectionRepository.existsBySubjectNameIgnoreCaseAndGradeIdAndIdNot(subjectName, gradeId, excludeId);
+        if (duplicate) {
+            throw new ClassSectionNameAlreadyUsedException();
         }
     }
 }

@@ -34,4 +34,26 @@ public interface ClassSectionRepository extends MongoRepository<ClassSection, St
     // ------- SEARCH BY GRADE ID -------
     @Query("{'grade._id' :  ?0}")
     List<ClassSection> findByGradeId(String gradeId);
+
+    /**
+     * Returns whether a class section with the given subject name already exists inside a
+     * ficha (grade), ignoring case. Used to keep the subject name unique per ficha.
+     *
+     * @param subjectName the subject name to check.
+     * @param gradeId the ficha id the name must be unique within.
+     * @return {@code true} if a class section in the same ficha uses this name.
+     */
+    boolean existsBySubjectNameIgnoreCaseAndGradeId(String subjectName, String gradeId);
+
+    /**
+     * Returns whether a class section with the given subject name exists inside a ficha,
+     * ignoring case and excluding a specific id. Used so an update that keeps the same name
+     * does not collide with itself.
+     *
+     * @param subjectName the subject name to check.
+     * @param gradeId the ficha id the name must be unique within.
+     * @param id the id to exclude.
+     * @return {@code true} if another class section in the same ficha uses this name.
+     */
+    boolean existsBySubjectNameIgnoreCaseAndGradeIdAndIdNot(String subjectName, String gradeId, String id);
 }
