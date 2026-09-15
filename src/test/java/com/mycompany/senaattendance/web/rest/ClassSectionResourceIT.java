@@ -4,7 +4,6 @@ import static com.mycompany.senaattendance.domain.ClassSectionAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -28,7 +27,6 @@ import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
-import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
 import java.time.LocalDate;
@@ -41,15 +39,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,7 +51,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * Integration tests for the {@link ClassSectionResource} REST controller.
  */
 @IntegrationTest
-@ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
 @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ClassSectionResourceIT {
@@ -99,14 +91,8 @@ class ClassSectionResourceIT {
     @Autowired
     private ClassExceptionRepository classExceptionRepository;
 
-    @Mock
-    private ClassSectionRepository classSectionRepositoryMock;
-
     @Autowired
     private ClassSectionMapper classSectionMapper;
-
-    @Mock
-    private ClassSectionService classSectionServiceMock;
 
     @Autowired
     private MockMvc restClassSectionMockMvc;
@@ -501,23 +487,6 @@ class ClassSectionResourceIT {
             .andExpect(jsonPath("$.[*].id").value(hasItem(classSection.getId())))
             .andExpect(jsonPath("$.[*].subjectName").value(hasItem(DEFAULT_SUBJECT_NAME)))
             .andExpect(jsonPath("$.[*].isActive").value(hasItem(DEFAULT_IS_ACTIVE)));
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllClassSectionsWithEagerRelationshipsIsEnabled() throws Exception {
-        when(classSectionServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restClassSectionMockMvc.perform(get(ENTITY_API_URL + "?eagerload=true")).andExpect(status().isOk());
-
-        verify(classSectionServiceMock, times(1)).findAllWithEagerRelationships(any());
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllClassSectionsWithEagerRelationshipsIsNotEnabled() throws Exception {
-        when(classSectionServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restClassSectionMockMvc.perform(get(ENTITY_API_URL + "?eagerload=false")).andExpect(status().isOk());
-        verify(classSectionRepositoryMock, times(1)).findAll(any(Pageable.class));
     }
 
     @Test

@@ -4,7 +4,6 @@ import static com.mycompany.senaattendance.domain.ClassScheduleAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -23,7 +22,6 @@ import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
-import com.mycompany.senaattendance.service.ClassScheduleService;
 import com.mycompany.senaattendance.service.dto.ClassScheduleDTO;
 import com.mycompany.senaattendance.service.mapper.ClassScheduleMapper;
 import java.time.LocalDate;
@@ -36,15 +34,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,7 +46,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * Integration tests for the {@link ClassScheduleResource} REST controller.
  */
 @IntegrationTest
-@ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
 @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ClassScheduleResourceIT {
@@ -103,14 +95,8 @@ class ClassScheduleResourceIT {
     @Autowired
     private TrimesterRepository trimesterRepository;
 
-    @Mock
-    private ClassScheduleRepository classScheduleRepositoryMock;
-
     @Autowired
     private ClassScheduleMapper classScheduleMapper;
-
-    @Mock
-    private ClassScheduleService classScheduleServiceMock;
 
     @Autowired
     private MockMvc restClassScheduleMockMvc;
@@ -812,23 +798,6 @@ class ClassScheduleResourceIT {
             .andExpect(jsonPath("$.[*].dayOfWeek").value(hasItem(DEFAULT_DAY_OF_WEEK.toString())))
             .andExpect(jsonPath("$.[*].startTime").value(hasItem(DEFAULT_START_TIME.format(LOCAL_DATE_TIME_FORMAT))))
             .andExpect(jsonPath("$.[*].endTime").value(hasItem(DEFAULT_END_TIME.format(LOCAL_DATE_TIME_FORMAT))));
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllClassSchedulesWithEagerRelationshipsIsEnabled() throws Exception {
-        when(classScheduleServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restClassScheduleMockMvc.perform(get(ENTITY_API_URL + "?eagerload=true")).andExpect(status().isOk());
-
-        verify(classScheduleServiceMock, times(1)).findAllWithEagerRelationships(any());
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllClassSchedulesWithEagerRelationshipsIsNotEnabled() throws Exception {
-        when(classScheduleServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restClassScheduleMockMvc.perform(get(ENTITY_API_URL + "?eagerload=false")).andExpect(status().isOk());
-        verify(classScheduleRepositoryMock, times(1)).findAll(any(Pageable.class));
     }
 
     @Test

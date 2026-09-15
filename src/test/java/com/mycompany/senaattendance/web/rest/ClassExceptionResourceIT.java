@@ -4,7 +4,6 @@ import static com.mycompany.senaattendance.domain.ClassExceptionAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -15,23 +14,16 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
-import com.mycompany.senaattendance.service.ClassExceptionService;
 import com.mycompany.senaattendance.service.dto.ClassExceptionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassExceptionMapper;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +32,6 @@ import org.springframework.test.web.servlet.MockMvc;
  * Integration tests for the {@link ClassExceptionResource} REST controller.
  */
 @IntegrationTest
-@ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
 @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class ClassExceptionResourceIT {
@@ -63,14 +54,8 @@ class ClassExceptionResourceIT {
     @Autowired
     private ClassSectionRepository classSectionRepository;
 
-    @Mock
-    private ClassExceptionRepository classExceptionRepositoryMock;
-
     @Autowired
     private ClassExceptionMapper classExceptionMapper;
-
-    @Mock
-    private ClassExceptionService classExceptionServiceMock;
 
     @Autowired
     private MockMvc restClassExceptionMockMvc;
@@ -211,23 +196,6 @@ class ClassExceptionResourceIT {
             .andExpect(jsonPath("$.[*].id").value(hasItem(classException.getId())))
             .andExpect(jsonPath("$.[*].date").value(hasItem(DEFAULT_DATE.toString())))
             .andExpect(jsonPath("$.[*].reason").value(hasItem(DEFAULT_REASON)));
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllClassExceptionsWithEagerRelationshipsIsEnabled() throws Exception {
-        when(classExceptionServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restClassExceptionMockMvc.perform(get(ENTITY_API_URL + "?eagerload=true")).andExpect(status().isOk());
-
-        verify(classExceptionServiceMock, times(1)).findAllWithEagerRelationships(any());
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllClassExceptionsWithEagerRelationshipsIsNotEnabled() throws Exception {
-        when(classExceptionServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restClassExceptionMockMvc.perform(get(ENTITY_API_URL + "?eagerload=false")).andExpect(status().isOk());
-        verify(classExceptionRepositoryMock, times(1)).findAll(any(Pageable.class));
     }
 
     @Test
