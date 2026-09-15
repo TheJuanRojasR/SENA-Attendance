@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Apprentice;
 import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
@@ -26,6 +27,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
@@ -86,6 +88,9 @@ class AttendanceResourceIT {
 
     @Autowired
     private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     @Autowired
     private ApprenticeRepository apprenticeRepository;
@@ -244,6 +249,7 @@ class AttendanceResourceIT {
     void cleanup() {
         // The session endpoint persists records the fixture cannot track, so sweep the collection.
         attendanceRepository.deleteAll();
+        auditLogRepository.deleteAll();
         insertedAttendances.clear();
         insertedExceptions.forEach(classExceptionRepository::delete);
         insertedExceptions.clear();
@@ -395,6 +401,102 @@ class AttendanceResourceIT {
                     .content(om.writeValueAsBytes(statePayload(missingId, StateAttendance.FALLA)))
             )
             .andExpect(status().isNotFound());
+    }
+
+    // -----------------------------------------------------------------
+    // UC009 — The state changes are audited
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchAttendanceStateWritesOneAuditLog() throws Exception {
+        Attendance attendance = persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, attendance.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(statePayload(attendance.getId(), StateAttendance.FALLA)))
+            )
+            .andExpect(status().isOk());
+
+        List<AuditLog> auditLogs = auditLogRepository.findByAttendanceId(attendance.getId());
+        assertThat(auditLogs).hasSize(1);
+        AuditLog auditLog = auditLogs.get(0);
+        assertThat(auditLog.getPreviousState()).isEqualTo(StateAttendance.PRESENTE);
+        assertThat(auditLog.getNewState()).isEqualTo(StateAttendance.FALLA);
+        assertThat(auditLog.getEditDate()).isNotNull();
+        assertThat(auditLog.getModifiedBy().getId()).isEqualTo(instructor.getId());
+        assertThat(auditLog.getAttendance().getId()).isEqualTo(attendance.getId());
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchAttendanceStateWithoutChangeWritesNoAuditLog() throws Exception {
+        Attendance attendance = persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, attendance.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(statePayload(attendance.getId(), StateAttendance.PRESENTE)))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(auditLogRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionChangingAStateWritesOneAuditLog() throws Exception {
+        saveSession(
+            sessionPayload(
+                classSection.getId(),
+                sessionDate,
+                List.of(
+                    confirmation(firstStudent.getId(), StateAttendance.PRESENTE),
+                    confirmation(secondStudent.getId(), StateAttendance.PRESENTE)
+                )
+            )
+        );
+
+        saveSession(
+            sessionPayload(
+                classSection.getId(),
+                sessionDate,
+                List.of(
+                    confirmation(firstStudent.getId(), StateAttendance.FALLA),
+                    confirmation(secondStudent.getId(), StateAttendance.PRESENTE)
+                )
+            )
+        );
+
+        Attendance firstRecord = attendanceRepository
+            .findByClassSectionIdAndStudentIdAndDate(classSection.getId(), firstStudent.getId(), sessionDate)
+            .orElseThrow();
+        List<AuditLog> auditLogs = auditLogRepository.findAll();
+        assertThat(auditLogs).hasSize(1);
+        AuditLog auditLog = auditLogs.get(0);
+        assertThat(auditLog.getPreviousState()).isEqualTo(StateAttendance.PRESENTE);
+        assertThat(auditLog.getNewState()).isEqualTo(StateAttendance.FALLA);
+        assertThat(auditLog.getEditDate()).isNotNull();
+        assertThat(auditLog.getModifiedBy().getId()).isEqualTo(instructor.getId());
+        assertThat(auditLog.getAttendance().getId()).isEqualTo(firstRecord.getId());
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionWithoutStateChangesWritesNoAuditLog() throws Exception {
+        List<Map<String, Object>> confirmations = List.of(
+            confirmation(firstStudent.getId(), StateAttendance.PRESENTE),
+            confirmation(secondStudent.getId(), StateAttendance.FALLA)
+        );
+
+        saveSession(sessionPayload(classSection.getId(), sessionDate, confirmations));
+        saveSession(sessionPayload(classSection.getId(), sessionDate, confirmations));
+
+        // The first save only creates records and the second one keeps the same states.
+        assertThat(auditLogRepository.findAll()).isEmpty();
     }
 
     // -----------------------------------------------------------------

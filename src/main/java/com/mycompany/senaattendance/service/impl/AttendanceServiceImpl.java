@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Apprentice;
 import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Trimester;
@@ -13,6 +14,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.AttendanceSearchCriteria;
+import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
@@ -29,6 +31,7 @@ import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.vm.AttendanceConfirmationVM;
 import com.mycompany.senaattendance.web.rest.vm.AttendanceSessionVM;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -81,6 +84,8 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private final UserProfileRepository userProfileRepository;
 
+    private final AuditLogRepository auditLogRepository;
+
     private final Clock clock;
 
     public AttendanceServiceImpl(
@@ -93,6 +98,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         TrimesterService trimesterService,
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
+        AuditLogRepository auditLogRepository,
         Clock clock
     ) {
         this.attendanceRepository = attendanceRepository;
@@ -104,6 +110,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.trimesterService = trimesterService;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
+        this.auditLogRepository = auditLogRepository;
         this.clock = clock;
     }
 
@@ -111,7 +118,8 @@ public class AttendanceServiceImpl implements AttendanceService {
      * Registers the attendance session of one class section on a session date (UC009). The
      * session is upserted mark by mark, keyed by materia, aprendiz and fecha; the apprentices
      * left out of the payload stay without a record, which is what makes a session incomplete
-     * (A5). Every rule is evaluated before writing, so a rejected session persists nothing.
+     * (A5). Every rule is evaluated before writing, so a rejected session persists nothing. A
+     * mark that changes the state of an existing record is recorded in the audit log.
      *
      * @param attendanceSessionVM the materia, the session date and the confirmed marks.
      * @return the persisted session with its records and the derived completeness.
@@ -142,7 +150,8 @@ public class AttendanceServiceImpl implements AttendanceService {
      * Edits the state of one attendance record (A2). The record must belong to a materia assigned
      * to the current instructor, the trimester of the session date must still be active, and only
      * Presente or Falla are accepted because Justificada arrives through an approved justification
-     * (UC010). Everything but the state of the record is preserved.
+     * (UC010). Everything but the state of the record is preserved, and a real change of state is
+     * recorded in the audit log.
      *
      * @param id the id of the record to edit.
      * @param stateAttendance the new state.
@@ -158,8 +167,11 @@ public class AttendanceServiceImpl implements AttendanceService {
             validateEditableState(stateAttendance);
             validateActiveTrimester(attendance.getDate());
 
+            StateAttendance previousState = attendance.getStateAttendance();
             attendance.setStateAttendance(stateAttendance);
-            return attendanceMapper.toDto(attendanceRepository.save(attendance));
+            Attendance savedAttendance = attendanceRepository.save(attendance);
+            recordStateChange(savedAttendance, previousState, stateAttendance, attendance.getClassSection().getInstructor());
+            return attendanceMapper.toDto(savedAttendance);
         });
     }
 
@@ -439,7 +451,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     /**
      * Creates or updates one record per confirmation, keyed by materia, aprendiz and fecha. Any
      * id sent in the payload is ignored, and an unchanged mark is rewritten, so saving the same
-     * session twice is idempotent.
+     * session twice is idempotent. Only a state that actually changes on an existing record is
+     * audited: a new record has no previous value.
      *
      * @param attendanceSessionVM the requested session.
      * @param classSection the materia of the session.
@@ -455,9 +468,35 @@ public class AttendanceServiceImpl implements AttendanceService {
             Attendance attendance = attendanceRepository
                 .findByClassSectionIdAndStudentIdAndDate(classSection.getId(), confirmation.getStudentId(), attendanceSessionVM.getDate())
                 .orElseGet(() -> new Attendance().date(attendanceSessionVM.getDate()).classSection(classSection).student(student));
-            attendance.setStateAttendance(confirmation.getStateAttendance());
+            StateAttendance previousState = attendance.getStateAttendance();
+            StateAttendance newState = confirmation.getStateAttendance();
+            attendance.setStateAttendance(newState);
             attendanceRepository.save(attendance);
+            recordStateChange(attendance, previousState, newState, classSection.getInstructor());
         }
+    }
+
+    /**
+     * Writes one audit entry when the state of an existing record really changes (UC009). A new
+     * record has no previous state and saving the same state is not a change, so both cases are
+     * left out of the audit log.
+     *
+     * @param attendance the persisted record whose state changed.
+     * @param previousState the state before the change.
+     * @param newState the state after the change.
+     * @param modifiedBy the instructor profile that made the change.
+     */
+    private void recordStateChange(Attendance attendance, StateAttendance previousState, StateAttendance newState, UserProfile modifiedBy) {
+        if (previousState == null || previousState == newState) {
+            return;
+        }
+        AuditLog auditLog = new AuditLog()
+            .previousState(previousState)
+            .newState(newState)
+            .editDate(Instant.now(clock))
+            .modifiedBy(modifiedBy)
+            .attendance(attendance);
+        auditLogRepository.save(auditLog);
     }
 
     /**
