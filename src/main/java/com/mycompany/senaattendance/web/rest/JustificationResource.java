@@ -28,6 +28,11 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.mycompany.senaattendance.domain.Justification}.
+ *
+ * <p>Only an administrator and the owning apprentice reach this resource: the instructor
+ * decision over a justification arrives with UC010, so its authority is not granted here yet.
+ * Every operation is scoped in the service, so an apprentice only reads and writes their own
+ * justifications.
  */
 @RestController
 @RequestMapping("/api/justifications")
@@ -144,11 +149,14 @@ public class JustificationResource {
     /**
      * {@code GET  /justifications} : get all the Justifications.
      *
+     * <p>An administrator reads every justification; an apprentice reads only their own.
+     *
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Justifications in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<List<JustificationDTO>> getAllJustifications(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -167,10 +175,14 @@ public class JustificationResource {
     /**
      * {@code GET  /justifications/:id} : get the "id" justification.
      *
+     * <p>An administrator reads any justification; a justification of another apprentice
+     * resolves as not found for an apprentice, so its existence is not disclosed.
+     *
      * @param id the id of the justificationDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the justificationDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> getJustification(@PathVariable("id") String id) {
         LOG.debug("REST request to get Justification : {}", id);
         Optional<JustificationDTO> justificationDTO = justificationService.findOne(id);

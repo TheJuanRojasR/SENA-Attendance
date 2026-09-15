@@ -7,4 +7,5 @@ public enum StateJustification {
     ACEPTADA,
     RECHAZADA,
     PENDIENTE,
+    CANCELADA,
 }

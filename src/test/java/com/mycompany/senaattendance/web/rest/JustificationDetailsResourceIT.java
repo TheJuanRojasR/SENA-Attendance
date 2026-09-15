@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.JustificationDetailsAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -13,10 +14,14 @@ import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
+import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
@@ -69,6 +74,9 @@ class JustificationDetailsResourceIT {
     private static final String ENTITY_API_URL = "/api/justification-details";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
+    private static final String APPRENTICE_LOGIN = "justification_details_apprentice";
+    private static final String OTHER_APPRENTICE_LOGIN = "other_justification_details_apprentice";
+
     @Autowired
     private ObjectMapper om;
 
@@ -80,6 +88,12 @@ class JustificationDetailsResourceIT {
 
     @Autowired
     private JustificationRepository justificationRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Mock
     private JustificationDetailsRepository justificationDetailsRepositoryMock;
@@ -162,9 +176,12 @@ class JustificationDetailsResourceIT {
             justificationDetailsRepository.delete(insertedJustificationDetails);
             insertedJustificationDetails = null;
         }
-        // Remove the related documents persisted for the PUT tests
+        // Remove the related documents persisted for the PUT tests and the scoping tests
+        justificationDetailsRepository.deleteAll();
         classSectionRepository.deleteAll();
         justificationRepository.deleteAll();
+        userProfileRepository.deleteAll();
+        userRepository.deleteAll();
     }
 
     @Test
@@ -319,6 +336,177 @@ class JustificationDetailsResourceIT {
     void getNonExistingJustificationDetails() throws Exception {
         // Get the justificationDetails
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL_ID, Long.MAX_VALUE)).andExpect(status().isNotFound());
+    }
+
+    // -----------------------------------------------------------------
+    // UC011 — An apprentice only reaches the parts of their own justifications
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllJustificationDetailsesAsApprenticeReturnsOnlyOwnRecords() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        JustificationDetails ownDetails = persistJustificationDetails(persistJustification(apprentice));
+        persistJustificationDetails(persistJustification(otherApprentice));
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].id").value(ownDetails.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getOwnJustificationDetailsAsApprenticeReturnsOk() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        JustificationDetails details = persistJustificationDetails(persistJustification(apprentice));
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL_ID, details.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(details.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getJustificationDetailsOfAnotherApprenticeReturnsNotFound() throws Exception {
+        persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        JustificationDetails otherDetails = persistJustificationDetails(persistJustification(otherApprentice));
+
+        restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL_ID, otherDetails.getId())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getJustificationDetailsOfAnotherApprenticeAsAdminReadsIt() throws Exception {
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        JustificationDetails otherDetails = persistJustificationDetails(persistJustification(otherApprentice));
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL_ID, otherDetails.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(otherDetails.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationDetailsAsApprenticeForOwnJustificationIsCreated() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        JustificationDetailsDTO justificationDetailsDTO = justificationDetailsMapper.toDto(
+            justificationDetailsFor(persistJustification(apprentice))
+        );
+
+        restJustificationDetailsMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationDetailsDTO)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.stateJustification").value(DEFAULT_STATE_JUSTIFICATION.toString()));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationDetailsAsApprenticeForAnotherJustificationReturnsBadRequest() throws Exception {
+        persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        JustificationDetailsDTO justificationDetailsDTO = justificationDetailsMapper.toDto(
+            justificationDetailsFor(persistJustification(otherApprentice))
+        );
+
+        restJustificationDetailsMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationDetailsDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourJustification"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void updateOwnJustificationDetailsAsApprenticeSucceeds() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        Justification justification = persistJustification(apprentice);
+        JustificationDetails insertedDetails = persistJustificationDetails(justification);
+
+        JustificationDetails payload = justificationDetailsFor(justification);
+        payload.setId(insertedDetails.getId());
+        payload.setCorrectionText(UPDATED_CORRECTION_TEXT);
+
+        restJustificationDetailsMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, insertedDetails.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(justificationDetailsMapper.toDto(payload)))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.correctionText").value(UPDATED_CORRECTION_TEXT));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void updateJustificationDetailsOfAnotherApprenticeReturnsBadRequest() throws Exception {
+        persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        Justification otherJustification = persistJustification(otherApprentice);
+        JustificationDetails otherDetails = persistJustificationDetails(otherJustification);
+
+        JustificationDetails payload = justificationDetailsFor(otherJustification);
+        payload.setId(otherDetails.getId());
+        payload.setCorrectionText(UPDATED_CORRECTION_TEXT);
+
+        restJustificationDetailsMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, otherDetails.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(justificationDetailsMapper.toDto(payload)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourJustification"));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void patchJustificationDetailsOfAnotherApprenticeReturnsBadRequest() throws Exception {
+        persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        JustificationDetails otherDetails = persistJustificationDetails(persistJustification(otherApprentice));
+
+        JustificationDetails partialUpdatedDetails = new JustificationDetails();
+        partialUpdatedDetails.setId(otherDetails.getId());
+        partialUpdatedDetails.setCorrectionText(UPDATED_CORRECTION_TEXT);
+
+        restJustificationDetailsMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, otherDetails.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedDetails))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourJustification"));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void deleteJustificationDetailsOfAnotherApprenticeReturnsBadRequest() throws Exception {
+        persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        JustificationDetails otherDetails = persistJustificationDetails(persistJustification(otherApprentice));
+
+        restJustificationDetailsMockMvc
+            .perform(delete(ENTITY_API_URL_ID, otherDetails.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourJustification"));
+
+        assertThat(justificationDetailsRepository.existsById(otherDetails.getId())).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = "justification_details_instructor", authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getJustificationDetailsAsInstructorReturnsForbidden() throws Exception {
+        restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
+        restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
     }
 
     @Test
@@ -564,6 +752,44 @@ class JustificationDetailsResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    /**
+     * Persists an apprentice with a resolvable login, so the service can resolve their profile
+     * from the security context.
+     */
+    private UserProfile persistApprentice(String login) {
+        User user = UserResourceIT.createEntity();
+        user.setLogin(login);
+        user.setEmail(login + "@example.com");
+        user.setActivated(true);
+        user = userRepository.save(user);
+
+        UserProfile profile = UserProfileResourceIT.createEntity();
+        profile.setDocumentNumber("D" + UUID.randomUUID().toString().replace("-", "").substring(0, 13));
+        profile.setUser(user);
+        return userProfileRepository.save(profile);
+    }
+
+    private Justification persistJustification(UserProfile student) {
+        Justification justification = JustificationResourceIT.createEntity();
+        justification.setId(null);
+        justification.setStudent(student);
+        return justificationRepository.save(justification);
+    }
+
+    /**
+     * Builds a part of the given justification, not persisted, so it can be sent as payload.
+     */
+    private static JustificationDetails justificationDetailsFor(Justification justification) {
+        JustificationDetails justificationDetails = createEntity();
+        justificationDetails.setId(null);
+        justificationDetails.setJustification(justification);
+        return justificationDetails;
+    }
+
+    private JustificationDetails persistJustificationDetails(Justification justification) {
+        return justificationDetailsRepository.save(justificationDetailsFor(justification));
     }
 
     protected long getRepositoryCount() {

@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.web.rest;
 
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -26,6 +28,11 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.mycompany.senaattendance.domain.JustificationDetails}.
+ *
+ * <p>Only an administrator and the owning apprentice reach this resource: the instructor
+ * decision over a part arrives with UC010, so its authority is not granted here yet. Every
+ * operation is scoped in the service, so an apprentice only reads and writes the parts of their
+ * own justifications.
  */
 @RestController
 @RequestMapping("/api/justification-details")
@@ -58,6 +65,7 @@ public class JustificationDetailsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> createJustificationDetails(
         @Valid @RequestBody JustificationDetailsDTO justificationDetailsDTO
     ) throws URISyntaxException {
@@ -82,6 +90,7 @@ public class JustificationDetailsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> updateJustificationDetails(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody JustificationDetailsDTO justificationDetailsDTO
@@ -116,6 +125,7 @@ public class JustificationDetailsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> partialUpdateJustificationDetails(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody JustificationDetailsDTO justificationDetailsDTO
@@ -148,6 +158,7 @@ public class JustificationDetailsResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Justification Details in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<List<JustificationDetailsDTO>> getAllJustificationDetailses(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -170,6 +181,7 @@ public class JustificationDetailsResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the justificationDetailsDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> getJustificationDetails(@PathVariable("id") String id) {
         LOG.debug("REST request to get JustificationDetails : {}", id);
         Optional<JustificationDetailsDTO> justificationDetailsDTO = justificationDetailsService.findOne(id);
@@ -183,6 +195,7 @@ public class JustificationDetailsResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<Void> deleteJustificationDetails(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JustificationDetails : {}", id);
         justificationDetailsService.delete(id);
