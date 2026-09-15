@@ -1038,10 +1038,10 @@ class UserResourceIT {
         User instructor = instructorUser("noact.instr", "noact.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "E5OK01");
 
-        // A section on a non-active ficha does not trigger the E5 rule.
-        Grade inactiveGrade = persistedGrade("E5-FICHA-INACTIVA", StateGrade.INACTIVA);
-        ClassSection inactiveSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(inactiveGrade);
-        classSectionRepository.save(inactiveSection);
+        // A section on a manually paused ficha does not trigger the E5 rule.
+        Grade pausedGrade = persistedGrade("E5-FICHA-APLAZADA", StateGrade.APLAZADA);
+        ClassSection pausedSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(pausedGrade);
+        classSectionRepository.save(pausedSection);
 
         SetUserActivatedVM vm = new SetUserActivatedVM();
         vm.setDocumentNumber("E5OK01");

@@ -18,7 +18,6 @@ public class GradeDTO implements Serializable {
     @Size(max = 20)
     private String code;
 
-    @NotNull
     private StateGrade state;
 
     @NotNull

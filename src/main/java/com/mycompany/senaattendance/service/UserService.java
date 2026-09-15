@@ -583,7 +583,7 @@ public class UserService {
         }
 
         // Operational means the section belongs to a ficha that is still running (ACTIVA).
-        // A ficha in another state (INACTIVA / APLAZADA) does not hold the instructor.
+        // A ficha in another state (PENDIENTE / FINALIZADA / APLAZADA / CANCELADA) does not hold the instructor.
         List<ClassSection> operationalSections = classSectionRepository
             .findByInstructorId(profile.getId())
             .stream()

@@ -55,7 +55,7 @@ class GradeResourceIT {
     private static final String UPDATED_CODE = "BBBBBBBBBB";
 
     private static final StateGrade DEFAULT_STATE = StateGrade.ACTIVA;
-    private static final StateGrade UPDATED_STATE = StateGrade.INACTIVA;
+    private static final StateGrade UPDATED_STATE = StateGrade.APLAZADA;
 
     private static final LocalDate DEFAULT_START_DATE = LocalDate.ofEpochDay(0L);
     private static final LocalDate UPDATED_START_DATE = LocalDate.now(ZoneId.systemDefault());
@@ -247,19 +247,33 @@ class GradeResourceIT {
     }
 
     @Test
-    void checkStateIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        grade.setState(null);
+    void createGradeComputesStateFromDatesIgnoringClientState() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
 
-        // Create the Grade, which fails.
-        GradeDTO gradeDTO = gradeMapper.toDto(grade);
+        // The ficha starts in the future, so the server must persist PENDIENTE
+        // regardless of the CANCELADA state sent by the client.
+        GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+        gradeDTO.setStartDate(today.plusDays(10));
+        gradeDTO.setEndDate(today.plusDays(40));
+        gradeDTO.setState(StateGrade.CANCELADA);
 
-        restGradeMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
-            .andExpect(status().isBadRequest());
+        var returnedGradeDTO = om.readValue(
+            restGradeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.state").value(StateGrade.PENDIENTE.toString()))
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            GradeDTO.class
+        );
 
-        assertSameRepositoryCount(databaseSizeBeforeTest);
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        var returnedGrade = gradeMapper.toEntity(returnedGradeDTO);
+        assertThat(gradeRepository.findById(returnedGrade.getId()).orElseThrow().getState()).isEqualTo(StateGrade.PENDIENTE);
+
+        insertedGrade = returnedGrade;
     }
 
     @Test
@@ -358,8 +372,8 @@ class GradeResourceIT {
         modalityRepository.save(grade.getModality());
         timeSlotRepository.save(grade.getTimeSlot());
 
-        // Initialize the database
-        insertedGrade = gradeRepository.save(grade);
+        // Initialize the database with a manually paused ficha, so the update must preserve that state
+        insertedGrade = gradeRepository.save(grade.state(UPDATED_STATE));
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
@@ -465,8 +479,8 @@ class GradeResourceIT {
 
     @Test
     void fullUpdateGradeWithPatch() throws Exception {
-        // Initialize the database
-        insertedGrade = gradeRepository.save(grade);
+        // Initialize the database with a manually paused ficha, so the patch must preserve that state
+        insertedGrade = gradeRepository.save(grade.state(UPDATED_STATE));
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 

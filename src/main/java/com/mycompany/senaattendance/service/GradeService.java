@@ -73,4 +73,11 @@ public interface GradeService {
      * @return list of active grades
      */
     List<GradeDTO> findActiveGrades();
+
+    /**
+     * Daily job that keeps each ficha state in sync with today versus its
+     * {@code [startDate, endDate]} range. Fichas in a manual state ({@code APLAZADA},
+     * {@code CANCELADA}) are left untouched.
+     */
+    void syncStates();
 }
