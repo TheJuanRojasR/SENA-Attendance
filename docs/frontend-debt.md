@@ -308,6 +308,25 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC014 — Gestionar trimestres académicos
+
+**Estado del backend:** implementado. El `status` del trimestre es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CERRADO`) que el servidor calcula por fechas e **ignora el valor enviado**; un job diario lo sincroniza y la migración Mongock orden 009 convierte el booleano previo. Al crear se exige fecha inicio desde mañana y fecha fin no anterior a hoy. Ver [`docs/api-contracts.md#uc014--gestionar-trimestres-académicos`](./api-contracts.md#uc014--gestionar-trimestres-académicos).
+
+**Estado del frontend:** pendiente. **Cambio incompatible:** el campo `status` pasó de booleano (`false`) a string (`"FUTURO"`/`"ACTIVO"`/`"CERRADO"`), y el parámetro `status` de la búsqueda usa los mismos tres valores. El frontend stock de JHipster sigue enviando y esperando el booleano.
+
+| #   | Ítem                                                                                                                                                                                                                                              | Estado      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Cambiar el campo `status` de booleano a string en el modelo (`trimester.model.ts`), la tabla, el formulario y el detalle; el backend devuelve `"status": "FUTURO"\|"ACTIVO"\|"CERRADO"` (**cambio incompatible**).                                  | `Pendiente` |
+| 2   | No enviar `status` en `POST`/`PUT`/`PATCH`: el servidor lo calcula por fechas e ignora el valor enviado. En el alta, recordar que todo trimestre nace `FUTURO` (fecha inicio desde mañana y fecha fin no anterior a hoy).                          | `Pendiente` |
+| 3   | En la búsqueda `GET /api/trimesters/search`, enviar `?status=FUTURO\|ACTIVO\|CERRADO` (ya no un booleano) además de nombre o año; el filtro de fechas sigue siendo el año.                                                                          | `Pendiente` |
+| 4   | En `PUT` enviar el `id` **solo en el body** (`PUT /api/trimesters`, ruta sin `/{id}`); si falta, `400 error.idnull`, y si no existe, `400 error.idnotfound`. Ya no se emite `error.idinvalid` por desajuste entre ruta y body.                      | `Pendiente` |
+| 5   | Restringir la pantalla de gestión a `ROLE_ADMIN`: todas las escrituras y ahora también `GET /api/trimesters/{id}` exigen ese rol; los demás roles autenticados reciben `403`. El listado y la búsqueda siguen disponibles para cualquier autenticado. | `Pendiente` |
+| 6   | Al crear, mapear los errores de fecha: `400 error.datesorder`, `400 error.enddateinpast`, `400 error.startdatemustbefuture` y `400 error.datesoverlap`, mostrando el mensaje sobre el campo de fechas.                                              | `Pendiente` |
+| 7   | Al eliminar, manejar `400 error.trimesterInUse` ("No es posible eliminar el trimestre: tiene horarios o asistencias registradas") y ofrecer conservarlo en lugar de reintentar.                                                                      | `Pendiente` |
+| 8   | Consumir `GET /api/trimesters` como listado **paginado** (`page`/`size`/`sort`, 20 por defecto) usando `X-Total-Count`; el backend no expone `/api/trimesters/active`.                                                                              | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -374,6 +393,9 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.codenotnumeric`         | "El código debe contener solo números."                                                            | Alta/edición de programa (UC012-E5).                   |
 | `error.programInUse`           | "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."                 | Eliminación de programa (UC012-E8).                    |
 | `error.trimesterInUse`         | "No es posible eliminar el trimestre: tiene horarios o asistencias registradas."                   | Eliminación de trimestre (UC014-E6).                   |
+| `trimesterStateFuture`         | "Futuro"                                                                                            | Etiqueta del estado del trimestre (UC014).             |
+| `trimesterStateActive`         | "Activo"                                                                                            | Etiqueta del estado del trimestre (UC014).             |
+| `trimesterStateClosed`         | "Cerrado"                                                                                           | Etiqueta del estado del trimestre (UC014).             |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

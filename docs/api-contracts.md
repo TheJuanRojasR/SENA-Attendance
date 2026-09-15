@@ -52,7 +52,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Implementado    |
 | [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Implementado    |
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Implementado    |
-| [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Parcial         |
+| [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Implementado    |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Parcial         |
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Parcial         |
 | [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Parcial         |
@@ -750,21 +750,21 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 ## UC014 — Gestionar trimestres académicos
 
-**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Implementado
 
-**Feature:** CRUD de trimestres globales. Su estado (`status`) se calcula por fechas y un proceso diario lo sincroniza; el trimestre activo enmarca asistencias, horarios y justificaciones.
+**Feature:** CRUD de trimestres globales. Su estado (`status`, enum `FUTURO`/`ACTIVO`/`CERRADO`) se calcula por fechas y un job diario lo sincroniza; el trimestre activo enmarca asistencias, horarios y justificaciones.
 
 **Endpoints:**
 
-| Método | Ruta                     | Acceso                            | Descripción                                                     |
-| ------ | ------------------------ | --------------------------------- | --------------------------------------------------------------- |
-| GET    | `/api/trimesters`        | Autenticado                       | Lista paginada.                                                 |
-| GET    | `/api/trimesters/search` | Autenticado                       | Filtra por año (4 dígitos) o nombre, y por `status`; paginado.  |
-| GET    | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Detalle.                                                        |
-| POST   | `/api/trimesters`        | `ROLE_ADMIN` | Crea y calcula `status`; `201`.                                 |
-| PUT    | `/api/trimesters`   | `ROLE_ADMIN` | Reemplaza; `200`. No aplica validaciones de estado.             |
-| PATCH  | `/api/trimesters`        | `ROLE_ADMIN` | Actualización parcial con reglas por estado; `id` en el cuerpo. |
-| DELETE | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                 |
+| Método | Ruta                     | Acceso       | Descripción                                                                         |
+| ------ | ------------------------ | ------------ | ----------------------------------------------------------------------------------- |
+| GET    | `/api/trimesters`        | Autenticado  | Lista paginada.                                                                      |
+| GET    | `/api/trimesters/search` | Autenticado  | Filtra por nombre, año (4 dígitos) o `status` (`FUTURO\|ACTIVO\|CERRADO`); paginado. |
+| GET    | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Detalle.                                                                             |
+| POST   | `/api/trimesters`        | `ROLE_ADMIN` | Crea y calcula `status`; `201`.                                                      |
+| PUT    | `/api/trimesters`        | `ROLE_ADMIN` | Reemplaza; `200`. Aplica las mismas reglas de estado que `PATCH`; `id` en el cuerpo. |
+| PATCH  | `/api/trimesters`        | `ROLE_ADMIN` | Actualización parcial con reglas por estado; `id` en el cuerpo.                      |
+| DELETE | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                                      |
 
 **Request — `POST /api/trimesters`**
 
@@ -776,12 +776,12 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 }
 ```
 
-| Campo       | Tipo                  | Obligatorio | Reglas                                                                                                 |
-| ----------- | --------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
-| `name`      | string                | Sí          | `@NotNull`, máximo 30.                                                                                 |
-| `startDate` | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; debe ser anterior a `endDate`.                                                             |
-| `endDate`   | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; no puede solaparse con otro trimestre.                                                     |
-| `status`    | boolean               | No          | Lo calcula el servidor al crear (`startDate <= hoy <= endDate`); el valor enviado se ignora en `POST`. |
+| Campo       | Tipo                  | Obligatorio | Reglas                                                                                                                     |
+| ----------- | --------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `name`      | string                | Sí          | `@NotNull`, máximo 30.                                                                                                     |
+| `startDate` | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; debe ser anterior a `endDate`; en la creación, desde mañana (`startDate > hoy`).                                |
+| `endDate`   | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; no puede solaparse con otro trimestre; en la creación, no anterior a hoy (`endDate >= hoy`).                    |
+| `status`    | string                | No          | Enum `FUTURO`/`ACTIVO`/`CERRADO`; lo calcula el servidor por fechas y el valor enviado se ignora en `POST`, `PUT` y `PATCH`. |
 
 **Response:** `201 Created`
 
@@ -791,13 +791,15 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
   "name": "2026-2",
   "startDate": "2026-10-01",
   "endDate": "2026-12-20",
-  "status": false
+  "status": "FUTURO"
 }
 ```
 
-**Errores:** `400 error.datesorder` ("La fecha de inicio debe ser anterior a la fecha de fin"), `400 error.datesoverlap` ("Ya existe un trimestre que se solapa con las fechas indicadas"), `400 error.noteditable` ("No se puede editar un trimestre que ya ha finalizado"), `400 error.startdatelocked`, `400 error.enddateinpast`, `400 error.startdatemustbefuture`, `400 error.attendancestartdate`; además de `idexists`, `idnull`, `idinvalid`, `idnotfound` y de validación; `403`; `404`.
+**Errores:** `400 error.datesorder` ("La fecha de inicio debe ser anterior a la fecha de fin"), `400 error.enddateinpast` ("La fecha de fin no puede ser anterior a hoy"), `400 error.startdatemustbefuture` ("La fecha de inicio debe ser desde mañana en adelante"), `400 error.datesoverlap` ("Ya existe un trimestre que se solapa con las fechas indicadas"), `400 error.noteditable` ("No se puede editar un trimestre que ya ha finalizado"), `400 error.startdatelocked`, `400 error.attendancestartdate`; además de `idexists`, `idnull`, `idnotfound` y de validación; `403`; `404`.
 
-**Notas / lo que se necesita:** `PUT` y `PATCH` aplican las mismas reglas de estado (un trimestre **cerrado** no se edita; en **activo** la fecha inicio está congelada y la fecha fin no puede ser anterior a hoy; en **futuro** la fecha inicio debe seguir siendo futura; cambiar la fecha inicio se bloquea si hay asistencias), validan orden de fechas (E2) y solape (E1) y recalculan `status`. **Eliminar en uso (E6):** si el trimestre tiene horarios o asistencias, `DELETE` responde `400 error.trimesterInUse`. La escritura está restringida a `ROLE_ADMIN`. **Pendiente:** al crear aún no se exige fecha inicio ≥ mañana ni fecha fin ≥ hoy (E2), y el estado sigue siendo un booleano `status`, por lo que no se puede filtrar por los tres estados (Futuro/Activo/Cerrado) que pide el UC.
+**Notas / lo que se necesita:** `PUT` y `PATCH` aplican las mismas reglas de estado (un trimestre **cerrado** no se edita; en **activo** la fecha inicio está congelada y la fecha fin no puede ser anterior a hoy; en **futuro** la fecha inicio debe seguir siendo futura; cambiar la fecha inicio se bloquea si hay asistencias), validan orden de fechas (E2) y solape (E1) y recalculan `status`. **Eliminar en uso (E6):** si el trimestre tiene horarios o asistencias, `DELETE` responde `400 error.trimesterInUse`. La escritura está restringida a `ROLE_ADMIN`; `GET /api/trimesters/{id}` también exige `ROLE_ADMIN`.
+
+El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CERRADO`) que el servidor calcula siempre por fechas e **ignora el valor enviado** en `POST`, `PUT` y `PATCH` (`CERRADO` si `endDate < hoy`; `FUTURO` si `startDate > hoy`; si no, `ACTIVO`). Al crear, las fechas se validan en este orden: `startDate < endDate` (`error.datesorder`), `endDate` no anterior a hoy (`error.enddateinpast`), `startDate` desde mañana (`error.startdatemustbefuture`) y sin solape (`error.datesoverlap`); por eso todo trimestre creado por `POST` nace **FUTURO**. Un **job diario** (01:00) mantiene el `status` sincronizado con las fechas, y la **migración Mongock orden 009** (`MigrateTrimesterStatusToState`) convierte el booleano previo al enum por fechas.
 
 ---
 
