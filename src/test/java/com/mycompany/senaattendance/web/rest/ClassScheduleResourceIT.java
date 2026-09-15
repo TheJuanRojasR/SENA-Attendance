@@ -1009,6 +1009,67 @@ class ClassScheduleResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    // -----------------------------------------------------------------
+    // Authorization: writes are restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createClassScheduleAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
+
+        restClassScheduleMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateClassScheduleAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(insertedClassSchedule);
+
+        restClassScheduleMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateClassScheduleAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(insertedClassSchedule);
+
+        restClassScheduleMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classScheduleDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteClassScheduleAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restClassScheduleMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedClassSchedule.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
     protected long getRepositoryCount() {
         return classScheduleRepository.count();
     }

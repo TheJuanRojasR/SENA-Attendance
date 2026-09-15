@@ -56,7 +56,7 @@ public class ClassScheduleResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassScheduleDTO> createClassSchedule(@Valid @RequestBody ClassScheduleDTO classScheduleDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassSchedule : {}", classScheduleDTO);
@@ -79,7 +79,7 @@ public class ClassScheduleResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassScheduleDTO> updateClassSchedule(@Valid @RequestBody ClassScheduleDTO classScheduleDTO)
         throws URISyntaxException {
         String id = classScheduleDTO.getId();
@@ -110,7 +110,7 @@ public class ClassScheduleResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassScheduleDTO> partialUpdateClassSchedule(@NotNull @RequestBody ClassScheduleDTO classScheduleDTO)
         throws URISyntaxException {
         String id = classScheduleDTO.getId();
@@ -174,7 +174,7 @@ public class ClassScheduleResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteClassSchedule(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassSchedule : {}", id);
         classScheduleService.delete(id);

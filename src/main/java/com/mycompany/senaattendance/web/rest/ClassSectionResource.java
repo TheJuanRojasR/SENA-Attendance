@@ -56,7 +56,7 @@ public class ClassSectionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassSectionDTO> createClassSection(@Valid @RequestBody ClassSectionDTO classSectionDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassSection : {}", classSectionDTO);
@@ -79,7 +79,7 @@ public class ClassSectionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassSectionDTO> updateClassSection(@Valid @RequestBody ClassSectionDTO classSectionDTO)
         throws URISyntaxException {
         String id = classSectionDTO.getId();
@@ -110,7 +110,7 @@ public class ClassSectionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassSectionDTO> partialUpdateClassSection(@NotNull @RequestBody ClassSectionDTO classSectionDTO)
         throws URISyntaxException {
         String id = classSectionDTO.getId();
@@ -173,15 +173,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Sections in body.
      */
     @GetMapping("/mine")
-    @PreAuthorize(
-        "hasAuthority('" +
-            AuthoritiesConstants.INSTRUCTOR +
-            "') or hasAuthority('" +
-            AuthoritiesConstants.COORDINATOR +
-            "') or hasAuthority('" +
-            AuthoritiesConstants.ADMIN +
-            "')"
-    )
+    @PreAuthorize("hasAuthority('" + AuthoritiesConstants.INSTRUCTOR + "') or hasAuthority('" + AuthoritiesConstants.ADMIN + "')")
     public ResponseEntity<List<ClassSectionDTO>> getMyClassSections() {
         LOG.debug("REST request to get ClassSections for the current instructor");
         List<ClassSectionDTO> classSections = classSectionService.findAllForCurrentInstructor();
@@ -195,7 +187,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteClassSection(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassSection : {}", id);
         classSectionService.delete(id);

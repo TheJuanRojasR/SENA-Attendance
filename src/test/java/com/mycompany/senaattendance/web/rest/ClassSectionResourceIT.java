@@ -1139,6 +1139,73 @@ class ClassSectionResourceIT {
         assertThat(classExceptionRepository.findById(insertedException.getId())).isEmpty();
     }
 
+    // -----------------------------------------------------------------
+    // Authorization: writes are restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createClassSectionAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
+
+        restClassSectionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateClassSectionAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(insertedClassSection);
+
+        restClassSectionMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateClassSectionAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(insertedClassSection);
+
+        restClassSectionMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classSectionDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteClassSectionAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassSection = classSectionRepository.save(classSection);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restClassSectionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedClassSection.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void getMyClassSectionsAsNonAdminReturnsForbidden() throws Exception {
+        restClassSectionMockMvc.perform(get(ENTITY_API_URL + "/mine")).andExpect(status().isForbidden());
+    }
+
     protected long getRepositoryCount() {
         return classSectionRepository.count();
     }

@@ -56,7 +56,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassExceptionDTO> createClassException(@Valid @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassException : {}", classExceptionDTO);
@@ -79,7 +79,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassExceptionDTO> updateClassException(@Valid @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         String id = classExceptionDTO.getId();
@@ -110,7 +110,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassExceptionDTO> partialUpdateClassException(@NotNull @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         String id = classExceptionDTO.getId();
@@ -174,7 +174,7 @@ public class ClassExceptionResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteClassException(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassException : {}", id);
         classExceptionService.delete(id);

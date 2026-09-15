@@ -414,6 +414,67 @@ class ClassExceptionResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    // -----------------------------------------------------------------
+    // Authorization: writes are restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createClassExceptionAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(classException);
+
+        restClassExceptionMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classExceptionDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateClassExceptionAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassException = classExceptionRepository.save(classException);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(insertedClassException);
+
+        restClassExceptionMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classExceptionDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateClassExceptionAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassException = classExceptionRepository.save(classException);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(insertedClassException);
+
+        restClassExceptionMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classExceptionDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteClassExceptionAsNonAdminReturnsForbidden() throws Exception {
+        insertedClassException = classExceptionRepository.save(classException);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restClassExceptionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedClassException.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
     protected long getRepositoryCount() {
         return classExceptionRepository.count();
     }
