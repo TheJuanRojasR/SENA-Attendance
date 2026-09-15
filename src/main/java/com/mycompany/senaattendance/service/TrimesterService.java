@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.service;
 
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -54,7 +55,7 @@ public interface TrimesterService {
      * @param pageable the pagination information.
      * @return a page of matching trimesters.
      */
-    Page<TrimesterDTO> search(String searchTerm, Boolean status, Pageable pageable);
+    Page<TrimesterDTO> search(String searchTerm, StateTrimester status, Pageable pageable);
 
     /**
      * Get the "id" trimester.

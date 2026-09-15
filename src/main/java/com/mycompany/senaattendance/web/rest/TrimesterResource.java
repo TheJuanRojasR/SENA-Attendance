@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.TrimesterService;
@@ -168,7 +169,7 @@ public class TrimesterResource {
     @GetMapping("/search")
     public ResponseEntity<List<TrimesterDTO>> searchTrimesters(
         @RequestParam(required = false) String search,
-        @RequestParam(required = false) Boolean status,
+        @RequestParam(required = false) StateTrimester status,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to search Trimesters with term: {}, status: {}", search, status);

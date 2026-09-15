@@ -3,6 +3,7 @@ package com.mycompany.senaattendance.service.impl;
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
@@ -73,7 +74,7 @@ public class TrimesterServiceImpl implements TrimesterService {
         LocalDate today = LocalDate.now(clock);
 
         validateCreationDatesAndOverlap(trimester, today);
-        trimester.setStatus(computeStatus(today, trimester.getStartDate(), trimester.getEndDate()));
+        trimester.setStatus(classifyState(today, trimester.getStartDate(), trimester.getEndDate()));
 
         trimester.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -106,7 +107,7 @@ public class TrimesterServiceImpl implements TrimesterService {
         }
 
         validateDatesAndOverlapExcludingSelf(trimester);
-        trimester.setStatus(computeStatus(today, trimester.getStartDate(), trimester.getEndDate()));
+        trimester.setStatus(classifyState(today, trimester.getStartDate(), trimester.getEndDate()));
 
         trimester = trimesterRepository.save(trimester);
         return trimesterMapper.toDto(trimester);
@@ -134,7 +135,7 @@ public class TrimesterServiceImpl implements TrimesterService {
                 trimesterMapper.partialUpdate(existingTrimester, trimesterDTO);
                 validateDatesAndOverlapExcludingSelf(existingTrimester);
                 if (startChanged || endChanged) {
-                    existingTrimester.setStatus(computeStatus(today, existingTrimester.getStartDate(), existingTrimester.getEndDate()));
+                    existingTrimester.setStatus(classifyState(today, existingTrimester.getStartDate(), existingTrimester.getEndDate()));
                 }
                 return existingTrimester;
             })
@@ -149,7 +150,7 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     @Override
-    public Page<TrimesterDTO> search(String searchTerm, Boolean status, Pageable pageable) {
+    public Page<TrimesterDTO> search(String searchTerm, StateTrimester status, Pageable pageable) {
         LOG.debug("Request to search Trimesters with term: {}, status: {}", searchTerm, status);
 
         boolean hasTerm = searchTerm != null && !searchTerm.isBlank();
@@ -196,9 +197,9 @@ public class TrimesterServiceImpl implements TrimesterService {
      * Applies the state-dependent edit rules of a trimester that already exists, shared by
      * {@code PUT} and {@code PATCH}:
      * <ul>
-     *     <li>a CLOSED trimester cannot be edited at all;</li>
-     *     <li>an ACTIVE trimester has a frozen start date and an end date not before today;</li>
-     *     <li>a FUTURE trimester requires a still-future start date;</li>
+     *     <li>a CERRADO trimester cannot be edited at all;</li>
+     *     <li>an ACTIVO trimester has a frozen start date and an end date not before today;</li>
+     *     <li>a FUTURO trimester requires a still-future start date;</li>
      *     <li>changing the start date is blocked once attendance exists.</li>
      * </ul>
      *
@@ -208,20 +209,20 @@ public class TrimesterServiceImpl implements TrimesterService {
      * @param today the reference day.
      */
     private void validateEditOfExistingTrimester(Trimester existing, LocalDate newStart, LocalDate newEnd, LocalDate today) {
-        TrimesterState state = classifyState(today, existing.getStartDate(), existing.getEndDate());
-        if (state == TrimesterState.CLOSED) {
+        StateTrimester state = classifyState(today, existing.getStartDate(), existing.getEndDate());
+        if (state == StateTrimester.CERRADO) {
             throw new TrimesterNotEditableException();
         }
         boolean startChanged = newStart != null && !newStart.equals(existing.getStartDate());
         boolean endChanged = newEnd != null && !newEnd.equals(existing.getEndDate());
-        if (state == TrimesterState.ACTIVE) {
+        if (state == StateTrimester.ACTIVO) {
             if (startChanged) {
                 throw new TrimesterStartDateLockedException();
             }
             if (endChanged && newEnd.isBefore(today)) {
                 throw new TrimesterEndDateInPastException();
             }
-        } else if (state == TrimesterState.FUTURE) {
+        } else if (state == StateTrimester.FUTURO) {
             if (startChanged && !newStart.isAfter(today)) {
                 throw new TrimesterStartDateMustBeFutureException();
             }
@@ -229,19 +230,6 @@ public class TrimesterServiceImpl implements TrimesterService {
         if (startChanged && hasAttendance(existing.getId())) {
             throw new TrimesterAttendanceStartDateException();
         }
-    }
-
-    /**
-     * Computes whether a trimester is active on {@code today}, defined as today falling
-     * within the inclusive {@code [start, end]} range.
-     *
-     * @param today the reference day.
-     * @param start the trimester start date (inclusive).
-     * @param end the trimester end date (inclusive).
-     * @return {@code true} when {@code start <= today <= end}.
-     */
-    private boolean computeStatus(LocalDate today, LocalDate start, LocalDate end) {
-        return !today.isBefore(start) && !today.isAfter(end);
     }
 
     /**
@@ -287,7 +275,7 @@ public class TrimesterServiceImpl implements TrimesterService {
     public void syncStatuses() {
         LocalDate today = LocalDate.now(clock);
         trimesterRepository.findAll().forEach(trimester -> {
-            boolean computed = computeStatus(today, trimester.getStartDate(), trimester.getEndDate());
+            StateTrimester computed = classifyState(today, trimester.getStartDate(), trimester.getEndDate());
             if (trimester.getStatus() == null || trimester.getStatus() != computed) {
                 trimester.setStatus(computed);
                 trimesterRepository.save(trimester);
@@ -296,32 +284,22 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     /**
-     * Lifecycle state of a trimester relative to {@code today}, classified from its date range.
-     * Mirrors {@link #computeStatus} so the inclusive active bounds stay consistent.
-     */
-    private enum TrimesterState {
-        CLOSED,
-        ACTIVE,
-        FUTURE,
-    }
-
-    /**
-     * Classifies a trimester as {@code CLOSED} ({@code end < today}), {@code ACTIVE}
-     * ({@code today ∈ [start, end]}) or {@code FUTURE} ({@code start > today}).
+     * Classifies a trimester as {@code CERRADO} ({@code end < today}), {@code ACTIVO}
+     * ({@code today ∈ [start, end]}) or {@code FUTURO} ({@code start > today}).
      *
      * @param today the reference day.
      * @param start the trimester start date (inclusive).
      * @param end the trimester end date (inclusive).
-     * @return the lifecycle state.
+     * @return the academic state.
      */
-    private TrimesterState classifyState(LocalDate today, LocalDate start, LocalDate end) {
+    private StateTrimester classifyState(LocalDate today, LocalDate start, LocalDate end) {
         if (end.isBefore(today)) {
-            return TrimesterState.CLOSED;
+            return StateTrimester.CERRADO;
         }
         if (start.isAfter(today)) {
-            return TrimesterState.FUTURE;
+            return StateTrimester.FUTURO;
         }
-        return TrimesterState.ACTIVE;
+        return StateTrimester.ACTIVO;
     }
 
     /**

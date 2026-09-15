@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.service.dto;
 
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -23,7 +24,7 @@ public class TrimesterDTO implements Serializable {
     @NotNull
     private LocalDate endDate;
 
-    private Boolean status;
+    private StateTrimester status;
 
     public String getId() {
         return id;
@@ -57,11 +58,11 @@ public class TrimesterDTO implements Serializable {
         this.endDate = endDate;
     }
 
-    public Boolean getStatus() {
+    public StateTrimester getStatus() {
         return status;
     }
 
-    public void setStatus(Boolean status) {
+    public void setStatus(StateTrimester status) {
         this.status = status;
     }
 
