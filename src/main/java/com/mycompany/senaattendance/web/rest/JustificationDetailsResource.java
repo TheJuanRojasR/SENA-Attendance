@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
+import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +19,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,10 +34,10 @@ import tech.jhipster.web.util.ResponseUtil;
 /**
  * REST controller for managing {@link com.mycompany.senaattendance.domain.JustificationDetails}.
  *
- * <p>Only an administrator and the owning apprentice reach this resource: the instructor
- * decision over a part arrives with UC010, so its authority is not granted here yet. Every
+ * <p>Only an administrator and the owning apprentice reach the generic operations, and every
  * operation is scoped in the service, so an apprentice only reads and writes the parts of their
- * own justifications.
+ * own justifications. The instructor reads the tray of pending parts of their own materias and
+ * their decision history through {@code GET /pending} (UC010, A1).
  */
 @RestController
 @RequestMapping("/api/justification-details")
@@ -170,6 +175,46 @@ public class JustificationDetailsResource {
         } else {
             page = justificationDetailsService.findAll(pageable);
         }
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
+     * {@code GET  /justification-details/pending} : gets the parts the current instructor must
+     * decide, and the decision history of their materias when the state filter asks for another
+     * state (UC010, A1). An administrator reads every part. The parts come sorted by creation
+     * order, newest first, which is the order of the justification request, and the response of
+     * each part exposes the request date, the apprentice identity, the justified period and the
+     * deadline mark. The optional filters are combined with AND.
+     *
+     * @param pageable the pagination information, 20 parts per page by default.
+     * @param stateJustification the state to include (optional; defaults to pending parts).
+     * @param classSectionId the materia to filter by (optional).
+     * @param createdFrom the first request date to include (optional).
+     * @param createdTo the last request date to include (optional).
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the page of parts.
+     */
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    public ResponseEntity<List<JustificationDetailsDTO>> getPendingJustificationDetailses(
+        @org.springdoc.core.annotations.ParameterObject @PageableDefault(
+            size = 20,
+            sort = "id",
+            direction = Sort.Direction.DESC
+        ) Pageable pageable,
+        @RequestParam(name = "stateJustification", required = false) StateJustification stateJustification,
+        @RequestParam(name = "classSectionId", required = false) String classSectionId,
+        @RequestParam(name = "createdFrom", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
+        @RequestParam(name = "createdTo", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo
+    ) {
+        LOG.debug("REST request to get the page of pending JustificationDetailses of the instructor");
+        Page<JustificationDetailsDTO> page = justificationDetailsService.findPendingForCurrentUser(
+            stateJustification,
+            classSectionId,
+            createdFrom,
+            createdTo,
+            pageable
+        );
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }

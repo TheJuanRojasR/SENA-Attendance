@@ -31,6 +31,13 @@ public class JustificationDetailsDTO implements Serializable {
     @NotNull
     private Instant responseDate;
 
+    /**
+     * Request date of the justification that owns the part, read from the header auditing
+     * (UC010, A1). The server exposes it so the instructor tray can show it; a client never
+     * sets it.
+     */
+    private Instant requestDate;
+
     @NotNull
     private ClassSectionDTO classSection;
 
@@ -93,6 +100,14 @@ public class JustificationDetailsDTO implements Serializable {
         this.responseDate = responseDate;
     }
 
+    public Instant getRequestDate() {
+        return requestDate;
+    }
+
+    public void setRequestDate(Instant requestDate) {
+        this.requestDate = requestDate;
+    }
+
     public ClassSectionDTO getClassSection() {
         return classSection;
     }
@@ -140,6 +155,7 @@ public class JustificationDetailsDTO implements Serializable {
             ", correctionText='" + getCorrectionText() + "'" +
             ", correctionFileUrl='" + getCorrectionFileUrl() + "'" +
             ", responseDate='" + getResponseDate() + "'" +
+            ", requestDate='" + getRequestDate() + "'" +
             ", classSection=" + getClassSection() +
             ", justification=" + getJustification() +
             "}";

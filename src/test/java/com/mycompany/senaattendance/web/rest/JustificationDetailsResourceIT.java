@@ -27,6 +27,7 @@ import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -78,6 +79,8 @@ class JustificationDetailsResourceIT {
 
     private static final String APPRENTICE_LOGIN = "justification_details_apprentice";
     private static final String OTHER_APPRENTICE_LOGIN = "other_justification_details_apprentice";
+    private static final String INSTRUCTOR_LOGIN = "justification_details_instructor";
+    private static final String OTHER_INSTRUCTOR_LOGIN = "other_justification_details_instructor";
 
     @Autowired
     private ObjectMapper om;
@@ -508,7 +511,7 @@ class JustificationDetailsResourceIT {
     }
 
     @Test
-    @WithMockUser(username = "justification_details_instructor", authorities = AuthoritiesConstants.INSTRUCTOR)
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
     void getJustificationDetailsAsInstructorReturnsForbidden() throws Exception {
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
@@ -744,6 +747,119 @@ class JustificationDetailsResourceIT {
         assertThat(reloaded.getResponseDate()).isNull();
     }
 
+    // -----------------------------------------------------------------
+    // UC010 — Bandeja de pendientes del instructor (use-cases.md:1081, A1)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPendingJustificationDetailsesAsInstructorReturnsOnlyTheirClassSections() throws Exception {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3000000001");
+        UserProfile otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "3000000002");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection ownClassSection = persistClassSection("Materia del instructor", instructor);
+        ClassSection otherClassSection = persistClassSection("Materia de otro instructor", otherInstructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification ownJustification = persistJustification(apprentice, today.minusDays(3), today, true);
+        Justification otherJustification = persistJustification(apprentice, today.minusDays(3), today, true);
+        JustificationDetails ownPart = persistPart(ownJustification, ownClassSection, StateJustification.PENDIENTE);
+        persistPart(otherJustification, otherClassSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].id").value(ownPart.getId()))
+            .andExpect(jsonPath("$[0].stateJustification").value("PENDIENTE"))
+            .andExpect(jsonPath("$[0].classSection.id").value(ownClassSection.getId()))
+            .andExpect(jsonPath("$[0].classSection.subjectName").value("Materia del instructor"))
+            .andExpect(jsonPath("$[0].justification.id").value(ownJustification.getId()))
+            .andExpect(jsonPath("$[0].justification.student.documentNumber").value(apprentice.getDocumentNumber()))
+            .andExpect(jsonPath("$[0].justification.startDate").value(today.minusDays(3).toString()))
+            .andExpect(jsonPath("$[0].justification.endDate").value(today.toString()))
+            .andExpect(jsonPath("$[0].justification.onTime").value(true))
+            .andExpect(jsonPath("$[0].requestDate").exists());
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPendingJustificationDetailsesFiltersByState() throws Exception {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3000000011");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection classSection = persistClassSection("Materia del instructor", instructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(3), today, true);
+        persistPart(justification, classSection, StateJustification.PENDIENTE);
+        JustificationDetails acceptedPart = persistPart(justification, classSection, StateJustification.ACEPTADA);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$[0].stateJustification").value("PENDIENTE"));
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending").param("stateJustification", "ACEPTADA"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].id").value(acceptedPart.getId()))
+            .andExpect(jsonPath("$[0].stateJustification").value("ACEPTADA"));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPendingJustificationDetailsesAppliesTheOptionalFilters() throws Exception {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3000000021");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection ownClassSection = persistClassSection("Materia del instructor", instructor);
+        ClassSection otherOwnClassSection = persistClassSection("Otra materia del instructor", instructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(3), today, true);
+        persistPart(justification, ownClassSection, StateJustification.PENDIENTE);
+        persistPart(justification, otherOwnClassSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending").param("classSectionId", ownClassSection.getId()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$[0].classSection.id").value(ownClassSection.getId()));
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending").param("createdFrom", today.toString()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "2"));
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending").param("createdTo", today.minusDays(1).toString()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "0"))
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPendingJustificationDetailsesWithoutClassSectionsReturnsEmptyPage() throws Exception {
+        persistProfile(INSTRUCTOR_LOGIN, "3000000031");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection classSection = persistClassSection("Materia de otro instructor", persistProfile(OTHER_INSTRUCTOR_LOGIN, "3000000032"));
+        Justification justification = persistJustification(apprentice, LocalDate.now(clock), LocalDate.now(clock), true);
+        persistPart(justification, classSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "0"))
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getPendingJustificationDetailsesAsApprenticeReturnsForbidden() throws Exception {
+        restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL + "/pending")).andExpect(status().isForbidden());
+    }
+
     @Test
     void patchNonExistingJustificationDetails() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
@@ -867,6 +983,59 @@ class JustificationDetailsResourceIT {
         JustificationDetails part = justificationDetailsFor(justification);
         part.setStateJustification(state);
         part.setResponseDate(responseDate);
+        return justificationDetailsRepository.save(part);
+    }
+
+    /**
+     * Persists a profile with a resolvable login and a fixed document number, so the service can
+     * resolve it from the security context and the tests can assert the exposed identity.
+     */
+    private UserProfile persistProfile(String login, String documentNumber) {
+        User user = UserResourceIT.createEntity();
+        user.setLogin(login);
+        user.setEmail(login + "@example.com");
+        user.setActivated(true);
+        user = userRepository.save(user);
+
+        UserProfile profile = UserProfileResourceIT.createEntity();
+        profile.setDocumentNumber(documentNumber);
+        profile.setUser(user);
+        return userProfileRepository.save(profile);
+    }
+
+    /**
+     * Persists a materia assigned to an instructor, which is the readable scope of the tray.
+     */
+    private ClassSection persistClassSection(String subjectName, UserProfile instructor) {
+        ClassSection classSection = ClassSectionResourceIT.createEntity();
+        classSection.setId(null);
+        classSection.setSubjectName(subjectName);
+        classSection.setInstructor(instructor);
+        return classSectionRepository.save(classSection);
+    }
+
+    /**
+     * Persists a justification of the given apprentice over a period and with a deadline mark.
+     */
+    private Justification persistJustification(UserProfile student, LocalDate startDate, LocalDate endDate, Boolean onTime) {
+        Justification justification = JustificationResourceIT.createEntity();
+        justification.setId(null);
+        justification.setStudent(student);
+        justification.setStartDate(startDate);
+        justification.setEndDate(endDate);
+        justification.setOnTime(onTime);
+        return justificationRepository.save(justification);
+    }
+
+    /**
+     * Persists a part of the given justification in one materia with the requested decision state,
+     * used to build the instructor tray and the decision scenarios of UC010.
+     */
+    private JustificationDetails persistPart(Justification justification, ClassSection classSection, StateJustification state) {
+        JustificationDetails part = justificationDetailsFor(justification);
+        part.setClassSection(classSection);
+        part.setStateJustification(state);
+        part.setResponseDate(null);
         return justificationDetailsRepository.save(part);
     }
 

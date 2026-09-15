@@ -1,11 +1,14 @@
 package com.mycompany.senaattendance.service.impl;
 
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
+import com.mycompany.senaattendance.repository.JustificationDetailsSearchCriteria;
 import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -20,6 +23,7 @@ import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import org.bson.types.ObjectId;
@@ -59,6 +63,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final JustificationRepository justificationRepository;
 
+    private final ClassSectionRepository classSectionRepository;
+
     private final UserRepository userRepository;
 
     private final UserProfileRepository userProfileRepository;
@@ -69,6 +75,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         JustificationDetailsRepository justificationDetailsRepository,
         JustificationDetailsMapper justificationDetailsMapper,
         JustificationRepository justificationRepository,
+        ClassSectionRepository classSectionRepository,
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
         Clock clock
@@ -76,6 +83,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         this.justificationDetailsRepository = justificationDetailsRepository;
         this.justificationDetailsMapper = justificationDetailsMapper;
         this.justificationRepository = justificationRepository;
+        this.classSectionRepository = classSectionRepository;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.clock = clock;
@@ -199,6 +207,103 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         }
         String currentProfileId = currentUserProfileId();
         return justificationDetails.filter(details -> isOwnedBy(details, currentProfileId)).map(justificationDetailsMapper::toDto);
+    }
+
+    /**
+     * Reads the parts the current instructor must decide and their history (UC010, A1). The
+     * pending state is the default so the tray opens on the work left to do; passing a state
+     * turns the same query into the decision history. An instructor without assigned materias,
+     * or a request date range without any justification, reads no records.
+     *
+     * @param stateJustification the state to include; {@code null} defaults to pending parts.
+     * @param classSectionId the materia to filter by (may be null for every materia).
+     * @param createdFrom the first request date to include (may be null for no lower bound).
+     * @param createdTo the last request date to include (may be null for no upper bound).
+     * @param pageable the pagination information.
+     * @return the page of readable parts matching the filters.
+     */
+    @Override
+    public Page<JustificationDetailsDTO> findPendingForCurrentUser(
+        StateJustification stateJustification,
+        String classSectionId,
+        LocalDate createdFrom,
+        LocalDate createdTo,
+        Pageable pageable
+    ) {
+        LOG.debug("Request to get the page of JustificationDetails the current user can decide");
+        List<ObjectId> classSectionScope = null;
+        if (!isCurrentUserAdmin()) {
+            classSectionScope = currentInstructorClassSectionIds();
+            if (classSectionScope.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
+        List<ObjectId> justificationIds = justificationIdsRequestedBetween(createdFrom, createdTo);
+        if (justificationIds != null && justificationIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        JustificationDetailsSearchCriteria criteria = new JustificationDetailsSearchCriteria(
+            stateJustification == null ? StateJustification.PENDIENTE : stateJustification,
+            classSectionId,
+            justificationIds
+        );
+        return justificationDetailsRepository.searchParts(criteria, classSectionScope, pageable).map(justificationDetailsMapper::toDto);
+    }
+
+    /**
+     * Resolves the materias assigned to the current instructor, which are the readable scope of
+     * the tray. A user without a resolvable profile or without assigned materias reads no
+     * records.
+     *
+     * @return the ObjectId values of the assigned materias, possibly empty.
+     */
+    private List<ObjectId> currentInstructorClassSectionIds() {
+        String currentProfileId = currentUserProfileId();
+        if (currentProfileId == null) {
+            return List.of();
+        }
+        return classSectionRepository
+            .findByInstructorId(currentProfileId)
+            .stream()
+            .map(ClassSection::getId)
+            .filter(JustificationDetailsServiceImpl::isObjectId)
+            .map(ObjectId::new)
+            .toList();
+    }
+
+    /**
+     * Resolves the justifications whose request date falls inside the requested range, which are
+     * the ids the tray query intersects with. The header carries the request date because a part
+     * has no auditing of its own; the range is half-open on the upper bound so a whole day is
+     * included.
+     *
+     * @param from the first request date to include, or {@code null}.
+     * @param to the last request date to include, or {@code null}.
+     * @return the ObjectId values of the matching justifications, or {@code null} when the
+     *         request carries no date range.
+     */
+    private List<ObjectId> justificationIdsRequestedBetween(LocalDate from, LocalDate to) {
+        if (from == null && to == null) {
+            return null;
+        }
+        ZoneId zone = clock.getZone();
+        List<Justification> justifications;
+        if (from == null) {
+            justifications = justificationRepository.findByCreatedDateBefore(to.plusDays(1).atStartOfDay(zone).toInstant());
+        } else if (to == null) {
+            justifications = justificationRepository.findByCreatedDateGreaterThanEqual(from.atStartOfDay(zone).toInstant());
+        } else {
+            justifications = justificationRepository.findByCreatedDateGreaterThanEqualAndCreatedDateBefore(
+                from.atStartOfDay(zone).toInstant(),
+                to.plusDays(1).atStartOfDay(zone).toInstant()
+            );
+        }
+        return justifications
+            .stream()
+            .map(Justification::getId)
+            .filter(JustificationDetailsServiceImpl::isObjectId)
+            .map(ObjectId::new)
+            .toList();
     }
 
     @Override

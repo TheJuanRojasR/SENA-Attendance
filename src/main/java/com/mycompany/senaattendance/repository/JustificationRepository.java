@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.Justification;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -65,4 +66,32 @@ public interface JustificationRepository extends MongoRepository<Justification, 
      */
     @Query("{ 'justificationType._id': ?0, 'student._id': ?1 }")
     List<Justification> findByJustificationTypeIdAndStudentId(String justificationTypeId, String studentId);
+
+    /**
+     * Finds the justifications requested from an instant on (UC010, A1), used to keep only the
+     * parts whose request date falls inside the requested range.
+     *
+     * @param from the inclusive lower bound of the request date.
+     * @return the justifications requested from that instant on, possibly empty.
+     */
+    List<Justification> findByCreatedDateGreaterThanEqual(Instant from);
+
+    /**
+     * Finds the justifications requested before an instant (UC010, A1), used to keep only the
+     * parts whose request date falls inside the requested range.
+     *
+     * @param to the exclusive upper bound of the request date.
+     * @return the justifications requested before that instant, possibly empty.
+     */
+    List<Justification> findByCreatedDateBefore(Instant to);
+
+    /**
+     * Finds the justifications requested inside a half-open range (UC010, A1), used to keep only
+     * the parts whose request date falls inside the requested range.
+     *
+     * @param from the inclusive lower bound of the request date.
+     * @param to the exclusive upper bound of the request date.
+     * @return the justifications requested inside the range, possibly empty.
+     */
+    List<Justification> findByCreatedDateGreaterThanEqualAndCreatedDateBefore(Instant from, Instant to);
 }

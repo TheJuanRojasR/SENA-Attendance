@@ -14,7 +14,9 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the JustificationDetails entity.
  */
 @Repository
-public interface JustificationDetailsRepository extends MongoRepository<JustificationDetails, String> {
+public interface JustificationDetailsRepository
+    extends MongoRepository<JustificationDetails, String>, JustificationDetailsRepositoryCustom
+{
     @Query("{}")
     Page<JustificationDetails> findAllWithEagerRelationships(Pageable pageable);
 
