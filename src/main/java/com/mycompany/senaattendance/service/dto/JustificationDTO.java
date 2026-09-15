@@ -3,7 +3,9 @@ package com.mycompany.senaattendance.service.dto;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A DTO for the {@link com.mycompany.senaattendance.domain.Justification} entity.
@@ -27,6 +29,18 @@ public class JustificationDTO implements Serializable {
 
     @NotNull
     private String evidenceContentType;
+
+    /**
+     * Mark computed by the server on create and edit (UC011): whether the submission arrived
+     * within the configured business-day deadline. The client never sends it.
+     */
+    private Boolean onTime;
+
+    /**
+     * Parts of the justification, one per affected materia (UC011). The client sends the
+     * affected materia in each part on create and edit; the server sets the part state.
+     */
+    private Set<JustificationDetailsDTO> detailses = new HashSet<>();
 
     @NotNull
     private JustificationTypeDTO justificationType;
@@ -80,6 +94,22 @@ public class JustificationDTO implements Serializable {
 
     public void setEvidenceContentType(String evidenceContentType) {
         this.evidenceContentType = evidenceContentType;
+    }
+
+    public Boolean getOnTime() {
+        return onTime;
+    }
+
+    public void setOnTime(Boolean onTime) {
+        this.onTime = onTime;
+    }
+
+    public Set<JustificationDetailsDTO> getDetailses() {
+        return detailses;
+    }
+
+    public void setDetailses(Set<JustificationDetailsDTO> detailses) {
+        this.detailses = detailses;
     }
 
     public JustificationTypeDTO getJustificationType() {

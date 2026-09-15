@@ -35,4 +35,15 @@ public interface JustificationDetailsRepository extends MongoRepository<Justific
      */
     @Query("{ 'justification.$id': { $in: ?0 } }")
     Page<JustificationDetails> findByJustificationIdIn(List<ObjectId> justificationIds, Pageable pageable);
+
+    /**
+     * Finds every part of the given justifications (UC011), used to derive the failure dates a
+     * justification covers. The justification is a DBRef, and the {@code $in} operator compares
+     * DBRef ids directly, so the values must be explicit {@link ObjectId} instances.
+     *
+     * @param justificationIds the ObjectId values of the justifications to include.
+     * @return the parts of those justifications, possibly empty.
+     */
+    @Query("{ 'justification.$id': { $in: ?0 } }")
+    List<JustificationDetails> findAllByJustificationIdIn(List<ObjectId> justificationIds);
 }

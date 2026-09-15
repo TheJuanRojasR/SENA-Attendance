@@ -45,6 +45,13 @@ public class Justification extends AbstractAuditingEntity implements Serializabl
     @Field("evidence_content_type")
     private String evidenceContentType;
 
+    /**
+     * Whether the justification was submitted within the configured business-day deadline
+     * (UC011). The server computes it on create and edit; the client never sends it.
+     */
+    @Field("on_time")
+    private Boolean onTime;
+
     @DBRef
     @Field("details")
     @JsonIgnoreProperties(value = { "classSection", "justification" }, allowSetters = true)
@@ -139,6 +146,19 @@ public class Justification extends AbstractAuditingEntity implements Serializabl
         this.evidenceContentType = evidenceContentType;
     }
 
+    public Boolean getOnTime() {
+        return this.onTime;
+    }
+
+    public Justification onTime(Boolean onTime) {
+        this.setOnTime(onTime);
+        return this;
+    }
+
+    public void setOnTime(Boolean onTime) {
+        this.onTime = onTime;
+    }
+
     public Set<JustificationDetails> getDetailses() {
         return this.detailses;
     }
@@ -225,6 +245,7 @@ public class Justification extends AbstractAuditingEntity implements Serializabl
             ", endDate='" + getEndDate() + "'" +
             ", evidence='" + getEvidence() + "'" +
             ", evidenceContentType='" + getEvidenceContentType() + "'" +
+            ", onTime='" + getOnTime() + "'" +
             "}";
     }
 }

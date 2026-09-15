@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -61,4 +62,26 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
      */
     @Query("{ 'classSection._id': ?0, 'student._id': ?1, 'date': ?2 }")
     Optional<Attendance> findByClassSectionIdAndStudentIdAndDate(String classSectionId, String studentId, LocalDate date);
+
+    /**
+     * Finds the attendance records of one apprentice in the given class sections, for a state and
+     * a date range (UC011). The apprentice is matched through the scalar {@code student._id},
+     * where a String resolves to the referenced id, while the class section list compares DBRef
+     * ids ({@code $id}) and therefore needs explicit {@link ObjectId} values.
+     *
+     * @param studentId the apprentice profile id.
+     * @param classSectionIds the ObjectId values of the class sections to look into.
+     * @param startDate the first day of the range, inclusive.
+     * @param endDate the last day of the range, inclusive.
+     * @param stateAttendance the state to match.
+     * @return the matching records, possibly empty.
+     */
+    @Query("{ 'student._id': ?0, 'classSection.$id': { $in: ?1 }, 'date': { $gte: ?2, $lte: ?3 }, 'state_attendance': ?4 }")
+    List<Attendance> findByStudentIdAndClassSectionIdInAndDateBetweenAndStateAttendance(
+        String studentId,
+        List<ObjectId> classSectionIds,
+        LocalDate startDate,
+        LocalDate endDate,
+        StateAttendance stateAttendance
+    );
 }

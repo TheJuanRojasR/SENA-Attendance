@@ -53,4 +53,16 @@ public interface JustificationRepository extends MongoRepository<Justification, 
      */
     @Query("{ 'student._id': ?0 }")
     List<Justification> findAllByStudentId(String studentId);
+
+    /**
+     * Finds the justifications of one apprentice for one type (UC011), used to count the days
+     * already covered by the type quota. Both references are DBRefs matched by their referenced
+     * id, where a String resolves to the profile/type id.
+     *
+     * @param justificationTypeId the justification type id.
+     * @param studentId the apprentice profile id.
+     * @return the justifications of that apprentice with that type, possibly empty.
+     */
+    @Query("{ 'justificationType._id': ?0, 'student._id': ?1 }")
+    List<Justification> findByJustificationTypeIdAndStudentId(String justificationTypeId, String studentId);
 }

@@ -3,6 +3,7 @@ package com.mycompany.senaattendance.web.rest;
 import static com.mycompany.senaattendance.domain.JustificationAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.*;
@@ -11,22 +12,51 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Apprentice;
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.GlobalConfiguration;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Justification;
+import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.JustificationType;
+import com.mycompany.senaattendance.domain.Modality;
+import com.mycompany.senaattendance.domain.Program;
+import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
+import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.repository.ModalityRepository;
+import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.repository.TimeSlotRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationMapper;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +71,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Integration tests for the {@link JustificationResource} REST controller.
@@ -70,12 +101,20 @@ class JustificationResourceIT {
 
     private static final String APPRENTICE_LOGIN = "justifications_apprentice";
     private static final String OTHER_APPRENTICE_LOGIN = "other_justifications_apprentice";
+    private static final String RULES_APPRENTICE_LOGIN = "justification_rules_apprentice";
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     @Autowired
     private ObjectMapper om;
 
     @Autowired
+    private Clock clock;
+
+    @Autowired
     private JustificationRepository justificationRepository;
+
+    @Autowired
+    private JustificationDetailsRepository justificationDetailsRepository;
 
     @Autowired
     private JustificationTypeRepository justificationTypeRepository;
@@ -85,6 +124,33 @@ class JustificationResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private ApprenticeRepository apprenticeRepository;
+
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
+    private GlobalConfigurationRepository globalConfigurationRepository;
+
+    @Autowired
+    private ModalityRepository modalityRepository;
+
+    @Autowired
+    private ProgramRepository programRepository;
+
+    @Autowired
+    private TimeSlotRepository timeSlotRepository;
+
+    @Autowired
+    private TrimesterRepository trimesterRepository;
 
     @Mock
     private JustificationRepository justificationRepositoryMock;
@@ -101,6 +167,12 @@ class JustificationResourceIT {
     private Justification justification;
 
     private Justification insertedJustification;
+
+    private UserProfile rulesApprentice;
+
+    private ClassSection rulesClassSection;
+
+    private JustificationType rulesJustificationType;
 
     /**
      * Create an entity for this test.
@@ -167,7 +239,17 @@ class JustificationResourceIT {
         }
         // Remove the related documents persisted for the PUT tests and the scoping tests
         justificationRepository.deleteAll();
+        justificationDetailsRepository.deleteAll();
         justificationTypeRepository.deleteAll();
+        attendanceRepository.deleteAll();
+        apprenticeRepository.deleteAll();
+        classSectionRepository.deleteAll();
+        gradeRepository.deleteAll();
+        globalConfigurationRepository.deleteAll();
+        modalityRepository.deleteAll();
+        programRepository.deleteAll();
+        timeSlotRepository.deleteAll();
+        trimesterRepository.deleteAll();
         userProfileRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -738,6 +820,119 @@ class JustificationResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    // -----------------------------------------------------------------
+    // UC011 — Deadline mark (use-cases.md:999)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithinDeadlineIsOnTime() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        LocalDate lastFailure = today.minusDays(1);
+        persistRulesFixture(5, 3, firstFailure, lastFailure);
+
+        // The mark is counted from the last failure of the range, not from the first one.
+        postJustification(justificationPayload(firstFailure, lastFailure, rulesClassSection.getId()))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.onTime").value(true));
+
+        assertThat(justificationDetailsRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationAfterDeadlineIsOutOfTime() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate failure = today.minusDays(10);
+        persistRulesFixture(5, 3, failure);
+
+        // The deadline does not block the submission: the justification is created out of time.
+        postJustification(justificationPayload(failure, failure, rulesClassSection.getId()))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.onTime").value(false));
+
+        assertThat(justificationDetailsRepository.count()).isEqualTo(1);
+    }
+
+    // -----------------------------------------------------------------
+    // UC011 — Per-type quota (use-cases.md:1000, E6)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithinQuotaCreatesIt() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        persistRulesFixture(2, 5, firstFailure);
+
+        postJustification(justificationPayload(firstFailure, firstFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+
+        assertThat(justificationDetailsRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationUpToTheQuotaLimitCreatesIt() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        LocalDate secondFailure = today.minusDays(13);
+        persistRulesFixture(2, 5, firstFailure, secondFailure);
+
+        postJustification(justificationPayload(firstFailure, firstFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+
+        // The second day reaches the limit without exceeding it.
+        postJustification(justificationPayload(secondFailure, secondFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+
+        assertThat(justificationDetailsRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationAboveTheQuotaReturnsQuotaExceeded() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        LocalDate secondFailure = today.minusDays(13);
+        LocalDate thirdFailure = today.minusDays(6);
+        persistRulesFixture(2, 5, firstFailure, secondFailure, thirdFailure);
+
+        postJustification(justificationPayload(firstFailure, firstFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+
+        // One day is already covered, so only one of the two new days fits the quota.
+        postJustification(justificationPayload(secondFailure, thirdFailure, rulesClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.quotaExceeded"))
+            .andExpect(jsonPath("$.detail").value(containsString("Te quedan 1 días disponibles")));
+
+        assertThat(justificationRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithARejectedPartReleasesQuota() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        LocalDate secondFailure = today.minusDays(13);
+        persistRulesFixture(2, 5, firstFailure, secondFailure);
+        persistRejectedJustificationCovering(firstFailure);
+
+        postJustification(justificationPayload(firstFailure, secondFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithARepeatedDateDoesNotCountItTwice() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        LocalDate secondFailure = today.minusDays(13);
+        persistRulesFixture(2, 5, firstFailure, secondFailure);
+
+        postJustification(justificationPayload(firstFailure, secondFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+
+        // Repeating an already covered date does not consume the quota twice.
+        postJustification(justificationPayload(firstFailure, firstFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+    }
+
     /**
      * Persists an apprentice with a resolvable login, so the service can resolve their profile
      * from the security context.
@@ -803,5 +998,150 @@ class JustificationResourceIT {
 
     protected void assertPersistedJustificationToMatchUpdatableProperties(Justification expectedJustification) {
         assertJustificationAllUpdatablePropertiesEquals(expectedJustification, getPersistedJustification(expectedJustification));
+    }
+
+    // -----------------------------------------------------------------
+    // Fixture helpers for the UC011 creation rules
+    // -----------------------------------------------------------------
+
+    /**
+     * Persists the graph the creation rules run on: the apprentice with an active ficha where they
+     * are matriculado, one materia, an active trimester, the justification type and the real
+     * {@code FALLA} attendance of the given days.
+     */
+    private void persistRulesFixture(int limitPerTrimester, int justificationDays, LocalDate... failureDates) {
+        rulesApprentice = persistApprentice(RULES_APPRENTICE_LOGIN);
+        persistGlobalConfiguration(justificationDays);
+        LocalDate today = LocalDate.now(clock);
+        persistTrimester(today.minusDays(60), today.plusDays(60));
+        Grade grade = persistGrade("JUS-001", today.minusDays(30), today.plusDays(30));
+        rulesClassSection = persistClassSection("Materia de justificaciones", grade);
+        persistEnrollment(rulesApprentice, grade, StateAcademic.MATRICULADO);
+        rulesJustificationType = createJustificationType(limitPerTrimester);
+        for (LocalDate failureDate : failureDates) {
+            persistAttendance(rulesClassSection, rulesApprentice, failureDate, StateAttendance.FALLA);
+        }
+    }
+
+    private void persistGlobalConfiguration(int studentJustificationDays) {
+        globalConfigurationRepository.save(
+            new GlobalConfiguration()
+                .id(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+                .studentJustificationDays(studentJustificationDays)
+                .instructorResponseDays(2)
+                .consecutiveAbsenceAlertThreshold(3)
+                .accumulatedAbsenceAlertThreshold(5)
+        );
+    }
+
+    private void persistTrimester(LocalDate startDate, LocalDate endDate) {
+        trimesterRepository.save(
+            new Trimester().name("Trimestre de justificaciones").startDate(startDate).endDate(endDate).status(StateTrimester.ACTIVO)
+        );
+    }
+
+    private Grade persistGrade(String code, LocalDate startDate, LocalDate endDate) {
+        Program program = programRepository.save(ProgramResourceIT.createEntity());
+        Modality modality = modalityRepository.save(ModalityResourceIT.createEntity());
+        TimeSlot timeSlot = timeSlotRepository.save(TimeSlotResourceIT.createEntity());
+
+        Grade grade = GradeResourceIT.createEntity();
+        grade.setCode(code);
+        grade.setStartDate(startDate);
+        grade.setEndDate(endDate);
+        grade.setProgram(program);
+        grade.setModality(modality);
+        grade.setTimeSlot(timeSlot);
+        return gradeRepository.save(grade);
+    }
+
+    private ClassSection persistClassSection(String subjectName, Grade grade) {
+        return classSectionRepository.save(new ClassSection().subjectName(subjectName).isActive(true).grade(grade));
+    }
+
+    private void persistEnrollment(UserProfile student, Grade grade, StateAcademic stateAcademic) {
+        apprenticeRepository.save(new Apprentice().student(student).grade(grade).stateAcademic(stateAcademic));
+    }
+
+    private void persistAttendance(ClassSection classSection, UserProfile student, LocalDate date, StateAttendance stateAttendance) {
+        attendanceRepository.save(new Attendance().date(date).stateAttendance(stateAttendance).classSection(classSection).student(student));
+    }
+
+    private JustificationType createJustificationType(int limitPerTrimester) {
+        JustificationType justificationType = JustificationTypeResourceIT.createEntity();
+        justificationType.setLimitPerTrimester(limitPerTrimester);
+        return justificationTypeRepository.save(justificationType);
+    }
+
+    /**
+     * Persists a justification of the fixture apprentice with one rejected part covering the given
+     * day, so the quota test can prove that a rejected part releases its reserved days.
+     */
+    private void persistRejectedJustificationCovering(LocalDate failureDate) {
+        Justification header = new Justification()
+            .description(DEFAULT_DESCRIPTION)
+            .startDate(failureDate)
+            .endDate(failureDate)
+            .evidence(DEFAULT_EVIDENCE)
+            .evidenceContentType(DEFAULT_EVIDENCE_CONTENT_TYPE)
+            .justificationType(rulesJustificationType)
+            .student(rulesApprentice);
+        header = justificationRepository.save(header);
+
+        justificationDetailsRepository.save(
+            new JustificationDetails()
+                .stateJustification(StateJustification.RECHAZADA)
+                .rejectionReason("Soporte no legible")
+                .correctionText("")
+                .correctionFileUrlContentType("")
+                .responseDate(Instant.now())
+                .classSection(rulesClassSection)
+                .justification(header)
+        );
+    }
+
+    private Map<String, Object> justificationPayload(LocalDate startDate, LocalDate endDate, String classSectionId) {
+        return justificationPayload(
+            rulesJustificationType.getId(),
+            rulesApprentice.getId(),
+            startDate,
+            endDate,
+            PDF_CONTENT_TYPE,
+            DEFAULT_EVIDENCE,
+            List.of(classSectionId)
+        );
+    }
+
+    private static Map<String, Object> justificationPayload(
+        String justificationTypeId,
+        String studentId,
+        LocalDate startDate,
+        LocalDate endDate,
+        String evidenceContentType,
+        byte[] evidence,
+        List<String> classSectionIds
+    ) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("description", DEFAULT_DESCRIPTION);
+        payload.put("startDate", startDate.toString());
+        payload.put("endDate", endDate.toString());
+        payload.put("evidenceContentType", evidenceContentType);
+        payload.put("evidence", Base64.getEncoder().encodeToString(evidence));
+        payload.put("justificationType", Map.of("id", justificationTypeId));
+        payload.put("student", Map.of("id", studentId));
+        payload.put(
+            "detailses",
+            classSectionIds
+                .stream()
+                .map(id -> Map.of("classSection", Map.of("id", id)))
+                .toList()
+        );
+        return payload;
+    }
+
+    private ResultActions postJustification(Map<String, Object> payload) throws Exception {
+        return restJustificationMockMvc.perform(
+            post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload))
+        );
     }
 }
