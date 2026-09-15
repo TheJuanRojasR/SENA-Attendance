@@ -51,8 +51,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class GradeResourceIT {
 
-    private static final String DEFAULT_CODE = "AAAAAAAAAA";
-    private static final String UPDATED_CODE = "BBBBBBBBBB";
+    private static final String DEFAULT_CODE = "1111111111";
+    private static final String UPDATED_CODE = "2222222222";
 
     private static final StateGrade DEFAULT_STATE = StateGrade.ACTIVA;
     private static final StateGrade UPDATED_STATE = StateGrade.APLAZADA;
@@ -247,6 +247,39 @@ class GradeResourceIT {
     }
 
     @Test
+    void createGradeWithNonNumericCodeReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        grade.setCode("AB12");
+
+        GradeDTO gradeDTO = gradeMapper.toDto(grade);
+
+        restGradeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("code"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createGradeWithDuplicateCodeReturnsBadRequest() throws Exception {
+        // Persist a ficha with DEFAULT_CODE so the upcoming POST collides on code only
+        insertedGrade = gradeRepository.save(grade);
+        long databaseSizeBeforeCreate = getRepositoryCount();
+
+        GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+
+        restGradeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeCodeAlreadyUsed"));
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
     void createGradeComputesStateFromDatesIgnoringClientState() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
@@ -394,6 +427,78 @@ class GradeResourceIT {
     }
 
     @Test
+    void putGradeWithNonNumericCodeReturnsBadRequest() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+        insertedGrade = gradeRepository.save(grade);
+
+        GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+        gradeDTO.setCode("AB12");
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("code"));
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void putGradeWithDuplicateCodeReturnsBadRequest() throws Exception {
+        // The ficha that already owns DEFAULT_CODE
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+        insertedGrade = gradeRepository.save(grade);
+
+        // Another ficha that tries to take DEFAULT_CODE
+        Grade other = createEntity().code(UPDATED_CODE);
+        other = gradeRepository.save(other);
+        try {
+            GradeDTO gradeDTO = gradeMapper.toDto(other);
+            gradeDTO.setCode(DEFAULT_CODE);
+
+            restGradeMockMvc
+                .perform(
+                    put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.gradeCodeAlreadyUsed"));
+
+            assertThat(getPersistedGrade(other).getCode()).isEqualTo(UPDATED_CODE);
+        } finally {
+            gradeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void putGradeKeepingItsOwnCodeDoesNotReportDuplicate() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+        insertedGrade = gradeRepository.save(grade);
+
+        GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+        gradeDTO.setCode(DEFAULT_CODE);
+        gradeDTO.setEndDate(UPDATED_END_DATE);
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
     void putNonExistingGrade() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
         grade.setId(UUID.randomUUID().toString());
@@ -502,6 +607,74 @@ class GradeResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         assertGradeUpdatableFieldsEquals(partialUpdatedGrade, getPersistedGrade(partialUpdatedGrade));
+    }
+
+    @Test
+    void patchGradeWithNonNumericCodeReturnsBadRequest() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setCode("AB12");
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.codenotnumeric"));
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void patchGradeWithDuplicateCodeReturnsBadRequest() throws Exception {
+        // The ficha that already owns DEFAULT_CODE
+        insertedGrade = gradeRepository.save(grade);
+
+        // Another ficha that tries to take DEFAULT_CODE
+        Grade other = createEntity().code(UPDATED_CODE);
+        other = gradeRepository.save(other);
+        try {
+            Grade partialUpdatedGrade = new Grade();
+            partialUpdatedGrade.setId(other.getId());
+            partialUpdatedGrade.setCode(DEFAULT_CODE);
+
+            restGradeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedGrade))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.gradeCodeAlreadyUsed"));
+
+            assertThat(getPersistedGrade(other).getCode()).isEqualTo(UPDATED_CODE);
+        } finally {
+            gradeRepository.delete(other);
+        }
+    }
+
+    @Test
+    void patchGradeKeepingItsOwnCodeDoesNotReportDuplicate() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setCode(DEFAULT_CODE);
+        partialUpdatedGrade.setEndDate(UPDATED_END_DATE);
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
     }
 
     @Test

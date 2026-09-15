@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
@@ -14,6 +15,8 @@ import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.errors.GradeCodeAlreadyUsedException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -27,13 +30,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Unit tests for the date-driven ficha state lifecycle in {@link GradeServiceImpl}: state
- * computation on creation, preservation of manual states on edition and the daily
- * {@code syncStates()} job.
+ * computation on creation, preservation of manual states on edition, the daily
+ * {@code syncStates()} job, and the numeric/unique rules of the ficha code.
  */
 @ExtendWith(MockitoExtension.class)
 class GradeServiceImplTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 3, 10);
+
+    private static final String DEFAULT_CODE = "1234567890";
 
     @Mock
     private GradeRepository gradeRepository;
@@ -214,6 +219,132 @@ class GradeServiceImplTest {
     }
 
     // -----------------------------------------------------------------
+    // code validation: numeric and unique
+    // -----------------------------------------------------------------
+
+    @Test
+    void saveRejectsNonNumericCode() {
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY, TODAY.plusDays(10)).code("12A");
+        GradeDTO dto = toDto(grade);
+        when(gradeMapper.toEntity(dto)).thenReturn(grade);
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.save(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("codenotnumeric"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void saveRejectsDuplicateCode() {
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY, TODAY.plusDays(10));
+        GradeDTO dto = toDto(grade);
+        when(gradeMapper.toEntity(dto)).thenReturn(grade);
+        when(gradeRepository.existsByCode(DEFAULT_CODE)).thenReturn(true);
+
+        assertThatExceptionOfType(GradeCodeAlreadyUsedException.class).isThrownBy(() -> gradeService.save(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateRejectsNonNumericCode() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10)).code("12A");
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.update(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("codenotnumeric"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateRejectsCodeUsedByAnotherFicha() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+        when(gradeRepository.existsByCodeAndIdNot(DEFAULT_CODE, "g-1")).thenReturn(true);
+
+        assertThatExceptionOfType(GradeCodeAlreadyUsedException.class).isThrownBy(() -> gradeService.update(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateAllowsTheFichasOwnCode() {
+        mockClockAt(TODAY);
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+        when(gradeRepository.existsByCodeAndIdNot(DEFAULT_CODE, "g-1")).thenReturn(false);
+        when(gradeRepository.save(incoming)).thenReturn(incoming);
+        when(gradeMapper.toDto(incoming)).thenAnswer(invocation -> toDto(invocation.getArgument(0)));
+
+        GradeDTO result = gradeService.update(dto);
+
+        assertThat(result.getCode()).isEqualTo(DEFAULT_CODE);
+        verify(gradeRepository).existsByCodeAndIdNot(DEFAULT_CODE, "g-1");
+    }
+
+    @Test
+    void partialUpdateRejectsNonNumericCode() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(existing);
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setCode("12A");
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.partialUpdate(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("codenotnumeric"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void partialUpdateRejectsCodeUsedByAnotherFicha() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(existing);
+        when(gradeRepository.existsByCodeAndIdNot(DEFAULT_CODE, "g-1")).thenReturn(true);
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setCode(DEFAULT_CODE);
+
+        assertThatExceptionOfType(GradeCodeAlreadyUsedException.class).isThrownBy(() -> gradeService.partialUpdate(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void partialUpdateAllowsTheFichasOwnCode() {
+        mockClockAt(TODAY);
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(existing);
+        stubMapperMerge();
+        stubSaveAndMap(existing);
+        when(gradeRepository.existsByCodeAndIdNot(DEFAULT_CODE, "g-1")).thenReturn(false);
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setCode(DEFAULT_CODE);
+
+        GradeDTO result = gradeService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getCode()).isEqualTo(DEFAULT_CODE);
+        verify(gradeRepository).existsByCodeAndIdNot(DEFAULT_CODE, "g-1");
+    }
+
+    // -----------------------------------------------------------------
     // syncStates() daily job
     // -----------------------------------------------------------------
 
@@ -260,7 +391,7 @@ class GradeServiceImplTest {
     }
 
     private static Grade grade(String id, StateGrade state, LocalDate start, LocalDate end) {
-        return new Grade().id(id).code("FICHA").state(state).startDate(start).endDate(end);
+        return new Grade().id(id).code(DEFAULT_CODE).state(state).startDate(start).endDate(end);
     }
 
     private static GradeDTO toDto(Grade grade) {

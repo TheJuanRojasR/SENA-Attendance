@@ -10,6 +10,7 @@ import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.errors.GradeCodeAlreadyUsedException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,6 +33,8 @@ public class GradeServiceImpl implements GradeService {
 
     private static final Logger LOG = LoggerFactory.getLogger(GradeServiceImpl.class);
 
+    private static final String ENTITY_NAME = "grade";
+
     private final GradeRepository gradeRepository;
 
     private final GradeMapper gradeMapper;
@@ -53,6 +56,7 @@ public class GradeServiceImpl implements GradeService {
         Grade grade = gradeMapper.toEntity(gradeDTO);
 
         validateProgramActiveForGrade(grade.getProgram());
+        validateCode(grade.getCode(), null);
 
         // The state is always derived from the dates; any state sent by the client is ignored.
         grade.setState(classifyState(LocalDate.now(clock), grade.getStartDate(), grade.getEndDate()));
@@ -75,6 +79,9 @@ public class GradeServiceImpl implements GradeService {
         Grade grade = gradeMapper.toEntity(gradeDTO);
 
         Optional<Grade> optionalGrade = gradeRepository.findById(grade.getId());
+        // When the ficha already exists, its own id is excluded from the uniqueness check.
+        validateCode(grade.getCode(), optionalGrade.isPresent() ? grade.getId() : null);
+
         if (optionalGrade.isPresent()) {
             Grade existingGrade = optionalGrade.get();
             grade.setCreatedBy(existingGrade.getCreatedBy());
@@ -100,6 +107,7 @@ public class GradeServiceImpl implements GradeService {
         return gradeRepository
             .findById(gradeDTO.getId())
             .map(existingGrade -> {
+                validateCode(gradeDTO.getCode(), existingGrade.getId());
                 StateGrade currentState = existingGrade.getState();
                 gradeMapper.partialUpdate(existingGrade, gradeDTO);
                 existingGrade.setState(
@@ -209,6 +217,31 @@ public class GradeServiceImpl implements GradeService {
      */
     private static boolean isManualState(StateGrade state) {
         return state == StateGrade.APLAZADA || state == StateGrade.CANCELADA;
+    }
+
+    /**
+     * Validates the ficha code: it must contain digits only and must not be used by
+     * another ficha. A {@code null} code is skipped, so a PATCH that does not touch
+     * the code is unaffected.
+     *
+     * @param code      the code to validate, possibly {@code null}.
+     * @param excludeId the id excluded from the uniqueness check, or {@code null} when
+     *                  no ficha can own the code yet (creation).
+     * @throws BadRequestAlertException      with key {@code codenotnumeric} when the
+     *                                       code contains non-digit characters.
+     * @throws GradeCodeAlreadyUsedException if another ficha already uses the code.
+     */
+    private void validateCode(String code, String excludeId) {
+        if (code == null) {
+            return;
+        }
+        if (!code.matches("\\d+")) {
+            throw new BadRequestAlertException("El código debe contener solo números", ENTITY_NAME, "codenotnumeric");
+        }
+        boolean duplicate = excludeId == null ? gradeRepository.existsByCode(code) : gradeRepository.existsByCodeAndIdNot(code, excludeId);
+        if (duplicate) {
+            throw new GradeCodeAlreadyUsedException();
+        }
     }
 
     /**
