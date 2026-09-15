@@ -596,9 +596,7 @@ class GradeResourceIT {
         GradeDTO gradeDTO = gradeMapper.toDto(updatedGrade);
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk());
 
         // Validate the Grade in the database
@@ -618,9 +616,7 @@ class GradeResourceIT {
         gradeDTO.setCode("AB12");
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.validation"))
             .andExpect(jsonPath("$.fieldErrors").isArray())
@@ -646,9 +642,7 @@ class GradeResourceIT {
             gradeDTO.setCode(DEFAULT_CODE);
 
             restGradeMockMvc
-                .perform(
-                    put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-                )
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.gradeCodeAlreadyUsed"));
 
@@ -671,9 +665,7 @@ class GradeResourceIT {
         gradeDTO.setEndDate(UPDATED_END_DATE);
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk());
 
         assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
@@ -688,9 +680,7 @@ class GradeResourceIT {
         gradeDTO.setEndDate(today.plusDays(15));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.datesorder"));
 
@@ -706,9 +696,7 @@ class GradeResourceIT {
         gradeDTO.setEndDate(today.plusDays(30));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.startdateinpast"));
 
@@ -729,9 +717,7 @@ class GradeResourceIT {
             gradeDTO.getModality().setId(inactiveModality.getId());
 
             restGradeMockMvc
-                .perform(
-                    put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-                )
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.modalityInactive"));
 
@@ -755,9 +741,7 @@ class GradeResourceIT {
             gradeDTO.getTimeSlot().setId(inactiveTimeSlot.getId());
 
             restGradeMockMvc
-                .perform(
-                    put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-                )
+                .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.timeSlotInactive"));
 
@@ -775,9 +759,7 @@ class GradeResourceIT {
         gradeDTO.setEndDate(today.minusDays(5));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.noteditable"));
 
@@ -792,9 +774,7 @@ class GradeResourceIT {
         gradeDTO.setStartDate(today.plusDays(5));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.fieldlocked"));
 
@@ -810,9 +790,7 @@ class GradeResourceIT {
         gradeDTO.getModality().setId("other-modality");
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.fieldlocked"));
 
@@ -828,9 +806,7 @@ class GradeResourceIT {
         gradeDTO.getTimeSlot().setId("other-time-slot");
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.fieldlocked"));
 
@@ -847,9 +823,7 @@ class GradeResourceIT {
         gradeDTO.getProgram().setId("other-program");
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.ACTIVA.toString()))
             .andExpect(jsonPath("$.endDate").value(today.plusDays(45).toString()))
@@ -866,9 +840,7 @@ class GradeResourceIT {
         gradeDTO.setStartDate(today.plusDays(5));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.fieldlocked"));
 
@@ -883,9 +855,7 @@ class GradeResourceIT {
         gradeDTO.setEndDate(today.plusDays(60));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.APLAZADA.toString()));
 
@@ -901,9 +871,7 @@ class GradeResourceIT {
         gradeDTO.setEndDate(today.plusDays(60));
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.PENDIENTE.toString()));
 
@@ -921,9 +889,7 @@ class GradeResourceIT {
         gradeDTO.getProgram().setId("other-program");
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.CANCELADA.toString()))
             .andExpect(jsonPath("$.program.id").value("other-program"));
@@ -940,9 +906,7 @@ class GradeResourceIT {
         gradeDTO.setCode(UPDATED_CODE);
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
 
@@ -958,9 +922,7 @@ class GradeResourceIT {
         gradeDTO.setCode(UPDATED_CODE);
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
 
@@ -975,9 +937,7 @@ class GradeResourceIT {
         gradeDTO.setCode(UPDATED_CODE);
 
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isOk());
 
         assertThat(getPersistedGrade(grade).getCode()).isEqualTo(UPDATED_CODE);
@@ -993,9 +953,7 @@ class GradeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Grade in the database
@@ -1003,38 +961,16 @@ class GradeResourceIT {
     }
 
     @Test
-    void putWithIdMismatchGrade() throws Exception {
+    void putGradeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        grade.setId(UUID.randomUUID().toString());
+        grade.setId(null);
 
-        // Create the Grade
         GradeDTO gradeDTO = gradeMapper.toDto(grade);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restGradeMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(gradeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Grade in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamGrade() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        grade.setId(UUID.randomUUID().toString());
-
-        // Create the Grade
-        GradeDTO gradeDTO = gradeMapper.toDto(grade);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restGradeMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the Grade in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -1054,11 +990,7 @@ class GradeResourceIT {
         partialUpdatedGrade.endDate(UPDATED_END_DATE);
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk());
 
         // Validate the Grade in the database
@@ -1082,11 +1014,7 @@ class GradeResourceIT {
         partialUpdatedGrade.code(UPDATED_CODE).state(StateGrade.CANCELADA).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE);
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk());
 
         // Validate the Grade in the database
@@ -1104,11 +1032,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setCode("AB12");
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.codenotnumeric"));
 
@@ -1130,9 +1054,7 @@ class GradeResourceIT {
 
             restGradeMockMvc
                 .perform(
-                    patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                        .contentType("application/merge-patch+json")
-                        .content(om.writeValueAsBytes(partialUpdatedGrade))
+                    patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade))
                 )
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.gradeCodeAlreadyUsed"));
@@ -1153,11 +1075,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(UPDATED_END_DATE);
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk());
 
         assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
@@ -1175,11 +1093,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(today.plusDays(15));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.datesorder"));
 
@@ -1198,11 +1112,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(today.plusDays(30));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.startdateinpast"));
 
@@ -1219,11 +1129,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(today.plusDays(20));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk());
 
         assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.minusDays(30));
@@ -1247,9 +1153,7 @@ class GradeResourceIT {
 
             restGradeMockMvc
                 .perform(
-                    patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                        .contentType("application/merge-patch+json")
-                        .content(om.writeValueAsBytes(partialUpdatedGrade))
+                    patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade))
                 )
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.modalityInactive"));
@@ -1277,9 +1181,7 @@ class GradeResourceIT {
 
             restGradeMockMvc
                 .perform(
-                    patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                        .contentType("application/merge-patch+json")
-                        .content(om.writeValueAsBytes(partialUpdatedGrade))
+                    patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade))
                 )
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.timeSlotInactive"));
@@ -1300,11 +1202,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(today.minusDays(5));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.noteditable"));
 
@@ -1321,11 +1219,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setStartDate(today.plusDays(5));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.fieldlocked"));
 
@@ -1342,11 +1236,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(today.plusDays(45));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.ACTIVA.toString()))
             .andExpect(jsonPath("$.endDate").value(today.plusDays(45).toString()));
@@ -1364,11 +1254,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setTimeSlot(new TimeSlot().id("other-time-slot"));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.fieldlocked"));
 
@@ -1385,11 +1271,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setEndDate(today.plusDays(60));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.APLAZADA.toString()));
 
@@ -1406,11 +1288,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setStartDate(today.plusDays(5));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.PENDIENTE.toString()));
 
@@ -1427,11 +1305,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setStartDate(today.plusDays(5));
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.state").value(StateGrade.CANCELADA.toString()));
 
@@ -1449,11 +1323,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setCode(UPDATED_CODE);
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
 
@@ -1471,11 +1341,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setCode(UPDATED_CODE);
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
 
@@ -1492,11 +1358,7 @@ class GradeResourceIT {
         partialUpdatedGrade.setCode(UPDATED_CODE);
 
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedGrade))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedGrade)))
             .andExpect(status().isOk());
 
         assertThat(getPersistedGrade(grade).getCode()).isEqualTo(UPDATED_CODE);
@@ -1512,11 +1374,7 @@ class GradeResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, gradeDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(gradeDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(gradeDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Grade in the database
@@ -1524,38 +1382,16 @@ class GradeResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchGrade() throws Exception {
+    void patchGradeWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        grade.setId(UUID.randomUUID().toString());
+        grade.setId(null);
 
-        // Create the Grade
         GradeDTO gradeDTO = gradeMapper.toDto(grade);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restGradeMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(gradeDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Grade in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamGrade() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        grade.setId(UUID.randomUUID().toString());
-
-        // Create the Grade
-        GradeDTO gradeDTO = gradeMapper.toDto(grade);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restGradeMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(gradeDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the Grade in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);

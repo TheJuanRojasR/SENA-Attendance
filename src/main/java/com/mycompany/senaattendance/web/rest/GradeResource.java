@@ -11,7 +11,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,27 +70,21 @@ public class GradeResource {
     }
 
     /**
-     * {@code PUT  /grades/:id} : Updates an existing grade.
+     * {@code PUT  /grades} : Updates an existing grade; the id is taken from the request body.
      *
-     * @param id the id of the gradeDTO to save.
      * @param gradeDTO the gradeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated gradeDTO,
      * or with status {@code 400 (Bad Request)} if the gradeDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the gradeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<GradeDTO> updateGrade(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody GradeDTO gradeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Grade : {}, {}", id, gradeDTO);
-        if (gradeDTO.getId() == null) {
+    public ResponseEntity<GradeDTO> updateGrade(@Valid @RequestBody GradeDTO gradeDTO) throws URISyntaxException {
+        String id = gradeDTO.getId();
+        LOG.debug("REST request to update Grade : {}", gradeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, gradeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!gradeRepository.existsById(id)) {
@@ -105,9 +98,9 @@ public class GradeResource {
     }
 
     /**
-     * {@code PATCH  /grades/:id} : Partial updates given fields of an existing grade, field will ignore if it is null
+     * {@code PATCH  /grades} : Partial updates given fields of an existing grade, field will ignore if it is null.
+     * The id is taken from the request body.
      *
-     * @param id the id of the gradeDTO to save.
      * @param gradeDTO the gradeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated gradeDTO,
      * or with status {@code 400 (Bad Request)} if the gradeDTO is not valid,
@@ -115,18 +108,13 @@ public class GradeResource {
      * or with status {@code 500 (Internal Server Error)} if the gradeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<GradeDTO> partialUpdateGrade(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody GradeDTO gradeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Grade partially : {}, {}", id, gradeDTO);
-        if (gradeDTO.getId() == null) {
+    public ResponseEntity<GradeDTO> partialUpdateGrade(@NotNull @RequestBody GradeDTO gradeDTO) throws URISyntaxException {
+        String id = gradeDTO.getId();
+        LOG.debug("REST request to partial update Grade partially : {}", gradeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, gradeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!gradeRepository.existsById(id)) {
