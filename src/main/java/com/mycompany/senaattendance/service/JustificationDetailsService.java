@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
+import com.mycompany.senaattendance.web.rest.vm.JustificationDecisionVM;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -81,6 +82,20 @@ public interface JustificationDetailsService {
      * @return the entity.
      */
     Optional<JustificationDetailsDTO> findOne(String id);
+
+    /**
+     * Decide one part (UC010, flow step 5). Only the instructor currently assigned to the materia
+     * of the part can decide it, and an administrator can decide any part. Approving converts the
+     * {@code FALLA} records of the apprentice in that materia inside the justified period to
+     * {@code JUSTIFICADA}, with the audit entry of every change; rejecting only registers the
+     * reason. The decision applies to a pending part, records the response date and preserves the
+     * deadline mark.
+     *
+     * @param id the id of the part to decide.
+     * @param decision the state and the reasons of the decision.
+     * @return the persisted part, or empty when it does not exist.
+     */
+    Optional<JustificationDetailsDTO> decide(String id, JustificationDecisionVM decision);
 
     /**
      * Delete the "id" justificationDetails.

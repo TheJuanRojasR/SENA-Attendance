@@ -1,11 +1,15 @@
 package com.mycompany.senaattendance.service.impl;
 
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
-import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsSearchCriteria;
@@ -20,6 +24,7 @@ import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
 import com.mycompany.senaattendance.service.util.BusinessDays;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.JustificationDecisionVM;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -66,6 +71,10 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final ClassSectionRepository classSectionRepository;
 
+    private final AttendanceRepository attendanceRepository;
+
+    private final AuditLogRepository auditLogRepository;
+
     private final UserRepository userRepository;
 
     private final UserProfileRepository userProfileRepository;
@@ -77,6 +86,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         JustificationDetailsMapper justificationDetailsMapper,
         JustificationRepository justificationRepository,
         ClassSectionRepository classSectionRepository,
+        AttendanceRepository attendanceRepository,
+        AuditLogRepository auditLogRepository,
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
         Clock clock
@@ -85,6 +96,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         this.justificationDetailsMapper = justificationDetailsMapper;
         this.justificationRepository = justificationRepository;
         this.classSectionRepository = classSectionRepository;
+        this.attendanceRepository = attendanceRepository;
+        this.auditLogRepository = auditLogRepository;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.clock = clock;
@@ -262,6 +275,202 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
     }
 
     /**
+     * Decides one part (UC010, flow step 5). The order of the checks makes the most specific
+     * situation win: the decision must be one of the two decision states, the current instructor
+     * must be the one assigned to the materia of the part at this moment (an administrator
+     * decides any part), and the part must still be pending. A rejection always carries a reason
+     * (E1) and an approval of a part marked out of time always carries the exception reason (A2).
+     *
+     * <p>Approving converts every {@code FALLA} record of the apprentice in that materia inside
+     * the justified period to {@code JUSTIFICADA}, links it to the justification and audits the
+     * change. The deadline mark is never recalculated and a closed trimester does not block a
+     * pending decision, so the conversion applies even when the apprentice is no longer enrolled.
+     *
+     * @param id the id of the part to decide.
+     * @param decision the state and the reasons of the decision.
+     * @return the persisted part, or empty when it does not exist.
+     * @throws BadRequestAlertException with the key of the first rule the decision violates.
+     */
+    @Override
+    public Optional<JustificationDetailsDTO> decide(String id, JustificationDecisionVM decision) {
+        LOG.debug("Request to decide JustificationDetails : {}, {}", id, decision);
+        return justificationDetailsRepository.findById(id).map(part -> {
+            validateDecisionState(decision.getStateJustification());
+            validateDecisionInstructor(part);
+            if (part.getStateJustification() != StateJustification.PENDIENTE) {
+                throw noLongerPending();
+            }
+            validateDecisionReasons(part, decision);
+            applyDecision(part, decision);
+            return justificationDetailsMapper.toDto(justificationDetailsRepository.save(part));
+        });
+    }
+
+    /**
+     * Rejects a decision that is neither an approval nor a rejection: the pending state is not a
+     * decision and cannot be applied through this endpoint.
+     *
+     * @param stateJustification the requested state.
+     * @throws BadRequestAlertException with the key {@code invalidDecisionState}.
+     */
+    private static void validateDecisionState(StateJustification stateJustification) {
+        if (stateJustification != StateJustification.ACEPTADA && stateJustification != StateJustification.RECHAZADA) {
+            throw new BadRequestAlertException("La decisión solo puede ser Aceptada o Rechazada", ENTITY_NAME, "invalidDecisionState");
+        }
+    }
+
+    /**
+     * Rejects a decision made by anyone but the instructor currently assigned to the materia of
+     * the part (E4). An administrator keeps full access. A materia without instructor, or an
+     * instructor without a resolvable profile, cannot be the assigned one.
+     *
+     * @param part the part being decided.
+     * @throws BadRequestAlertException with the key {@code notYourClassSection}.
+     */
+    private void validateDecisionInstructor(JustificationDetails part) {
+        if (isCurrentUserAdmin()) {
+            return;
+        }
+        ClassSection classSection = part.getClassSection();
+        UserProfile instructor = classSection == null ? null : classSection.getInstructor();
+        String currentProfileId = currentUserProfileId();
+        if (instructor == null || currentProfileId == null || !currentProfileId.equals(instructor.getId())) {
+            throw notYourClassSection();
+        }
+    }
+
+    /**
+     * Rejects a rejection without a reason (E1) and an approval of a part marked out of time
+     * without the additional exception reason (A2). A part whose justification cannot prove its
+     * deadline mark counts as in time: only an explicit {@code false} demands the reason.
+     *
+     * @param part the part being decided.
+     * @param decision the requested decision.
+     * @throws BadRequestAlertException with the key {@code rejectionReasonRequired} or
+     *         {@code outOfTimeReasonRequired}.
+     */
+    private static void validateDecisionReasons(JustificationDetails part, JustificationDecisionVM decision) {
+        if (decision.getStateJustification() == StateJustification.RECHAZADA && isBlank(decision.getRejectionReason())) {
+            throw new BadRequestAlertException("El motivo de rechazo es obligatorio", ENTITY_NAME, "rejectionReasonRequired");
+        }
+        if (
+            decision.getStateJustification() == StateJustification.ACEPTADA &&
+            Boolean.FALSE.equals(onTimeOf(part)) &&
+            isBlank(decision.getOutOfTimeReason())
+        ) {
+            throw new BadRequestAlertException(
+                "Debes registrar el motivo de la aprobación fuera de tiempo",
+                ENTITY_NAME,
+                "outOfTimeReasonRequired"
+            );
+        }
+    }
+
+    /**
+     * Applies the decision over the part and, on approval, over the covered attendance. The
+     * response date is the decision instant and the deadline mark of the justification is
+     * preserved: it is never recalculated here.
+     *
+     * @param part the part being decided.
+     * @param decision the requested decision.
+     */
+    private void applyDecision(JustificationDetails part, JustificationDecisionVM decision) {
+        Instant decisionDate = Instant.now(clock);
+        part.setResponseDate(decisionDate);
+        if (decision.getStateJustification() == StateJustification.RECHAZADA) {
+            part.setStateJustification(StateJustification.RECHAZADA);
+            part.setRejectionReason(decision.getRejectionReason());
+            part.setOutOfTimeReason(null);
+            return;
+        }
+        part.setStateJustification(StateJustification.ACEPTADA);
+        part.setRejectionReason("");
+        part.setOutOfTimeReason(decision.getOutOfTimeReason());
+        justifyFailures(part, decisionDate);
+    }
+
+    /**
+     * Converts the {@code FALLA} records of the apprentice in the materia of the part, inside the
+     * justified period, to {@code JUSTIFICADA}. The records are linked to the justification of the
+     * part and every real change is audited with the profile that decided. A part without a
+     * resolvable justification, apprentice or materia has no attendance to convert.
+     *
+     * @param part the approved part.
+     * @param decisionDate the instant of the decision.
+     */
+    private void justifyFailures(JustificationDetails part, Instant decisionDate) {
+        Justification justification = part.getJustification();
+        ClassSection classSection = part.getClassSection();
+        if (
+            justification == null ||
+            classSection == null ||
+            justification.getStudent() == null ||
+            justification.getStartDate() == null ||
+            justification.getEndDate() == null ||
+            !isObjectId(classSection.getId())
+        ) {
+            return;
+        }
+        List<Attendance> failures = attendanceRepository.findByStudentIdAndClassSectionIdInAndDateBetweenAndStateAttendance(
+            justification.getStudent().getId(),
+            List.of(new ObjectId(classSection.getId())),
+            justification.getStartDate(),
+            justification.getEndDate(),
+            StateAttendance.FALLA
+        );
+        UserProfile modifiedBy = currentUserProfile();
+        for (Attendance attendance : failures) {
+            attendance.setStateAttendance(StateAttendance.JUSTIFICADA);
+            attendance.setModifiedByJustification(justification);
+            Attendance savedAttendance = attendanceRepository.save(attendance);
+            recordStateChange(savedAttendance, StateAttendance.FALLA, StateAttendance.JUSTIFICADA, modifiedBy, decisionDate);
+        }
+    }
+
+    /**
+     * Writes the audit entry of a real attendance change, following the UC009 pattern: the state
+     * before, the state after, the instant of the change and the profile that made it.
+     *
+     * @param attendance the persisted record whose state changed.
+     * @param previousState the state before the change.
+     * @param newState the state after the change.
+     * @param modifiedBy the profile that decided.
+     * @param editDate the instant of the change.
+     */
+    private void recordStateChange(
+        Attendance attendance,
+        StateAttendance previousState,
+        StateAttendance newState,
+        UserProfile modifiedBy,
+        Instant editDate
+    ) {
+        AuditLog auditLog = new AuditLog()
+            .previousState(previousState)
+            .newState(newState)
+            .editDate(editDate)
+            .modifiedBy(modifiedBy)
+            .attendance(attendance);
+        auditLogRepository.save(auditLog);
+    }
+
+    /**
+     * @param part the part being decided.
+     * @return the deadline mark of the justification of the part, or {@code null} when the
+     *         justification cannot be resolved.
+     */
+    private static Boolean onTimeOf(JustificationDetails part) {
+        return part.getJustification() == null ? null : part.getJustification().getOnTime();
+    }
+
+    /**
+     * @param value the candidate text.
+     * @return whether the text is missing or blank.
+     */
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    /**
      * Resolves the materias assigned to the current instructor, which are the readable scope of
      * the tray. A user without a resolvable profile or without assigned materias reads no
      * records.
@@ -428,16 +637,23 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
     }
 
     /**
+     * @return the profile of the authenticated user, or {@code null} when the session has no
+     *         login or the account has no profile.
+     */
+    private UserProfile currentUserProfile() {
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(userRepository::findOneByLogin)
+            .flatMap(user -> userProfileRepository.findOneByUserId(user.getId()))
+            .orElse(null);
+    }
+
+    /**
      * @return the profile id of the authenticated user, or {@code null} when the session has no
      *         login or the account has no profile.
      */
     private String currentUserProfileId() {
-        return SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .map(User::getId)
-            .flatMap(userProfileRepository::findOneByUserId)
-            .map(UserProfile::getId)
-            .orElse(null);
+        UserProfile profile = currentUserProfile();
+        return profile == null ? null : profile.getId();
     }
 
     /**
@@ -445,6 +661,26 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      */
     private static BadRequestAlertException notYourJustification() {
         return new BadRequestAlertException("Solo puedes gestionar tus propias justificaciones", ENTITY_NAME, "notYourJustification");
+    }
+
+    /**
+     * @return the error thrown when a non-admin decides a part of the materia of another
+     *         instructor (UC010, E4).
+     */
+    private static BadRequestAlertException notYourClassSection() {
+        return new BadRequestAlertException(
+            "Esta justificación pertenece a la materia de otro instructor",
+            ENTITY_NAME,
+            "notYourClassSection"
+        );
+    }
+
+    /**
+     * @return the error thrown when a decision targets a part that is no longer pending (UC010,
+     *         E2).
+     */
+    private static BadRequestAlertException noLongerPending() {
+        return new BadRequestAlertException("Esta justificación ya no está pendiente", ENTITY_NAME, "alreadyProcessed");
     }
 
     /**

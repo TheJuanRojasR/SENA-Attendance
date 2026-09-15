@@ -24,6 +24,14 @@ public interface JustificationDetailsMapper extends EntityMapper<JustificationDe
     @Mapping(target = "requestDate", source = "justification.createdDate")
     JustificationDetailsDTO toDto(JustificationDetails s);
 
+    /**
+     * The reason of an out-of-time approval is server-owned: only the decision endpoint sets it,
+     * so no client entity payload can inject it.
+     */
+    @Override
+    @Mapping(target = "outOfTimeReason", ignore = true)
+    JustificationDetails toEntity(JustificationDetailsDTO s);
+
     @Named("classSectionSubjectName")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")

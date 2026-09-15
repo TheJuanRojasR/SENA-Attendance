@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.JustificationDecisionVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -238,6 +239,31 @@ public class JustificationDetailsResource {
         LOG.debug("REST request to get JustificationDetails : {}", id);
         Optional<JustificationDetailsDTO> justificationDetailsDTO = justificationDetailsService.findOne(id);
         return ResponseUtil.wrapOrNotFound(justificationDetailsDTO);
+    }
+
+    /**
+     * {@code PATCH  /justification-details/:id/decision} : applies the decision of the instructor
+     * over one part (UC010, flow step 5). Only the instructor currently assigned to the materia of
+     * the part can decide it, and an administrator can decide any part. The body only carries the
+     * decision state and the reasons the rules require: approving a part marked out of time
+     * demands the additional exception reason, and rejecting always demands the rejection reason.
+     * Approving converts the covered failures to {@code JUSTIFICADA}; the response date and the
+     * deadline mark are server-owned.
+     *
+     * @param id the id of the part to decide.
+     * @param decision the state and the reasons of the decision.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the decided
+     *         part, with status {@code 400 (Bad Request)} when a decision rule is violated, or with
+     *         status {@code 404 (Not Found)} when the part does not exist.
+     */
+    @PatchMapping(value = "/{id}/decision", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    public ResponseEntity<JustificationDetailsDTO> decideJustificationDetails(
+        @PathVariable("id") String id,
+        @Valid @RequestBody JustificationDecisionVM decision
+    ) {
+        LOG.debug("REST request to decide JustificationDetails : {}, {}", id, decision);
+        return ResponseUtil.wrapOrNotFound(justificationDetailsService.decide(id, decision));
     }
 
     /**

@@ -10,12 +10,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
@@ -32,6 +37,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -47,6 +53,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Integration tests for the {@link JustificationDetailsResource} REST controller.
@@ -76,11 +83,13 @@ class JustificationDetailsResourceIT {
 
     private static final String ENTITY_API_URL = "/api/justification-details";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
+    private static final String ENTITY_DECISION_API_URL_ID = ENTITY_API_URL + "/{id}/decision";
 
     private static final String APPRENTICE_LOGIN = "justification_details_apprentice";
     private static final String OTHER_APPRENTICE_LOGIN = "other_justification_details_apprentice";
     private static final String INSTRUCTOR_LOGIN = "justification_details_instructor";
     private static final String OTHER_INSTRUCTOR_LOGIN = "other_justification_details_instructor";
+    private static final String ADMIN_LOGIN = "justification_details_admin";
 
     @Autowired
     private ObjectMapper om;
@@ -102,6 +111,12 @@ class JustificationDetailsResourceIT {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     @Mock
     private JustificationDetailsRepository justificationDetailsRepositoryMock;
@@ -185,6 +200,8 @@ class JustificationDetailsResourceIT {
             insertedJustificationDetails = null;
         }
         // Remove the related documents persisted for the PUT tests and the scoping tests
+        attendanceRepository.deleteAll();
+        auditLogRepository.deleteAll();
         justificationDetailsRepository.deleteAll();
         classSectionRepository.deleteAll();
         justificationRepository.deleteAll();
@@ -873,6 +890,207 @@ class JustificationDetailsResourceIT {
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL + "/pending")).andExpect(status().isForbidden());
     }
 
+    // -----------------------------------------------------------------
+    // UC010 — Decisión del instructor (use-cases.md:1052-1062, E1/E2/E4)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideApprovedPartMarksTheCoveredFailuresAsJustified() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+        ClassSection otherMateria = persistClassSection("Otra materia del instructor", fixture.instructor());
+        LocalDate today = LocalDate.now(clock);
+        Attendance coveredFailure = persistAttendance(
+            fixture.classSection(),
+            fixture.apprentice(),
+            today.minusDays(3),
+            StateAttendance.FALLA
+        );
+        Attendance outsideFailure = persistAttendance(
+            fixture.classSection(),
+            fixture.apprentice(),
+            today.minusDays(10),
+            StateAttendance.FALLA
+        );
+        Attendance presentRecord = persistAttendance(
+            fixture.classSection(),
+            fixture.apprentice(),
+            today.minusDays(2),
+            StateAttendance.PRESENTE
+        );
+        Attendance otherMateriaFailure = persistAttendance(otherMateria, fixture.apprentice(), today.minusDays(2), StateAttendance.FALLA);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("ACEPTADA"))
+            .andExpect(jsonPath("$.responseDate").exists());
+
+        assertThat(justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow().getStateJustification()).isEqualTo(
+            StateJustification.ACEPTADA
+        );
+        // The deadline mark is server-owned: the decision never recalculates it
+        assertThat(justificationRepository.findById(fixture.justification().getId()).orElseThrow().getOnTime()).isTrue();
+
+        Attendance justified = attendanceRepository.findById(coveredFailure.getId()).orElseThrow();
+        assertThat(justified.getStateAttendance()).isEqualTo(StateAttendance.JUSTIFICADA);
+        assertThat(justified.getModifiedByJustification()).isNotNull();
+        assertThat(justified.getModifiedByJustification().getId()).isEqualTo(fixture.justification().getId());
+        assertThat(attendanceRepository.findById(outsideFailure.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.FALLA
+        );
+        assertThat(attendanceRepository.findById(presentRecord.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.PRESENTE
+        );
+        Attendance untouched = attendanceRepository.findById(otherMateriaFailure.getId()).orElseThrow();
+        assertThat(untouched.getStateAttendance()).isEqualTo(StateAttendance.FALLA);
+        assertThat(untouched.getModifiedByJustification()).isNull();
+
+        List<AuditLog> audits = auditLogRepository.findAll();
+        assertThat(audits).hasSize(1);
+        assertThat(audits.getFirst().getPreviousState()).isEqualTo(StateAttendance.FALLA);
+        assertThat(audits.getFirst().getNewState()).isEqualTo(StateAttendance.JUSTIFICADA);
+        assertThat(audits.getFirst().getAttendance().getId()).isEqualTo(coveredFailure.getId());
+        assertThat(audits.getFirst().getModifiedBy().getId()).isEqualTo(fixture.instructor().getId());
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideRejectedPartWithoutReasonReturnsRejectionReasonRequired() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "RECHAZADA"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.rejectionReasonRequired"));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.PENDIENTE);
+        assertThat(reloaded.getResponseDate()).isNull();
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideRejectedPartRegistersTheReasonAndKeepsTheAttendanceUntouched() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true);
+        Attendance failure = persistAttendance(
+            fixture.classSection(),
+            fixture.apprentice(),
+            LocalDate.now(clock).minusDays(3),
+            StateAttendance.FALLA
+        );
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "RECHAZADA", "rejectionReason", "Soporte no legible"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("RECHAZADA"))
+            .andExpect(jsonPath("$.rejectionReason").value("Soporte no legible"))
+            .andExpect(jsonPath("$.responseDate").exists());
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.RECHAZADA);
+        assertThat(reloaded.getRejectionReason()).isEqualTo("Soporte no legible");
+        Attendance kept = attendanceRepository.findById(failure.getId()).orElseThrow();
+        assertThat(kept.getStateAttendance()).isEqualTo(StateAttendance.FALLA);
+        assertThat(kept.getModifiedByJustification()).isNull();
+        assertThat(auditLogRepository.count()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideAnAlreadyDecidedPartReturnsAlreadyProcessed() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(true, StateJustification.ACEPTADA);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "RECHAZADA", "rejectionReason", "Fuera de plazo"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.alreadyProcessed"));
+
+        assertThat(justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow().getStateJustification()).isEqualTo(
+            StateJustification.ACEPTADA
+        );
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decidePartOfAnotherInstructorReturnsNotYourClassSection() throws Exception {
+        UserProfile otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "3100000002");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection otherClassSection = persistClassSection("Materia de otro instructor", otherInstructor);
+        Justification justification = persistJustification(apprentice, LocalDate.now(clock).minusDays(3), LocalDate.now(clock), true);
+        JustificationDetails part = persistPart(justification, otherClassSection, StateJustification.PENDIENTE);
+
+        patchDecision(part.getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourClassSection"));
+
+        assertThat(justificationDetailsRepository.findById(part.getId()).orElseThrow().getStateJustification()).isEqualTo(
+            StateJustification.PENDIENTE
+        );
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideOutOfTimePartWithoutReasonReturnsOutOfTimeReasonRequired() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(false);
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.outOfTimeReasonRequired"));
+
+        assertThat(justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow().getStateJustification()).isEqualTo(
+            StateJustification.PENDIENTE
+        );
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideOutOfTimePartWithReasonApprovesIt() throws Exception {
+        DecisionFixture fixture = persistDecisionFixture(false);
+        Attendance failure = persistAttendance(
+            fixture.classSection(),
+            fixture.apprentice(),
+            LocalDate.now(clock).minusDays(3),
+            StateAttendance.FALLA
+        );
+
+        patchDecision(fixture.part().getId(), Map.of("stateJustification", "ACEPTADA", "outOfTimeReason", "Emergencia médica"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("ACEPTADA"))
+            .andExpect(jsonPath("$.outOfTimeReason").value("Emergencia médica"));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(fixture.part().getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.ACEPTADA);
+        assertThat(reloaded.getOutOfTimeReason()).isEqualTo("Emergencia médica");
+        assertThat(attendanceRepository.findById(failure.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.JUSTIFICADA
+        );
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN_LOGIN, authorities = AuthoritiesConstants.ADMIN)
+    void decideAsAdminApprovesThePartOfAnyInstructor() throws Exception {
+        UserProfile admin = persistProfile(ADMIN_LOGIN, "3100000003");
+        UserProfile otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "3100000002");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection otherClassSection = persistClassSection("Materia de otro instructor", otherInstructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(3), today, true);
+        JustificationDetails part = persistPart(justification, otherClassSection, StateJustification.PENDIENTE);
+        Attendance failure = persistAttendance(otherClassSection, apprentice, today.minusDays(2), StateAttendance.FALLA);
+
+        patchDecision(part.getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("ACEPTADA"));
+
+        assertThat(attendanceRepository.findById(failure.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.JUSTIFICADA
+        );
+        assertThat(auditLogRepository.findAll().getFirst().getModifiedBy().getId()).isEqualTo(admin.getId());
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void decideAsApprenticeReturnsForbidden() throws Exception {
+        patchDecision(UUID.randomUUID().toString(), Map.of("stateJustification", "ACEPTADA")).andExpect(status().isForbidden());
+    }
+
     @Test
     void patchNonExistingJustificationDetails() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
@@ -1062,6 +1280,55 @@ class JustificationDetailsResourceIT {
         part.setResponseDate(null);
         return justificationDetailsRepository.save(part);
     }
+
+    /**
+     * Persists an attendance record of the apprentice in one materia on a date, used to prove the
+     * conversion of approved parts.
+     */
+    private Attendance persistAttendance(ClassSection classSection, UserProfile student, LocalDate date, StateAttendance stateAttendance) {
+        return attendanceRepository.save(
+            new Attendance().date(date).stateAttendance(stateAttendance).classSection(classSection).student(student)
+        );
+    }
+
+    /**
+     * Persists the graph a decision needs: the instructor assigned to one materia, the apprentice
+     * and a part of a justification over the last five days with the requested deadline mark.
+     */
+    private DecisionFixture persistDecisionFixture(boolean onTime) {
+        return persistDecisionFixture(onTime, StateJustification.PENDIENTE);
+    }
+
+    private DecisionFixture persistDecisionFixture(boolean onTime, StateJustification state) {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3100000001");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection classSection = persistClassSection("Materia del instructor", instructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(5), today, onTime);
+        JustificationDetails part = persistPart(justification, classSection, state);
+        return new DecisionFixture(instructor, apprentice, classSection, justification, part);
+    }
+
+    /**
+     * Sends the instructor decision over one part through the API.
+     */
+    private ResultActions patchDecision(String partId, Map<String, Object> payload) throws Exception {
+        return restJustificationDetailsMockMvc.perform(
+            patch(ENTITY_DECISION_API_URL_ID, partId).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload))
+        );
+    }
+
+    /**
+     * The persisted graph of a decision scenario: the instructor assigned to the materia, the
+     * apprentice, and the header and part being decided.
+     */
+    private record DecisionFixture(
+        UserProfile instructor,
+        UserProfile apprentice,
+        ClassSection classSection,
+        Justification justification,
+        JustificationDetails part
+    ) {}
 
     protected long getRepositoryCount() {
         return justificationDetailsRepository.count();

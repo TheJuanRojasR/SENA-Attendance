@@ -51,6 +51,14 @@ public class JustificationDetails implements Serializable {
     @Field("response_date")
     private Instant responseDate;
 
+    /**
+     * Reason the instructor registered to approve an out-of-time part (UC010, A2), or
+     * {@code null} when the approval was in time or the part was rejected.
+     */
+    @Size(max = 300)
+    @Field("out_of_time_reason")
+    private String outOfTimeReason;
+
     @DBRef
     @Field("classSection")
     @JsonIgnoreProperties(value = { "scheduleses", "exceptionses", "instructor", "grade" }, allowSetters = true)
@@ -154,6 +162,19 @@ public class JustificationDetails implements Serializable {
         this.responseDate = responseDate;
     }
 
+    public String getOutOfTimeReason() {
+        return this.outOfTimeReason;
+    }
+
+    public JustificationDetails outOfTimeReason(String outOfTimeReason) {
+        this.setOutOfTimeReason(outOfTimeReason);
+        return this;
+    }
+
+    public void setOutOfTimeReason(String outOfTimeReason) {
+        this.outOfTimeReason = outOfTimeReason;
+    }
+
     public ClassSection getClassSection() {
         return this.classSection;
     }
@@ -210,6 +231,7 @@ public class JustificationDetails implements Serializable {
             ", correctionFileUrl='" + getCorrectionFileUrl() + "'" +
             ", correctionFileUrlContentType='" + getCorrectionFileUrlContentType() + "'" +
             ", responseDate='" + getResponseDate() + "'" +
+            ", outOfTimeReason='" + getOutOfTimeReason() + "'" +
             "}";
     }
 }

@@ -38,6 +38,13 @@ public class JustificationDetailsDTO implements Serializable {
      */
     private Instant requestDate;
 
+    /**
+     * Reason registered by the instructor to approve an out-of-time part (UC010, A2); the
+     * decision endpoint sets it and no other flow accepts it.
+     */
+    @Size(max = 300)
+    private String outOfTimeReason;
+
     @NotNull
     private ClassSectionDTO classSection;
 
@@ -108,6 +115,14 @@ public class JustificationDetailsDTO implements Serializable {
         this.requestDate = requestDate;
     }
 
+    public String getOutOfTimeReason() {
+        return outOfTimeReason;
+    }
+
+    public void setOutOfTimeReason(String outOfTimeReason) {
+        this.outOfTimeReason = outOfTimeReason;
+    }
+
     public ClassSectionDTO getClassSection() {
         return classSection;
     }
@@ -156,6 +171,7 @@ public class JustificationDetailsDTO implements Serializable {
             ", correctionFileUrl='" + getCorrectionFileUrl() + "'" +
             ", responseDate='" + getResponseDate() + "'" +
             ", requestDate='" + getRequestDate() + "'" +
+            ", outOfTimeReason='" + getOutOfTimeReason() + "'" +
             ", classSection=" + getClassSection() +
             ", justification=" + getJustification() +
             "}";
