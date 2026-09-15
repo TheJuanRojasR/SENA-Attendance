@@ -902,6 +902,14 @@ class TrimesterResourceIT {
             .andExpect(status().isForbidden());
     }
 
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void getTrimesterAsNonAdminReturnsForbidden() throws Exception {
+        insertedTrimester = trimesterRepository.save(trimester);
+
+        restTrimesterMockMvc.perform(get(ENTITY_API_URL_ID, trimester.getId())).andExpect(status().isForbidden());
+    }
+
     protected long getRepositoryCount() {
         return trimesterRepository.count();
     }

@@ -178,7 +178,7 @@ public class TrimesterResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the trimesterDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> getTrimester(@PathVariable("id") String id) {
         LOG.debug("REST request to get Trimester : {}", id);
         Optional<TrimesterDTO> trimesterDTO = trimesterService.findOne(id);
