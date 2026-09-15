@@ -56,15 +56,7 @@ public class ApprenticeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.INSTRUCTOR +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ApprenticeDTO> enrollApprentice(@Valid @RequestBody EnrollApprenticeVM enrollApprenticeVM)
         throws URISyntaxException {
         LOG.debug("REST request to enroll Apprentice by document number : {}", enrollApprenticeVM.getDocumentNumber());
@@ -107,6 +99,7 @@ public class ApprenticeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Apprentices in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<List<ApprenticeDTO>> getAllApprentices(
         @RequestParam(name = "gradeId", required = false) String gradeId,
         @RequestParam(name = "documentNumber", required = false) String documentNumber,
@@ -133,6 +126,7 @@ public class ApprenticeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the apprenticeDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ApprenticeDTO> getApprentice(@PathVariable("id") String id) {
         LOG.debug("REST request to get Apprentice : {}", id);
         Optional<ApprenticeDTO> apprenticeDTO = apprenticeService.findOne(id);

@@ -447,6 +447,30 @@ class ApprenticeResourceIT {
     }
 
     @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void enrollWithCoordinatorIsForbidden() throws Exception {
+        restApprenticeMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(enrollPayload(DEFAULT_DOCUMENT_NUMBER, UUID.randomUUID().toString().replace("-", ""))))
+            )
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void enrollWithInstructorIsForbidden() throws Exception {
+        restApprenticeMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(enrollPayload(DEFAULT_DOCUMENT_NUMBER, UUID.randomUUID().toString().replace("-", ""))))
+            )
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
     void getAllApprentices() throws Exception {
         UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, "Ana Maria", "Gomez Ruiz");
         Grade grade = persistGrade("UC00808", StateGrade.ACTIVA);
@@ -601,6 +625,37 @@ class ApprenticeResourceIT {
     void getNonExistingApprentice() throws Exception {
         // Get the apprentice
         restApprenticeMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllApprenticesWithApprenticeRoleIsForbidden() throws Exception {
+        restApprenticeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getApprenticeWithApprenticeRoleIsForbidden() throws Exception {
+        restApprenticeMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAllApprenticesWithInstructorRoleIsAllowed() throws Exception {
+        restApprenticeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getApprenticeWithInstructorRoleIsAllowed() throws Exception {
+        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true);
+        Grade grade = persistGrade("UC00828", StateGrade.ACTIVA);
+        Apprentice apprentice = persistEnrollment(student, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(get(ENTITY_API_URL_ID, apprentice.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(apprentice.getId()));
     }
 
     @Test
