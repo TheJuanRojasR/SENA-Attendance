@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Form, Modal, ModalBody, ModalFooter, ModalHeader, Row } from 'react-bootstrap';
+import { Button, Form, Modal, ModalBody, ModalFooter, ModalHeader, Row } from 'react-bootstrap';
 import { Translate, ValidatedField, isEmail, translate } from 'react-jhipster';
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { type FieldError, useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
@@ -12,6 +12,7 @@ import { getEntities as getDocumentTypes } from 'app/entities/document-type/docu
 import PasswordStrengthBar from 'app/shared/layout/password/password-strength-bar';
 
 import { handleRegister, reset } from './register.reducer';
+import LinkButton from 'app/shared/components/link-button';
 
 export interface IRegisterProps {
   showModal?: boolean;
@@ -41,7 +42,7 @@ export const RegisterModal = (props: IRegisterProps) => {
     phoneNumber,
     documentTypeId,
     email,
-    firstPassword,
+    password,
   }: Record<string, any>) => {
     dispatch(
       handleRegister({
@@ -53,7 +54,7 @@ export const RegisterModal = (props: IRegisterProps) => {
         phoneNumber,
         documentTypeId,
         email,
-        password: firstPassword,
+        password: password,
         langKey: currentLocale,
       }),
     );
@@ -62,18 +63,51 @@ export const RegisterModal = (props: IRegisterProps) => {
   const {
     handleSubmit,
     register,
+    setError,
     formState: { errors, touchedFields },
   } = useForm({ mode: 'onTouched' });
 
   const updatePassword = event => setPassword(event.target.value);
 
+  const navigate = useNavigate();
   const successMessage = useAppSelector(state => state.register.successMessage);
+  const registrationFailure = useAppSelector(state => state.register.registrationFailure);
+  const errorMessage = useAppSelector(state => state.register.errorMessage);
+  const fieldErrors = useAppSelector(state => state.register.fieldErrors);
 
   useEffect(() => {
     if (successMessage) {
       toast.success(translate(successMessage));
+      navigate('/login');
     }
   }, [successMessage]);
+
+  useEffect(() => {
+    if (!registrationFailure || !errorMessage) {
+      return;
+    }
+
+    if (errorMessage === 'error.validation' && fieldErrors?.length) {
+      fieldErrors.forEach(fieldError => {
+        setError(fieldError.field as any, { type: 'server', message: translate(`error.${fieldError.message}`) });
+      });
+      return;
+    }
+
+    const fieldByErrorKey: Record<string, string> = {
+      'error.documentnumberexists': 'documentNumber',
+      'error.documentnumberinactive': 'documentNumber',
+      'error.emailexists': 'email',
+      'error.emailrequired': 'email',
+      'error.documentTypeNotFound': 'documentTypeId',
+      'error.documentTypeInactive': 'documentTypeId',
+    };
+
+    const field = fieldByErrorKey[errorMessage];
+    if (field) {
+      setError(field as any, { type: 'server', message: translate(errorMessage) });
+    }
+  }, [registrationFailure, errorMessage, fieldErrors]);
 
   return (
     <Modal show={props.showModal} onHide={props.handleClose} id={'register-page'} autoFocus={false}>
@@ -96,7 +130,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.firstName as FieldError}
                 isTouched={touchedFields.firstName}
-                className="test"
+                className="formInput"
               />
               <ValidatedField
                 name="middleName"
@@ -106,7 +140,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.middleName as FieldError}
                 isTouched={touchedFields.middleName}
-                className="test"
+                className="formInput"
               />
             </Row>
             <Row>
@@ -120,7 +154,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.firstLastName as FieldError}
                 isTouched={touchedFields.firstLastName}
-                className="test"
+                className="formInput"
               />
               <ValidatedField
                 name="secondLastName"
@@ -130,7 +164,7 @@ export const RegisterModal = (props: IRegisterProps) => {
                 register={register}
                 error={errors.secondLastName as FieldError}
                 isTouched={touchedFields.secondLastName}
-                className="test"
+                className="formInput"
               />
             </Row>
             <ValidatedField
@@ -163,7 +197,10 @@ export const RegisterModal = (props: IRegisterProps) => {
               type="text"
               required
               data-cy="documentNumber"
-              validate={{ required: 'Ingrese su numero de documento' }}
+              validate={{
+                required: 'Ingrese su numero de documento',
+                pattern: { value: /^\d+$/, message: 'El número de documento solo debe contener dígitos' },
+              }}
               register={register}
               error={errors.documentNumber as FieldError}
               isTouched={touchedFields.documentNumber}
@@ -174,7 +211,10 @@ export const RegisterModal = (props: IRegisterProps) => {
               placeholder={translate('global.form.phoneNumber.placeholder')}
               required
               data-cy="phoneNumber"
-              validate={{ required: 'Ingrese su numero de telefono' }}
+              validate={{
+                required: 'Ingrese su numero de telefono',
+                pattern: { value: /^\d{10}$/, message: 'El teléfono debe tener exactamente 10 dígitos' },
+              }}
               register={register}
               error={errors.phoneNumber as FieldError}
               isTouched={touchedFields.phoneNumber}
@@ -196,59 +236,34 @@ export const RegisterModal = (props: IRegisterProps) => {
               isTouched={touchedFields.email}
             />
             <ValidatedField
-              name="firstPassword"
+              name="password"
               label={translate('global.form.newpassword.label')}
               placeholder={translate('global.form.newpassword.placeholder')}
               type="password"
               onChange={updatePassword}
               validate={{
                 required: { value: true, message: translate('global.messages.validate.newpassword.required') },
-                minLength: { value: 4, message: translate('global.messages.validate.newpassword.minlength') },
-                maxLength: { value: 50, message: translate('global.messages.validate.newpassword.maxlength') },
+                minLength: { value: 8, message: translate('global.messages.validate.newpassword.minlength') },
+                maxLength: { value: 20, message: translate('global.messages.validate.newpassword.maxlength') },
+                pattern: {
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/,
+                  message: 'La contraseña debe incluir mayúscula, minúscula, número y carácter especial',
+                },
               }}
-              data-cy="firstPassword"
+              data-cy="password"
               register={register}
               error={errors.firstPassword as FieldError}
               isTouched={touchedFields.firstPassword}
             />
             <PasswordStrengthBar password={password} />
-            <ValidatedField
-              name="secondPassword"
-              label={translate('global.form.confirmpassword.label')}
-              placeholder={translate('global.form.confirmpassword.placeholder')}
-              type="password"
-              validate={{
-                required: { value: true, message: translate('global.messages.validate.confirmpassword.required') },
-                minLength: { value: 4, message: translate('global.messages.validate.confirmpassword.minlength') },
-                maxLength: { value: 50, message: translate('global.messages.validate.confirmpassword.maxlength') },
-                validate: v => v === password || translate('global.messages.error.dontmatch'),
-              }}
-              data-cy="secondPassword"
-              register={register}
-              error={errors.secondPassword as FieldError}
-              isTouched={touchedFields.secondPassword}
-            />
           </ModalBody>
           <ModalFooter>
+            <LinkButton id="cancel" color="primary" data-cy="cancel" to="/">
+              Cancel
+            </LinkButton>
             <Button id="register-submit" color="primary" type="submit" data-cy="submit">
               <Translate contentKey="register.form.button">Register</Translate>
             </Button>
-            {/* <p>&nbsp;</p> */}
-            <Alert variant="success">
-              <span>
-                <Translate contentKey="global.messages.info.authenticated.prefix">If you want to</Translate>{' '}
-              </span>
-              <Link to="/login" className="alert-link">
-                <Translate contentKey="global.messages.info.authenticated.link">sign in</Translate>
-              </Link>
-              <span>
-                <Translate contentKey="global.messages.info.authenticated.suffix">
-                  , you can try the default accounts:
-                  <br />- Administrator (login=&quot;admin&quot; and password=&quot;admin&quot;)
-                  <br />- User (login=&quot;user&quot; and password=&quot;user&quot;).
-                </Translate>
-              </span>
-            </Alert>
           </ModalFooter>
         </Form>
       </Row>

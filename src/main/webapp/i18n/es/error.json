@@ -9,6 +9,12 @@
       "500": "Error interno del servidor."
     },
     "concurrencyFailure": "Otro usuario ha modificado estos datos al mismo tiempo que tú. Tus cambios fueron rechazados.",
-    "validation": "Error de validación en el servidor."
+    "validation": "Error de validación en el servidor.",
+    "documentnumberexists": "Este documento ya está registrado en el sistema.",
+    "documentnumberinactive": "La cuenta asociada a este documento está desactivada. Contacta al Administrador para reactivarla.",
+    "emailrequired": "El correo electrónico es obligatorio.",
+    "documentTypeNotFound": "El tipo de documento no existe.",
+    "documentTypeInactive": "El tipo de documento está inactivo y no puede usarse en el registro.",
+    "invalidpassword": "Contraseña no válida."
   }
 }

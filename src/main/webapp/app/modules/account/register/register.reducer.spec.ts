@@ -11,7 +11,9 @@ describe('Creating account tests', () => {
     loading: false,
     registrationSuccess: false,
     registrationFailure: false,
+    showModalRegister: false,
     errorMessage: null,
+    fieldErrors: null,
     successMessage: null,
   };
 
@@ -53,7 +55,7 @@ describe('Creating account tests', () => {
     });
   });
 
-  it('should handle CREATE_ACCOUNT failure', () => {
+  it('should handle CREATE_ACCOUNT failure with a generic error', () => {
     const error = { message: 'fake error' };
     expect(
       register(undefined, {
@@ -64,6 +66,37 @@ describe('Creating account tests', () => {
       ...initialState,
       registrationFailure: true,
       errorMessage: error.message,
+    });
+  });
+
+  it('should handle CREATE_ACCOUNT failure with a business error key', () => {
+    const error = { message: 'fake error', response: { data: { message: 'error.documentnumberexists' } } };
+    expect(
+      register(undefined, {
+        type: handleRegister.rejected.type,
+        error,
+      }),
+    ).toEqual({
+      ...initialState,
+      registrationFailure: true,
+      errorMessage: 'error.documentnumberexists',
+      fieldErrors: null,
+    });
+  });
+
+  it('should handle CREATE_ACCOUNT failure with field errors', () => {
+    const fieldErrors = [{ objectName: 'accountUpdateVM', field: 'phoneNumber', message: 'Pattern' }];
+    const error = { message: 'fake error', response: { data: { message: 'error.validation', fieldErrors } } };
+    expect(
+      register(undefined, {
+        type: handleRegister.rejected.type,
+        error,
+      }),
+    ).toEqual({
+      ...initialState,
+      registrationFailure: true,
+      errorMessage: 'error.validation',
+      fieldErrors,
     });
   });
 
@@ -82,7 +115,15 @@ describe('Creating account tests', () => {
     });
 
     it('dispatches CREATE_ACCOUNT_PENDING and CREATE_ACCOUNT_FULFILLED actions', async () => {
-      const arg = { login: '', email: '', password: '' };
+      const arg = {
+        documentTypeId: '',
+        documentNumber: '',
+        firstName: '',
+        firstLastName: '',
+        phoneNumber: '',
+        email: '',
+        password: '',
+      };
 
       const result = await handleRegister(arg)(dispatch, getState, extra);
 

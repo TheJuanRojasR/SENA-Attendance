@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axios from 'axios';
 
+import { FieldErrorVM, isProblemWithMessage } from 'app/shared/jhipster/problem-details';
 import { serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 
 const initialState = {
@@ -9,6 +10,7 @@ const initialState = {
   registrationFailure: false,
   showModalRegister: false,
   errorMessage: null as string | null,
+  fieldErrors: null as FieldErrorVM[] | null,
   successMessage: null as string | null,
 };
 
@@ -46,11 +48,16 @@ export const RegisterSlice = createSlice({
       .addCase(handleRegister.pending, state => {
         state.loading = true;
       })
-      .addCase(handleRegister.rejected, (state, action) => ({
-        ...initialState,
-        registrationFailure: true,
-        errorMessage: action.error.message!,
-      }))
+      .addCase(handleRegister.rejected, (state, action) => {
+        const data = (action.error as any)?.response?.data;
+        const problem = isProblemWithMessage(data) ? data : null;
+        return {
+          ...initialState,
+          registrationFailure: true,
+          errorMessage: problem?.message ?? action.error.message!,
+          fieldErrors: problem?.fieldErrors ?? null,
+        };
+      })
       .addCase(handleRegister.fulfilled, () => ({
         ...initialState,
         registrationSuccess: true,

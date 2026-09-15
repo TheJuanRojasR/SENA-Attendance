@@ -32,4 +32,9 @@ export type ProblemWithMessage = ProblemDetails & {
   fieldErrors?: FieldErrorVM[];
 };
 
-export const isProblemWithMessage = (data: any): data is ProblemWithMessage => data?.type === ProblemWithMessageType;
+/**
+ * Accepts any RFC 7807 problem body carrying a translation-key `message`, not only the
+ * generic `problem-with-message` type: some backend errors (e.g. invalid-password) use a
+ * more specific `type` while still populating `message` with a business error key.
+ */
+export const isProblemWithMessage = (data: any): data is ProblemWithMessage => typeof data?.message === 'string';
