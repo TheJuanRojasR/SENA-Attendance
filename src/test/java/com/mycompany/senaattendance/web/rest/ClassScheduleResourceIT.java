@@ -572,11 +572,7 @@ class ClassScheduleResourceIT {
         ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
 
         restClassScheduleMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classScheduleDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
             .andExpect(status().isOk());
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -594,9 +590,7 @@ class ClassScheduleResourceIT {
 
         restClassScheduleMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSchedule.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSchedule))
             )
             .andExpect(status().isOk());
 
@@ -622,11 +616,7 @@ class ClassScheduleResourceIT {
         classScheduleDTO.setEndTime(LocalTime.of(15, 0));
 
         restClassScheduleMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classScheduleDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.scheduleOverlap"));
 
@@ -653,9 +643,7 @@ class ClassScheduleResourceIT {
 
         restClassScheduleMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, stored.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSchedule))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.scheduleOverlap"));
@@ -697,11 +685,7 @@ class ClassScheduleResourceIT {
 
         // Modifying a session of a closed trimester fails
         restClassScheduleMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classScheduleDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
 
@@ -725,9 +709,7 @@ class ClassScheduleResourceIT {
         // Partially modifying a session of a closed trimester fails
         restClassScheduleMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSchedule.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSchedule))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
@@ -772,7 +754,7 @@ class ClassScheduleResourceIT {
         // Modifying a session of a future or active trimester keeps working
         restClassScheduleMockMvc
             .perform(
-                put(ENTITY_API_URL_ID, updatedClassSchedule.getId())
+                put(ENTITY_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(classScheduleMapper.toDto(updatedClassSchedule)))
             )
@@ -794,9 +776,7 @@ class ClassScheduleResourceIT {
         // Partially modifying a session of a future or active trimester keeps working
         restClassScheduleMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSchedule.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSchedule))
             )
             .andExpect(status().isOk());
 
@@ -886,11 +866,7 @@ class ClassScheduleResourceIT {
         ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(updatedClassSchedule);
 
         restClassScheduleMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classScheduleDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
             .andExpect(status().isOk());
 
         // Validate the ClassSchedule in the database
@@ -908,11 +884,7 @@ class ClassScheduleResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restClassScheduleMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classScheduleDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the ClassSchedule in the database
@@ -920,38 +892,16 @@ class ClassScheduleResourceIT {
     }
 
     @Test
-    void putWithIdMismatchClassSchedule() throws Exception {
+    void putClassScheduleWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSchedule.setId(UUID.randomUUID().toString());
+        classSchedule.setId(null);
 
-        // Create the ClassSchedule
         ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restClassScheduleMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the ClassSchedule in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamClassSchedule() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSchedule.setId(UUID.randomUUID().toString());
-
-        // Create the ClassSchedule
-        ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restClassScheduleMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classScheduleDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the ClassSchedule in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -972,9 +922,7 @@ class ClassScheduleResourceIT {
 
         restClassScheduleMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSchedule.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSchedule))
             )
             .andExpect(status().isOk());
 
@@ -1002,9 +950,7 @@ class ClassScheduleResourceIT {
 
         restClassScheduleMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSchedule.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSchedule))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSchedule))
             )
             .andExpect(status().isOk());
 
@@ -1024,11 +970,7 @@ class ClassScheduleResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restClassScheduleMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, classScheduleDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classScheduleDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the ClassSchedule in the database
@@ -1036,38 +978,16 @@ class ClassScheduleResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchClassSchedule() throws Exception {
+    void patchClassScheduleWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSchedule.setId(UUID.randomUUID().toString());
+        classSchedule.setId(null);
 
-        // Create the ClassSchedule
         ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restClassScheduleMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(classScheduleDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the ClassSchedule in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamClassSchedule() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSchedule.setId(UUID.randomUUID().toString());
-
-        // Create the ClassSchedule
-        ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restClassScheduleMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classScheduleDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the ClassSchedule in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);

@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,27 +70,22 @@ public class ClassScheduleResource {
     }
 
     /**
-     * {@code PUT  /class-schedules/:id} : Updates an existing classSchedule.
+     * {@code PUT  /class-schedules} : Updates an existing classSchedule; the id is taken from the request body.
      *
-     * @param id the id of the classScheduleDTO to save.
      * @param classScheduleDTO the classScheduleDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classScheduleDTO,
      * or with status {@code 400 (Bad Request)} if the classScheduleDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the classScheduleDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassScheduleDTO> updateClassSchedule(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ClassScheduleDTO classScheduleDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update ClassSchedule : {}, {}", id, classScheduleDTO);
-        if (classScheduleDTO.getId() == null) {
+    public ResponseEntity<ClassScheduleDTO> updateClassSchedule(@Valid @RequestBody ClassScheduleDTO classScheduleDTO)
+        throws URISyntaxException {
+        String id = classScheduleDTO.getId();
+        LOG.debug("REST request to update ClassSchedule : {}", classScheduleDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classScheduleDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classScheduleRepository.existsById(id)) {
@@ -105,9 +99,9 @@ public class ClassScheduleResource {
     }
 
     /**
-     * {@code PATCH  /class-schedules/:id} : Partial updates given fields of an existing classSchedule, field will ignore if it is null
+     * {@code PATCH  /class-schedules} : Partial updates given fields of an existing classSchedule, field will ignore if it is null.
+     * The id is taken from the request body.
      *
-     * @param id the id of the classScheduleDTO to save.
      * @param classScheduleDTO the classScheduleDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classScheduleDTO,
      * or with status {@code 400 (Bad Request)} if the classScheduleDTO is not valid,
@@ -115,18 +109,14 @@ public class ClassScheduleResource {
      * or with status {@code 500 (Internal Server Error)} if the classScheduleDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassScheduleDTO> partialUpdateClassSchedule(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ClassScheduleDTO classScheduleDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update ClassSchedule partially : {}, {}", id, classScheduleDTO);
-        if (classScheduleDTO.getId() == null) {
+    public ResponseEntity<ClassScheduleDTO> partialUpdateClassSchedule(@NotNull @RequestBody ClassScheduleDTO classScheduleDTO)
+        throws URISyntaxException {
+        String id = classScheduleDTO.getId();
+        LOG.debug("REST request to partial update ClassSchedule partially : {}", classScheduleDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classScheduleDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classScheduleRepository.existsById(id)) {

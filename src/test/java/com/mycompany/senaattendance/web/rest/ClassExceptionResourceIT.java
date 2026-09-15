@@ -267,11 +267,7 @@ class ClassExceptionResourceIT {
         ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(updatedClassException);
 
         restClassExceptionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classExceptionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classExceptionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classExceptionDTO)))
             .andExpect(status().isOk());
 
         // Validate the ClassException in the database
@@ -289,11 +285,7 @@ class ClassExceptionResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restClassExceptionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classExceptionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classExceptionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classExceptionDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the ClassException in the database
@@ -301,38 +293,16 @@ class ClassExceptionResourceIT {
     }
 
     @Test
-    void putWithIdMismatchClassException() throws Exception {
+    void putClassExceptionWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        classException.setId(UUID.randomUUID().toString());
+        classException.setId(null);
 
-        // Create the ClassException
         ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(classException);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restClassExceptionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classExceptionDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the ClassException in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamClassException() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        classException.setId(UUID.randomUUID().toString());
-
-        // Create the ClassException
-        ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(classException);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restClassExceptionMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classExceptionDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the ClassException in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -353,7 +323,7 @@ class ClassExceptionResourceIT {
 
         restClassExceptionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassException.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(partialUpdatedClassException))
             )
@@ -383,7 +353,7 @@ class ClassExceptionResourceIT {
 
         restClassExceptionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassException.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(partialUpdatedClassException))
             )
@@ -405,11 +375,7 @@ class ClassExceptionResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restClassExceptionMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, classExceptionDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(classExceptionDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classExceptionDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the ClassException in the database
@@ -417,38 +383,16 @@ class ClassExceptionResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchClassException() throws Exception {
+    void patchClassExceptionWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        classException.setId(UUID.randomUUID().toString());
+        classException.setId(null);
 
-        // Create the ClassException
         ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(classException);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restClassExceptionMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(classExceptionDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the ClassException in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamClassException() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        classException.setId(UUID.randomUUID().toString());
-
-        // Create the ClassException
-        ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(classException);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restClassExceptionMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classExceptionDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the ClassException in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);

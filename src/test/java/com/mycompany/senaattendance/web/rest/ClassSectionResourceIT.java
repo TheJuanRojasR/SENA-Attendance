@@ -558,11 +558,7 @@ class ClassSectionResourceIT {
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
 
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isOk());
 
         // Validate the ClassSection in the database
@@ -583,11 +579,7 @@ class ClassSectionResourceIT {
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
 
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isOk());
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -607,11 +599,7 @@ class ClassSectionResourceIT {
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedOtherSection);
 
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.classSectionNameAlreadyUsed"));
 
@@ -631,11 +619,7 @@ class ClassSectionResourceIT {
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
 
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.instructorInactive"));
 
@@ -657,11 +641,7 @@ class ClassSectionResourceIT {
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
 
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.instructorInactive"));
 
@@ -680,11 +660,7 @@ class ClassSectionResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the ClassSection in the database
@@ -692,38 +668,16 @@ class ClassSectionResourceIT {
     }
 
     @Test
-    void putWithIdMismatchClassSection() throws Exception {
+    void putClassSectionWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSection.setId(UUID.randomUUID().toString());
+        classSection.setId(null);
 
-        // Create the ClassSection
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the ClassSection in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamClassSection() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSection.setId(UUID.randomUUID().toString());
-
-        // Create the ClassSection
-        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restClassSectionMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the ClassSection in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -742,9 +696,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSection))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSection))
             )
             .andExpect(status().isOk());
 
@@ -772,9 +724,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedClassSection))
+                patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(partialUpdatedClassSection))
             )
             .andExpect(status().isOk());
 
@@ -798,7 +748,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -822,7 +772,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, otherSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -846,7 +796,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -871,7 +821,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -897,7 +847,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedClassSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -943,11 +893,7 @@ class ClassSectionResourceIT {
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(updatedClassSection);
 
         restClassSectionMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.gradeNotOperable"));
 
@@ -969,7 +915,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -994,7 +940,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -1045,7 +991,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                put(ENTITY_API_URL_ID, updatedClassSection.getId())
+                put(ENTITY_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(updatedClassSection)))
             )
@@ -1070,7 +1016,7 @@ class ClassSectionResourceIT {
 
         restClassSectionMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, classSection.getId())
+                patch(ENTITY_API_URL)
                     .contentType("application/merge-patch+json")
                     .content(om.writeValueAsBytes(classSectionMapper.toDto(partialUpdatedClassSection)))
             )
@@ -1090,11 +1036,7 @@ class ClassSectionResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restClassSectionMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, classSectionDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classSectionDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the ClassSection in the database
@@ -1102,38 +1044,16 @@ class ClassSectionResourceIT {
     }
 
     @Test
-    void patchWithIdMismatchClassSection() throws Exception {
+    void patchClassSectionWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSection.setId(UUID.randomUUID().toString());
+        classSection.setId(null);
 
-        // Create the ClassSection
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restClassSectionMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(classSectionDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the ClassSection in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void patchWithMissingIdPathParamClassSection() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        classSection.setId(UUID.randomUUID().toString());
-
-        // Create the ClassSection
-        ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restClassSectionMockMvc
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(classSectionDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the ClassSection in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);

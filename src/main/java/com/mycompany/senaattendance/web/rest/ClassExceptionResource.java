@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,27 +70,22 @@ public class ClassExceptionResource {
     }
 
     /**
-     * {@code PUT  /class-exceptions/:id} : Updates an existing classException.
+     * {@code PUT  /class-exceptions} : Updates an existing classException; the id is taken from the request body.
      *
-     * @param id the id of the classExceptionDTO to save.
      * @param classExceptionDTO the classExceptionDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classExceptionDTO,
      * or with status {@code 400 (Bad Request)} if the classExceptionDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the classExceptionDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassExceptionDTO> updateClassException(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ClassExceptionDTO classExceptionDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update ClassException : {}, {}", id, classExceptionDTO);
-        if (classExceptionDTO.getId() == null) {
+    public ResponseEntity<ClassExceptionDTO> updateClassException(@Valid @RequestBody ClassExceptionDTO classExceptionDTO)
+        throws URISyntaxException {
+        String id = classExceptionDTO.getId();
+        LOG.debug("REST request to update ClassException : {}", classExceptionDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classExceptionDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classExceptionRepository.existsById(id)) {
@@ -105,9 +99,9 @@ public class ClassExceptionResource {
     }
 
     /**
-     * {@code PATCH  /class-exceptions/:id} : Partial updates given fields of an existing classException, field will ignore if it is null
+     * {@code PATCH  /class-exceptions} : Partial updates given fields of an existing classException, field will ignore if it is null.
+     * The id is taken from the request body.
      *
-     * @param id the id of the classExceptionDTO to save.
      * @param classExceptionDTO the classExceptionDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classExceptionDTO,
      * or with status {@code 400 (Bad Request)} if the classExceptionDTO is not valid,
@@ -115,18 +109,14 @@ public class ClassExceptionResource {
      * or with status {@code 500 (Internal Server Error)} if the classExceptionDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassExceptionDTO> partialUpdateClassException(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ClassExceptionDTO classExceptionDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update ClassException partially : {}, {}", id, classExceptionDTO);
-        if (classExceptionDTO.getId() == null) {
+    public ResponseEntity<ClassExceptionDTO> partialUpdateClassException(@NotNull @RequestBody ClassExceptionDTO classExceptionDTO)
+        throws URISyntaxException {
+        String id = classExceptionDTO.getId();
+        LOG.debug("REST request to partial update ClassException partially : {}", classExceptionDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classExceptionDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classExceptionRepository.existsById(id)) {
