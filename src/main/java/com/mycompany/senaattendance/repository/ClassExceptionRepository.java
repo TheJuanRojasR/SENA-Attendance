@@ -4,6 +4,7 @@ import com.mycompany.senaattendance.domain.ClassException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -46,4 +47,17 @@ public interface ClassExceptionRepository extends MongoRepository<ClassException
      */
     @Query(value = "{ 'classSection._id': ?0, 'date': ?1 }", exists = true)
     boolean existsByClassSectionIdAndDate(String classSectionId, LocalDate date);
+
+    /**
+     * Finds the exceptions of the given class sections. Used to read only the exceptions of the
+     * materias assigned to the current instructor. The class sections are matched through the
+     * DBRef id ({@code $id}), which needs explicit ObjectIds, unlike the scalar {@code _id}
+     * lookups where a String resolves to the referenced id.
+     *
+     * @param classSectionIds the ObjectId values of the class sections.
+     * @param pageable the pagination information.
+     * @return the page of exceptions of those class sections.
+     */
+    @Query("{ 'classSection.$id': { $in: ?0 } }")
+    Page<ClassException> findByClassSectionIdIn(List<ObjectId> classSectionIds, Pageable pageable);
 }

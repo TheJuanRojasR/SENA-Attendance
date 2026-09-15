@@ -49,14 +49,15 @@ public class ClassExceptionResource {
     }
 
     /**
-     * {@code POST  /class-exceptions} : Create a new classException.
+     * {@code POST  /class-exceptions} : Create a new classException. An administrator creates it
+     * for any materia and an instructor only for a materia assigned to them.
      *
      * @param classExceptionDTO the classExceptionDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new classExceptionDTO, or with status {@code 400 (Bad Request)} if the classException has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ClassExceptionDTO> createClassException(@Valid @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassException : {}", classExceptionDTO);
@@ -71,6 +72,8 @@ public class ClassExceptionResource {
 
     /**
      * {@code PUT  /class-exceptions} : Updates an existing classException; the id is taken from the request body.
+     * An instructor can only update the exceptions of a materia assigned to them, and a past
+     * non-teaching date only accepts a new reason.
      *
      * @param classExceptionDTO the classExceptionDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classExceptionDTO,
@@ -79,7 +82,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ClassExceptionDTO> updateClassException(@Valid @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         String id = classExceptionDTO.getId();
@@ -100,6 +103,8 @@ public class ClassExceptionResource {
 
     /**
      * {@code PATCH  /class-exceptions} : Partial updates given fields of an existing classException, field will ignore if it is null.
+     * An instructor can only update the exceptions of a materia assigned to them, and a past
+     * non-teaching date only accepts a new reason.
      * The id is taken from the request body.
      *
      * @param classExceptionDTO the classExceptionDTO to update.
@@ -110,7 +115,7 @@ public class ClassExceptionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ClassExceptionDTO> partialUpdateClassException(@NotNull @RequestBody ClassExceptionDTO classExceptionDTO)
         throws URISyntaxException {
         String id = classExceptionDTO.getId();
@@ -132,13 +137,16 @@ public class ClassExceptionResource {
     }
 
     /**
-     * {@code GET  /class-exceptions} : get all the Class Exceptions.
+     * {@code GET  /class-exceptions} : get all the Class Exceptions the current user can read. An
+     * administrator reads every exception and an instructor only the exceptions of the class
+     * sections assigned to them.
      *
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Exceptions in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<List<ClassExceptionDTO>> getAllClassExceptions(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -146,35 +154,40 @@ public class ClassExceptionResource {
         LOG.debug("REST request to get a page of ClassExceptions");
         Page<ClassExceptionDTO> page;
         if (eagerload) {
-            page = classExceptionService.findAllWithEagerRelationships(pageable);
+            page = classExceptionService.findAllWithEagerRelationshipsForCurrentUser(pageable);
         } else {
-            page = classExceptionService.findAll(pageable);
+            page = classExceptionService.findAllForCurrentUser(pageable);
         }
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**
-     * {@code GET  /class-exceptions/:id} : get the "id" classException.
+     * {@code GET  /class-exceptions/:id} : get the "id" classException when the current user can
+     * read it. An administrator reads every exception and an instructor only the exceptions of the
+     * class sections assigned to them, so an exception outside that scope resolves as not found.
      *
      * @param id the id of the classExceptionDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the classExceptionDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ClassExceptionDTO> getClassException(@PathVariable("id") String id) {
         LOG.debug("REST request to get ClassException : {}", id);
-        Optional<ClassExceptionDTO> classExceptionDTO = classExceptionService.findOne(id);
+        Optional<ClassExceptionDTO> classExceptionDTO = classExceptionService.findOneForCurrentUser(id);
         return ResponseUtil.wrapOrNotFound(classExceptionDTO);
     }
 
     /**
-     * {@code DELETE  /class-exceptions/:id} : delete the "id" classException.
+     * {@code DELETE  /class-exceptions/:id} : delete the "id" classException. An instructor can
+     * only delete the exceptions of a materia assigned to them, and a past non-teaching date is a
+     * precedent that is never removed.
      *
      * @param id the id of the classExceptionDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<Void> deleteClassException(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassException : {}", id);
         classExceptionService.delete(id);
