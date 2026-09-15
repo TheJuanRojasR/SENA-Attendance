@@ -1214,6 +1214,63 @@ class ClassSectionResourceIT {
             .andExpect(jsonPath("$.[*].isActive", hasItem(false)));
     }
 
+    @Test
+    @WithMockUser(username = MINE_INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getMyClassSectionsSearchesFichasByPartialCode() throws Exception {
+        UserProfile instructor = persistInstructor(MINE_INSTRUCTOR_ID, true);
+        Program program = persistProgram(MINE_PROGRAM_ID);
+        Grade operableGrade = persistGradeWithProgram(MINE_OPERABLE_GRADE_ID, MINE_OPERABLE_GRADE_CODE, StateGrade.ACTIVA, program);
+        Grade nonOperableGrade = persistGradeWithProgram(
+            MINE_NON_OPERABLE_GRADE_ID,
+            MINE_NON_OPERABLE_GRADE_CODE,
+            StateGrade.FINALIZADA,
+            program
+        );
+        persistClassSectionForInstructor(instructor, operableGrade, "Programacion", true);
+        persistClassSectionForInstructor(instructor, nonOperableGrade, "Bases de Datos", true);
+
+        // Partial search: only the ficha whose number contains the pattern is returned
+        restClassSectionMockMvc
+            .perform(get(ENTITY_API_URL + "/mine").param("gradeCode", "81001"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].grade.code").value(MINE_OPERABLE_GRADE_CODE))
+            .andExpect(jsonPath("$[0].subjectName").value("Programacion"));
+    }
+
+    @Test
+    @WithMockUser(username = MINE_INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getMyClassSectionsReturnsEmptyListWhenNoFichaMatches() throws Exception {
+        UserProfile instructor = persistInstructor(MINE_INSTRUCTOR_ID, true);
+        Program program = persistProgram(MINE_PROGRAM_ID);
+        Grade operableGrade = persistGradeWithProgram(MINE_OPERABLE_GRADE_ID, MINE_OPERABLE_GRADE_CODE, StateGrade.ACTIVA, program);
+        persistClassSectionForInstructor(instructor, operableGrade, "Programacion", true);
+
+        restClassSectionMockMvc
+            .perform(get(ENTITY_API_URL + "/mine").param("gradeCode", "9999999"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = MINE_INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getMyClassSectionsSearchesOnlyAmongOwnFichas() throws Exception {
+        UserProfile instructor = persistInstructor(MINE_INSTRUCTOR_ID, true);
+        UserProfile otherInstructor = persistInstructor("other-mine-instructor", true);
+        Program program = persistProgram(MINE_PROGRAM_ID);
+        // Both instructors are assigned to a ficha with the same number
+        Grade ownGrade = persistGradeWithProgram(MINE_OPERABLE_GRADE_ID, MINE_OPERABLE_GRADE_CODE, StateGrade.ACTIVA, program);
+        Grade otherGrade = persistGradeWithProgram("other-mine-grade", MINE_OPERABLE_GRADE_CODE, StateGrade.ACTIVA, program);
+        persistClassSectionForInstructor(instructor, ownGrade, "Programacion", true);
+        persistClassSectionForInstructor(otherInstructor, otherGrade, "Bases de Datos", true);
+
+        restClassSectionMockMvc
+            .perform(get(ENTITY_API_URL + "/mine").param("gradeCode", MINE_OPERABLE_GRADE_CODE))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].subjectName").value("Programacion"));
+    }
+
     // -----------------------------------------------------------------
     // Authorization: writes are restricted to admins
     // -----------------------------------------------------------------

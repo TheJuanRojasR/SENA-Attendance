@@ -70,7 +70,9 @@ public interface ClassSectionService {
     /**
      * Get all the classSections for the current instructor.
      *
+     * @param gradeCode optional ficha number to filter the instructor's own class sections by;
+     *                  a null or blank value returns every class section of the instructor.
      * @return the list of entities.
      */
-    List<ClassSectionDTO> findAllForCurrentInstructor();
+    List<ClassSectionDTO> findAllForCurrentInstructor(String gradeCode);
 }

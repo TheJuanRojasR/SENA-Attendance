@@ -170,13 +170,14 @@ public class ClassSectionResource {
     /**
      * {@code GET  /class-sections/mine} : get all the Class Sections for the current instructor.
      *
+     * @param gradeCode optional partial ficha number to search among the instructor's own class sections by.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Sections in body.
      */
     @GetMapping("/mine")
     @PreAuthorize("hasAuthority('" + AuthoritiesConstants.INSTRUCTOR + "') or hasAuthority('" + AuthoritiesConstants.ADMIN + "')")
-    public ResponseEntity<List<ClassSectionDTO>> getMyClassSections() {
+    public ResponseEntity<List<ClassSectionDTO>> getMyClassSections(@RequestParam(name = "gradeCode", required = false) String gradeCode) {
         LOG.debug("REST request to get ClassSections for the current instructor");
-        List<ClassSectionDTO> classSections = classSectionService.findAllForCurrentInstructor();
+        List<ClassSectionDTO> classSections = classSectionService.findAllForCurrentInstructor(gradeCode);
         return ResponseEntity.ok().body(classSections);
     }
 

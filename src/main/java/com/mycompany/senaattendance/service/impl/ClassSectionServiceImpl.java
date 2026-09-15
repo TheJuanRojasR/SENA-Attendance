@@ -22,6 +22,7 @@ import com.mycompany.senaattendance.web.rest.errors.ClassSectionNameAlreadyUsedE
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.bson.types.ObjectId;
@@ -198,7 +199,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     }
 
     @Override
-    public List<ClassSectionDTO> findAllForCurrentInstructor() {
+    public List<ClassSectionDTO> findAllForCurrentInstructor(String gradeCode) {
         LOG.debug("Request to get all ClassSections for the current instructor");
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
         if (currentUserLogin.isEmpty()) {
@@ -216,8 +217,41 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         }
 
         String profileId = profileOpt.get().getId();
+        String gradeCodePattern = normalizeGradeCodeFilter(gradeCode);
 
-        return classSectionRepository.findByInstructorId(profileId).stream().map(classSectionMapper::toDto).collect(Collectors.toList());
+        return classSectionRepository
+            .findByInstructorId(profileId)
+            .stream()
+            .filter(classSection -> matchesGradeCode(classSection, gradeCodePattern))
+            .map(classSectionMapper::toDto)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Normalizes the ficha number typed by the instructor into a case-insensitive partial match
+     * pattern. A null or blank value disables the filter.
+     *
+     * @param gradeCode the raw ficha number to search for.
+     * @return the normalized pattern, or {@code null} when there is nothing to filter by.
+     */
+    private static String normalizeGradeCodeFilter(String gradeCode) {
+        if (gradeCode == null || gradeCode.isBlank()) {
+            return null;
+        }
+        return gradeCode.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * @param classSection the class section whose ficha is matched.
+     * @param gradeCodePattern the normalized filter, or {@code null} to accept every ficha.
+     * @return whether the ficha code contains the pattern, ignoring case.
+     */
+    private static boolean matchesGradeCode(ClassSection classSection, String gradeCodePattern) {
+        if (gradeCodePattern == null) {
+            return true;
+        }
+        Grade grade = classSection.getGrade();
+        return grade != null && grade.getCode() != null && grade.getCode().toLowerCase(Locale.ROOT).contains(gradeCodePattern);
     }
 
     /**
