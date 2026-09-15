@@ -553,11 +553,7 @@ class TrimesterResourceIT {
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(updatedTrimester);
 
         restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, trimesterDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
             .andExpect(status().isOk());
 
         // Validate the Trimester in the database
@@ -575,11 +571,7 @@ class TrimesterResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, trimesterDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Trimester in the database
@@ -587,38 +579,16 @@ class TrimesterResourceIT {
     }
 
     @Test
-    void putWithIdMismatchTrimester() throws Exception {
+    void putTrimesterWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        trimester.setId(UUID.randomUUID().toString());
+        trimester.setId(null);
 
-        // Create the Trimester
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Trimester in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamTrimester() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        trimester.setId(UUID.randomUUID().toString());
-
-        // Create the Trimester
-        TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restTrimesterMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the Trimester in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -910,11 +880,7 @@ class TrimesterResourceIT {
         );
         dto.setId("000000000000000000000001");
         restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL + "/" + dto.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(dto))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(dto)))
             .andExpect(status().isForbidden());
     }
 

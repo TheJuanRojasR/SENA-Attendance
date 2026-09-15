@@ -11,7 +11,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,27 +71,21 @@ public class TrimesterResource {
     }
 
     /**
-     * {@code PUT  /trimesters/:id} : Updates an existing trimester.
+     * {@code PUT  /trimesters} : Updates an existing trimester; the id is taken from the request body.
      *
-     * @param id the id of the trimesterDTO to save.
      * @param trimesterDTO the trimesterDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated trimesterDTO,
      * or with status {@code 400 (Bad Request)} if the trimesterDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the trimesterDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<TrimesterDTO> updateTrimester(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody TrimesterDTO trimesterDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Trimester : {}, {}", id, trimesterDTO);
-        if (trimesterDTO.getId() == null) {
+    public ResponseEntity<TrimesterDTO> updateTrimester(@Valid @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
+        String id = trimesterDTO.getId();
+        LOG.debug("REST request to update Trimester : {}", trimesterDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, trimesterDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!trimesterRepository.existsById(id)) {
