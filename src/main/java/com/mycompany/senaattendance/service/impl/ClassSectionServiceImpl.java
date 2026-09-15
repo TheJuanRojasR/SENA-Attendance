@@ -221,9 +221,10 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     }
 
     /**
-     * Rejects a write on a ficha that is not PENDIENTE or ACTIVA. The ficha is resolved by id
-     * because the payload may only carry a reference to it; when the reference or the ficha
-     * cannot be resolved, the check is skipped so the other validations report their own error.
+     * Rejects a write on a ficha that is not operable ({@link StateGrade#isOperable()}: PENDIENTE
+     * or ACTIVA). The ficha is resolved by id because the payload may only carry a reference to it;
+     * when the reference or the ficha cannot be resolved, the check is skipped so the other
+     * validations report their own error.
      *
      * @param classSection the class section about to be persisted.
      * @throws BadRequestAlertException when the ficha exists and is not operable.
@@ -237,7 +238,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         if (persistedGrade == null) {
             return;
         }
-        if (persistedGrade.getState() != StateGrade.PENDIENTE && persistedGrade.getState() != StateGrade.ACTIVA) {
+        if (!persistedGrade.getState().isOperable()) {
             throw new BadRequestAlertException(
                 "No se pueden crear ni modificar materias en una ficha en su estado actual",
                 ENTITY_NAME,

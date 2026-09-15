@@ -984,6 +984,32 @@ class UserResourceIT {
     }
 
     @Test
+    void updateUserOnlyInstructorOfPendingGradeRoleChangeBlocked() throws Exception {
+        User instructor = instructorUser("pend.role.instr", "pend.role.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "E5PEND01");
+        Grade pendingGrade = persistedGrade("E5-ROL-FICHA-PEND", StateGrade.PENDIENTE);
+        classSectionRepository.save(
+            new ClassSection().subjectName("E5 Rol Materia Pendiente").isActive(true).instructor(profile).grade(pendingGrade)
+        );
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            instructor.getId(),
+            "E5PEND01",
+            "pend.role.instr@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(hasAuthority(userRepository.findById(instructor.getId()).orElseThrow(), AuthoritiesConstants.INSTRUCTOR)).isTrue();
+    }
+
+    @Test
     void setUserActivatedLastAdminBlocked() throws Exception {
         // Make the target the ONLY active admin by deactivating every other active admin first.
         User target = freshAdmin("last.admin", "last.admin@example.com");
@@ -1054,6 +1080,28 @@ class UserResourceIT {
             .andExpect(jsonPath("$.activated").value(false));
 
         assertThat(userRepository.findById(instructor.getId()).orElseThrow().isActivated()).isFalse();
+    }
+
+    @Test
+    void setUserActivatedOnlyInstructorOfPendingGradeBlocked() throws Exception {
+        User instructor = instructorUser("pend.instr", "pend.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "E5PEND02");
+
+        Grade pendingGrade = persistedGrade("E5-FICHA-PENDIENTE", StateGrade.PENDIENTE);
+        classSectionRepository.save(
+            new ClassSection().subjectName("E5 Materia Pendiente").isActive(true).instructor(profile).grade(pendingGrade)
+        );
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("E5PEND02");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(userRepository.findById(instructor.getId()).orElseThrow().isActivated()).isTrue();
     }
 
     @Test

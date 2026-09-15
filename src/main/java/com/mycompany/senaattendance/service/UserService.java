@@ -563,8 +563,10 @@ public class UserService {
     }
 
     /**
-     * An instructor who is the ONLY instructor of one or more ACTIVE class
-     * sections cannot be deactivated, since those sections would be left without an instructor.
+     * An instructor who is the ONLY instructor of one or more operable class sections cannot be
+     * deactivated or demoted, since those sections would be left without an instructor. A ficha
+     * is operable when its state is {@code PENDIENTE} or {@code ACTIVA}
+     * (see {@link StateGrade#isOperable()}).
      *
      * @param profile the user profile that identifies the instructor (its linked user carries the role).
      * @throws BadRequestAlertException with key {@code lastInstructor} when the rule is violated.
@@ -582,12 +584,12 @@ public class UserService {
             return;
         }
 
-        // Operational means the section belongs to a ficha that is still running (ACTIVA).
-        // A ficha in another state (PENDIENTE / FINALIZADA / APLAZADA / CANCELADA) does not hold the instructor.
+        // PENDIENTE and ACTIVA fichas are still operable and hold their instructor;
+        // FINALIZADA, APLAZADA and CANCELADA do not.
         List<ClassSection> operationalSections = classSectionRepository
             .findByInstructorId(profile.getId())
             .stream()
-            .filter(section -> section.getGrade() != null && section.getGrade().getState() == StateGrade.ACTIVA)
+            .filter(section -> section.getGrade() != null && section.getGrade().getState().isOperable())
             .toList();
 
         if (operationalSections.isEmpty()) {

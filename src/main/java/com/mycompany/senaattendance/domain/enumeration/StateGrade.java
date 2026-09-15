@@ -11,5 +11,17 @@ public enum StateGrade {
     ACTIVA,
     FINALIZADA,
     APLAZADA,
-    CANCELADA,
+    CANCELADA;
+
+    /**
+     * An operable ficha is one that still admits new materias (class sections) and whose assigned
+     * instructor must keep holding it. This is the single source of truth for that criterion:
+     * {@code PENDIENTE} (not started yet) and {@code ACTIVA} (running) are operable;
+     * {@code FINALIZADA}, {@code APLAZADA} and {@code CANCELADA} are not.
+     *
+     * @return {@code true} when this state is {@code PENDIENTE} or {@code ACTIVA}.
+     */
+    public boolean isOperable() {
+        return this == PENDIENTE || this == ACTIVA;
+    }
 }
