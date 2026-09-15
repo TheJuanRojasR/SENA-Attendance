@@ -350,6 +350,28 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC015 — Gestionar materias
+
+**Estado del backend:** implementado. El CRUD de materias (`ClassSection`) aplica nombre único por ficha (E2), reglas de horarios contra la jornada de la ficha (E3), no solapamiento (E4) y mismo día (E5), bloqueo de fichas no operables (E1) y de trimestres cerrados por fechas (E6), instructor opcional con cuenta activa (E7) y borrado bloqueado con asistencias más cascada de horarios y excepciones (A3). Ver [`docs/api-contracts.md#uc015--gestionar-materias`](./api-contracts.md#uc015--gestionar-materias).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** `PUT` y `PATCH` de `/api/class-sections`, `/api/class-schedules` y `/api/class-exceptions` ya no llevan `/{id}` (el `id` va **solo en el body**); el `instructor` pasó a ser **opcional**; `dayOfWeek` es **obligatorio** en los horarios; todas las escrituras de los tres resources quedan restringidas a `ROLE_ADMIN`; y `GET /api/class-sections/mine` ya no acepta Coordinador (solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN`). El frontend stock de JHipster sigue armando `PUT`/`PATCH` con el `id` en la ruta, envía `dayOfWeek` como opcional y muestra la pantalla a cualquier rol.
+
+| #   | Ítem                                                                                                                                                                                                                                                                             | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Enviar el `id` **solo en el body** para `PUT /api/class-sections` y `PATCH /api/class-sections` (materias); si falta, `400 error.idnull`, y si no existe, `400 error.idnotfound`. Ya no se emite `error.idinvalid`.                                                               | `Pendiente` |
+| 2   | Enviar el `id` **solo en el body** también en `PUT`/`PATCH` de `/api/class-schedules` y `/api/class-exceptions` (la ruta no lleva `{id}`).                                                                                                                                        | `Pendiente` |
+| 3   | Formulario de materia: el `instructor` es **opcional** (se puede crear sin instructor y asignarlo después); si se envía, debe existir con cuenta activa o el backend responde `400 error.instructorInactive` (E7) y conviene refrescar la lista de instructores.                   | `Pendiente` |
+| 4   | Validar en el cliente el nombre recortado y sin duplicados dentro de la ficha, y manejar `400 error.classSectionNameAlreadyUsed` mostrando "Ya existe una materia con este nombre en esta ficha" (E2) sin cerrar el formulario.                                                    | `Pendiente` |
+| 5   | Formulario de horarios: `dayOfWeek` es **obligatorio** (select `LUNES` … `DOMINGO`); si falta, el backend responde `400 error.validation` con `dayOfWeek` en `fieldErrors`.                                                                                                       | `Pendiente` |
+| 6   | Manejar los errores de horario sin cerrar el formulario: `400 error.scheduleCrossesMidnight` (E5), `400 error.scheduleOutOfTimeSlot` (E3) y `400 error.scheduleOverlap` (E4), con los mensajes del UC.                                                                             | `Pendiente` |
+| 7   | No ofrecer crear ni editar materias en fichas fuera de `PENDIENTE`/`ACTIVA` (incluida la reactivación A4): el backend responde `400 error.gradeNotOperable` (E1).                                                                                                                 | `Pendiente` |
+| 8   | No permitir crear, editar ni eliminar horarios de un trimestre **cerrado** (el cliente puede calcularlo por fechas); el backend responde `400 error.trimesterClosed` (E6) con la clasificación por fechas, sin ventana de gracia.                                                 | `Pendiente` |
+| 9   | Al eliminar una materia con asistencias, manejar `400 error.classSectionInUse` con el mensaje del UC y ofrecer **desactivarla** con `PATCH /api/class-sections` (`isActive: false`, `id` en el body) en lugar de reintentar. Si no tiene asistencias, el backend borra en cascada sus horarios y excepciones. | `Pendiente` |
+| 10  | Mostrar la **gestión de materias, horarios y excepciones solo a `ROLE_ADMIN`**: el backend restringe todas las escrituras a ese rol y responde `403` a los demás. La lectura sigue disponible para cualquier usuario autenticado.                                                | `Pendiente` |
+| 11  | En "Mis materias" (UC017) consumir `GET /api/class-sections/mine`, disponible solo para `ROLE_INSTRUCTOR` o `ROLE_ADMIN` (ya no para Coordinador).                                                                                                                                | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -363,7 +385,6 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | UC011 | Gestionar asistencia (Aprendiz)    | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
 | UC012 | Gestionar programas de aprendizaje | [`docs/api-contracts.md`](./api-contracts.md) — UC012 |
 | UC014 | Gestionar trimestres académicos    | [`docs/api-contracts.md`](./api-contracts.md) — UC014 |
-| UC015 | Gestionar materias                 | [`docs/api-contracts.md`](./api-contracts.md) — UC015 |
 | UC016 | Gestionar tipos de justificación   | [`docs/api-contracts.md`](./api-contracts.md) — UC016 |
 | UC017 | Consultar mis fichas y materias    | [`docs/api-contracts.md`](./api-contracts.md) — UC017 |
 | UC019 | Gestionar configuración global     | [`docs/api-contracts.md`](./api-contracts.md) — UC019 |
@@ -429,6 +450,14 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.gradeCodeLocked`        | "El código solo puede cambiarse mientras la ficha no tenga materias ni aprendices."                 | Edición de ficha (UC007-A1).                           |
 | `error.invalidtransition`      | "La ficha no se puede aplazar, reanudar o cancelar en su estado actual."                            | Acciones de ficha (UC007-A2/A3).                       |
 | `error.gradeInUse`             | "No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha." | Eliminación de ficha (UC007).                          |
+| `error.instructorInactive`     | "El instructor seleccionado ya no está disponible, selecciona otro."                                | Asignación de instructor (UC015-E7).                   |
+| `error.classSectionNameAlreadyUsed` | "Ya existe una materia con este nombre en esta ficha."                                        | Alta/edición de materia (UC015-E2).                    |
+| `error.scheduleCrossesMidnight` | "La sesión debe iniciar y terminar el mismo día."                                                  | Alta/edición de horario (UC015-E5).                    |
+| `error.scheduleOutOfTimeSlot`  | "El horario debe estar dentro de la jornada de la ficha."                                          | Alta/edición de horario (UC015-E3).                    |
+| `error.scheduleOverlap`        | "El horario se solapa con otro horario de la ficha en ese trimestre."                              | Alta/edición de horario (UC015-E4).                    |
+| `error.gradeNotOperable`       | "No se pueden crear ni modificar materias en una ficha en su estado actual."                       | Alta/edición de materia (UC015-E1).                    |
+| `error.trimesterClosed`        | "No se pueden modificar los horarios: el trimestre ya fue cerrado."                                | Alta/edición/eliminación de horario (UC015-E6).        |
+| `error.classSectionInUse`      | "No es posible eliminar la materia: tiene registros de asistencia. Puedes desactivarla para retirarla de operación." | Eliminación de materia (UC015-A3).                     |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

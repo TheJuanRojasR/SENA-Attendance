@@ -54,7 +54,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Implementado    |
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Implementado    |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Implementado    |
-| [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Parcial         |
+| [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Implementado    |
 | [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Parcial         |
 | [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Parcial         |
 | [UC009](#uc009--gestionar-listas-de-asistencia)     | Gestionar listas de asistencia     | Parcial         |
@@ -889,25 +889,33 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 
 ## UC015 — Gestionar materias
 
-**Módulo:** Fichas y materias | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Fichas y materias | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD de materias (`ClassSection`) por ficha, con instructor asignable y horarios por trimestre. Las materias viven dentro de una única ficha.
 
 **Endpoints:**
 
-| Método                | Ruta                                                  | Acceso                                               | Descripción                                      |
-| --------------------- | ----------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------ |
-| GET                   | `/api/class-sections`                                 | Autenticado                                          | Lista paginada de materias.                      |
-| GET                   | `/api/class-sections/{id}`                            | Autenticado                                          | Detalle.                                         |
-| GET                   | `/api/class-sections/mine`                            | `ROLE_INSTRUCTOR`, `ROLE_COORDINATOR` o `ROLE_ADMIN` | Materias del instructor autenticado (ver UC017). |
-| POST                  | `/api/class-sections`                                 | `ROLE_ADMIN` o `ROLE_COORDINATOR`                    | Crea; `201`.                                     |
-| PUT                   | `/api/class-sections/{id}`                            | `ROLE_ADMIN` o `ROLE_COORDINATOR`                    | Reemplaza; `200`.                                |
-| PATCH                 | `/api/class-sections/{id}`                            | `ROLE_ADMIN` o `ROLE_COORDINATOR`                    | Actualización parcial; `200`.                    |
-| DELETE                | `/api/class-sections/{id}`                            | `ROLE_ADMIN` o `ROLE_COORDINATOR`                    | Elimina; `204`.                                  |
-| POST/PUT/PATCH/DELETE | `/api/class-schedules`                                | `ROLE_ADMIN` o `ROLE_COORDINATOR`                    | CRUD de horarios por trimestre.                  |
-| GET                   | `/api/class-schedules`, `/api/class-schedules/{id}`   | Autenticado                                          | Consulta de horarios.                            |
-| POST/PUT/PATCH/DELETE | `/api/class-exceptions`                               | `ROLE_ADMIN` o `ROLE_COORDINATOR`                    | CRUD de excepciones no lectivas.                 |
-| GET                   | `/api/class-exceptions`, `/api/class-exceptions/{id}` | Autenticado                                          | Consulta de excepciones.                         |
+| Método | Ruta                         | Acceso                           | Descripción                                                                                                              |
+| ------ | ---------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/class-sections`        | Autenticado                      | Lista paginada de materias (paginación con `X-Total-Count` y `Link`).                                                     |
+| GET    | `/api/class-sections/{id}`   | Autenticado                      | Detalle.                                                                                                                  |
+| GET    | `/api/class-sections/mine`   | `ROLE_INSTRUCTOR` o `ROLE_ADMIN` | Materias del instructor autenticado (ver UC017).                                                                          |
+| POST   | `/api/class-sections`        | `ROLE_ADMIN`                     | Crea; `201`.                                                                                                              |
+| PUT    | `/api/class-sections`        | `ROLE_ADMIN`                     | Reemplaza; `200`. El `id` viaja **solo en el body**.                                                                      |
+| PATCH  | `/api/class-sections`        | `ROLE_ADMIN`                     | Actualización parcial, incluida la desactivación/reactivación (A4) con `isActive`; `200`. El `id` viaja **solo en el body**. |
+| DELETE | `/api/class-sections/{id}`   | `ROLE_ADMIN`                     | Elimina; `204`. Bloqueado si la materia tiene asistencias (A3).                                                           |
+| GET    | `/api/class-schedules`       | Autenticado                      | Lista paginada de horarios.                                                                                               |
+| GET    | `/api/class-schedules/{id}`  | Autenticado                      | Detalle de un horario.                                                                                                    |
+| POST   | `/api/class-schedules`       | `ROLE_ADMIN`                     | Crea; `201`.                                                                                                              |
+| PUT    | `/api/class-schedules`       | `ROLE_ADMIN`                     | Reemplaza; `200`. El `id` viaja **solo en el body**.                                                                      |
+| PATCH  | `/api/class-schedules`       | `ROLE_ADMIN`                     | Actualización parcial; `200`. El `id` viaja **solo en el body**.                                                          |
+| DELETE | `/api/class-schedules/{id}`  | `ROLE_ADMIN`                     | Elimina; `204`.                                                                                                           |
+| GET    | `/api/class-exceptions`      | Autenticado                      | Lista paginada de excepciones no lectivas.                                                                                |
+| GET    | `/api/class-exceptions/{id}` | Autenticado                      | Detalle de una excepción.                                                                                                 |
+| POST   | `/api/class-exceptions`      | `ROLE_ADMIN`                     | Crea; `201`.                                                                                                              |
+| PUT    | `/api/class-exceptions`      | `ROLE_ADMIN`                     | Reemplaza; `200`. El `id` viaja **solo en el body**.                                                                      |
+| PATCH  | `/api/class-exceptions`      | `ROLE_ADMIN`                     | Actualización parcial; `200`. El `id` viaja **solo en el body**.                                                          |
+| DELETE | `/api/class-exceptions/{id}` | `ROLE_ADMIN`                     | Elimina; `204`.                                                                                                           |
 
 **Request — `POST /api/class-sections`**
 
@@ -920,12 +928,12 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 }
 ```
 
-| Campo         | Tipo    | Obligatorio | Reglas                                                                                 |
-| ------------- | ------- | ----------- | -------------------------------------------------------------------------------------- |
-| `subjectName` | string  | Sí          | `@NotNull`, máximo 200. No se valida unicidad dentro de la ficha.                      |
-| `isActive`    | boolean | Sí          | `@NotNull`; lo define el cliente.                                                      |
-| `instructor`  | objeto  | **Sí**      | `@NotNull`; el UC permite crearla sin instructor. Referencia a `UserProfile` por `id`. |
-| `grade`       | objeto  | Sí          | `@NotNull`; ficha a la que pertenece.                                                  |
+| Campo         | Tipo    | Obligatorio | Reglas                                                                                                                                                                               |
+| ------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `subjectName` | string  | Sí          | `@NotNull`, máximo 200; se recorta y debe ser **único dentro de la ficha**, comparando sin distinguir mayúsculas (E2). Un duplicado responde `400 error.classSectionNameAlreadyUsed`. |
+| `isActive`    | boolean | Sí          | `@NotNull`; lo define el cliente. La desactivación y reactivación (A4) se hacen con `PATCH` sobre este campo, incluida la reactivación de una materia.                              |
+| `instructor`  | objeto  | No          | Opcional: la materia puede crearse sin instructor. Si se envía, la referencia debe existir y su cuenta estar **activa**; si no, `400 error.instructorInactive` (E7).                   |
+| `grade`       | objeto  | Sí          | `@NotNull`; ficha a la que pertenece. Solo se crean o modifican materias en fichas `PENDIENTE` o `ACTIVA` (E1).                                                                      |
 
 **Request — `POST /api/class-schedules`**
 
@@ -939,12 +947,12 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 }
 ```
 
-| Campo                   | Tipo                | Obligatorio | Reglas                                                                      |
-| ----------------------- | ------------------- | ----------- | --------------------------------------------------------------------------- |
-| `dayOfWeek`             | string              | No          | Enum `DayOfWeek`: `LUNES` … `DOMINGO`. No tiene `@NotNull`.                 |
-| `startTime` / `endTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`; no se validan contra la jornada, el mismo día ni solapamientos. |
-| `trimester`             | objeto              | Sí          | `@NotNull`; referencia por `id`.                                            |
-| `classSection`          | objeto              | Sí          | `@NotNull`; referencia por `id`.                                            |
+| Campo                   | Tipo                | Obligatorio | Reglas                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `dayOfWeek`             | string              | Sí          | `@NotNull`; enum `DayOfWeek`: `LUNES` … `DOMINGO`.                                                                                                                                                                                                                                                                                          |
+| `startTime` / `endTime` | string (`HH:mm:ss`) | Sí          | `@NotNull`; `startTime` debe ser anterior a `endTime` (E5: `400 error.scheduleCrossesMidnight`). El rango debe caer dentro de la jornada de la ficha (E3: `400 error.scheduleOutOfTimeSlot`) y no solaparse con otro horario de la misma ficha en el mismo trimestre y día —de esta materia o de otra— (E4: `400 error.scheduleOverlap`); los rangos adyacentes no solapan. |
+| `trimester`             | objeto              | Sí          | `@NotNull`; referencia por `id`. No se crean, modifican ni eliminan horarios de un trimestre `CERRADO` (E6: `400 error.trimesterClosed`).                                                                                                                                                                                                  |
+| `classSection`          | objeto              | Sí          | `@NotNull`; referencia por `id`.                                                                                                                                                                                                                                                                                                           |
 
 **Request — `POST /api/class-exceptions`** (excepción no lectiva)
 
@@ -962,9 +970,11 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 | `reason`       | string                | Sí          | `@NotNull`, máximo 200. |
 | `classSection` | objeto                | Sí          | `@NotNull`.             |
 
-**Response:** `201 Created` con el DTO creado (`ClassSectionDTO` con `id`, `subjectName`, `isActive`, `instructor`, `grade`; `ClassScheduleDTO` con `id`, `dayOfWeek`, `startTime`, `endTime`, `trimester`, `classSection`; `ClassExceptionDTO` con `id`, `date`, `reason`, `classSection`). Las listas paginan con `X-Total-Count` y `Link`; los CRUD genéricos devuelven los errores `idexists`, `idnull`, `idinvalid`, `idnotfound` y `error.validation`.
+**Response:** `201 Created` con el DTO creado (`ClassSectionDTO` con `id`, `subjectName`, `isActive`, `instructor`, `grade`; `ClassScheduleDTO` con `id`, `dayOfWeek`, `startTime`, `endTime`, `trimester`, `classSection`; `ClassExceptionDTO` con `id`, `date`, `reason`, `classSection`). Las listas paginan con `X-Total-Count` y `Link`; los CRUD devuelven los errores `idexists`, `idnull`, `idnotfound` y `error.validation` (ya no existe `error.idinvalid`).
 
-**Notas / lo que se necesita:** no están implementadas las reglas centrales del UC: nombre único por ficha (E2), horario dentro de la jornada (E3), no solapamiento (E4), sesión sin cruzar medianoche (E5), bloqueo de horarios de trimestre cerrado (E6) ni la restricción de crear/modificar solo en fichas Pendiente/Activa (E1). El profesor es obligatorio en la API, aunque el UC lo quiere opcional. `DELETE` de materia no verifica asistencias ni borra horarios/excepciones en cascada (el UC lo exige). Las excepciones no lectivas quedan bajo roles administrativos, no del instructor como indica UC009.
+**Errores:** `400 error.gradeNotOperable` ("No se pueden crear ni modificar materias en una ficha en su estado actual", E1); `400 error.classSectionNameAlreadyUsed` ("Ya existe una materia con este nombre en esta ficha", E2); `400 error.scheduleOutOfTimeSlot` ("El horario debe estar dentro de la jornada de la ficha", E3); `400 error.scheduleOverlap` ("El horario se solapa con otro horario de la ficha en ese trimestre", E4); `400 error.scheduleCrossesMidnight` ("La sesión debe iniciar y terminar el mismo día", E5); `400 error.trimesterClosed` ("No se pueden modificar los horarios: el trimestre ya fue cerrado", E6); `400 error.instructorInactive` ("El instructor seleccionado ya no está disponible, selecciona otro", E7); `400 error.classSectionInUse` ("No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación", A3); además de `error.idexists`, `error.idnull`, `error.idnotfound` y de validación; `403`; `404`.
+
+**Notas / lo que se necesita:** reglas de UC015 implementadas. **Crear y modificar (E1):** solo en fichas `PENDIENTE` o `ACTIVA` (incluye la reactivación A4); una ficha `APLAZADA`, `CANCELADA` o `FINALIZADA` responde `400 error.gradeNotOperable`. **Nombre único (E2):** se recorta y se compara sin distinguir mayúsculas dentro de la ficha; en `PUT`/`PATCH` la materia no colisiona consigo misma. **Instructor (E7):** es opcional; si se envía, debe existir y su cuenta estar activa. **Horarios:** `dayOfWeek` es obligatorio; cada sesión debe iniciar y terminar el mismo día (E5), caer dentro de la jornada de la ficha (E3) y no solaparse con otro horario de la misma ficha en el mismo trimestre y día —de esta materia o de otra—, y los rangos adyacentes no cuentan como solapamiento (E4). **Trimestre cerrado (E6):** no se crean, modifican ni eliminan horarios de un trimestre `CERRADO`; la clasificación se hace **por fechas** con `TrimesterService.classify`, no por el `status` persistido, para que no exista una ventana de gracia tras el cierre. **Eliminar (A3):** si la materia tiene asistencias, `DELETE` responde `400 error.classSectionInUse` y debe **desactivarse** con `PATCH /api/class-sections` (`isActive: false`); si no, se elimina y borra en cascada sus horarios y excepciones. En `PUT` y `PATCH` de `class-sections`, `class-schedules` y `class-exceptions` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta, `400 error.idnull`; si no existe, `400 error.idnotfound`. Las **escrituras** de los tres resources (`POST`, `PUT`, `PATCH`, `DELETE`) quedan restringidas a `ROLE_ADMIN`; `GET /api/class-sections/mine` acepta solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN` (ya no Coordinador) y los demás `GET` siguen disponibles para cualquier usuario autenticado. UC015 no cambió el modelo de datos: no agrega migraciones Mongock (el próximo orden libre es 011). **Desviación conocida:** las excepciones no lectivas siguen bajo roles administrativos (`ROLE_ADMIN`), no las marca el instructor en su flujo de asistencia como describe UC009.
 
 ---
 
@@ -1041,7 +1051,7 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 
 | Método | Ruta                       | Acceso                                               | Descripción                                                |
 | ------ | -------------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/class-sections/mine` | `ROLE_INSTRUCTOR`, `ROLE_COORDINATOR` o `ROLE_ADMIN` | Materias del instructor autenticado, con la ficha anidada. |
+| GET    | `/api/class-sections/mine` | `ROLE_INSTRUCTOR` o `ROLE_ADMIN`                     | Materias del instructor autenticado, con la ficha anidada. |
 | GET    | `/api/class-sections/{id}` | Autenticado                                          | Detalle de una materia.                                    |
 | GET    | `/api/grades`              | `ROLE_ADMIN` o `ROLE_USER`                           | Fichas visibles (paginado).                                |
 
