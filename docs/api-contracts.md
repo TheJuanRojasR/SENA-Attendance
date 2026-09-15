@@ -1341,9 +1341,9 @@ La respuesta incluye `onTime` y las partes (`detailses`) con el estado de cada d
 | `403`                              | El Instructor en el CRUD genérico (su flujo de decisión vive en UC010) o cualquier rol fuera de Administrador/Aprendiz.       |
 | `404`                              | Justificación o parte inexistente o fuera del alcance de lectura del aprendiz.                                                |
 
-**Notas / lo que se necesita:** UC011 implementado y verificado (`JustificationResourceIT` 53/53, `JustificationDetailsResourceIT` 50/50 + unitarias).
+**Notas / lo que se necesita:** UC011 implementado y verificado (`JustificationResourceIT` 53/53, `JustificationDetailsResourceIT` 55/55 + unitarias).
 
-- **Identidad y seguridad:** las operaciones se acotan en el servicio al aprendiz autenticado; una justificación o parte ajena responde `404` en lectura y `error.notYourJustification` en escritura, y el `student` del payload debe ser el propio. Las partes exigen `ROLE_ADMIN` o `ROLE_APPRENTICE` con validación de propiedad. El **Instructor queda fuera del CRUD genérico**: su flujo de decisión vive en UC010 (bandeja y decisión por materia).
+- **Identidad y seguridad:** las operaciones se acotan en el servicio al aprendiz autenticado; una justificación o parte ajena responde `404` en lectura y `error.notYourJustification` en escritura, y el `student` del payload debe ser el propio. Las partes exigen `ROLE_ADMIN` o `ROLE_APPRENTICE` con validación de propiedad (el instructor solo suma la lectura del detalle de las partes de sus materias, UC010). El **Instructor queda fuera del CRUD genérico**: su flujo de decisión vive en UC010 (bandeja, detalle y decisión por materia).
 - **Historial de asistencia (paso 1):** `GET /api/attendances` acepta `ROLE_APPRENTICE` y acota la lectura a sus propios registros; con los filtros `classSectionId`, `date` y `stateAttendance=FALLA` el aprendiz obtiene las fallas que puede justificar (contrato completo en UC009).
 - **Plazo (marca `onTime`):** la fecha límite se cuenta desde el **día hábil siguiente a la última falla cubierta** (ese día cuenta como día 1) sumando `studentJustificationDays` de la configuración global (UC019). Los días hábiles son **lunes a viernes**: el proyecto no tiene calendario de festivos. La marca **no bloquea** el envío; solo lo clasifica en tiempo (`true`) o fuera de tiempo (`false`), y se recalcula en cada edición pendiente.
 - **Cupo (E6):** `limitPerTrimester` del tipo es el máximo de **días con falla (fechas distintas)** justificables por trimestre. Cuentan las justificaciones del mismo tipo y aprendiz con partes en `PENDIENTE` o `ACEPTADA`; las partes `RECHAZADA` y `CANCELADA` liberan sus fechas, y una fecha ya cubierta no vuelve a contar. El cupo se calcula cruzando el rango de cada justificación con las fallas reales del aprendiz en las materias de sus partes (no hay campo de fechas); al excederse responde `error.quotaExceeded` e informa los días restantes.
@@ -1361,10 +1361,11 @@ La respuesta incluye `onTime` y las partes (`detailses`) con el estado de cada d
 
 **Endpoints:**
 
-| Método | Ruta                                         | Acceso                           | Descripción                                                                                                                       |
-| ------ | -------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/justification-details/pending`         | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Bandeja de partes; por defecto solo `PENDIENTE` y el instructor ve únicamente las materias asignadas (el Administrador ve todas). |
-| PATCH  | `/api/justification-details/{id}/decision`   | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Decide una parte `PENDIENTE` (`ACEPTADA` o `RECHAZADA`). Solo el instructor asignado a la materia al momento de decidir (E4).     |
+| Método | Ruta                                         | Acceso                                                                                                          | Descripción                                                                                                                       |
+| ------ | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/justification-details/pending`         | `ROLE_ADMIN` o `ROLE_INSTRUCTOR`                                                                                | Bandeja de partes; por defecto solo `PENDIENTE` y el instructor ve únicamente las materias asignadas (el Administrador ve todas). |
+| GET    | `/api/justification-details/{id}`            | `ROLE_ADMIN`, `ROLE_INSTRUCTOR` (materias asignadas) o `ROLE_APPRENTICE` (justificaciones propias)              | Detalle de la parte con el soporte adjunto; fuera del alcance responde `404`.                                                     |
+| PATCH  | `/api/justification-details/{id}/decision`   | `ROLE_ADMIN` o `ROLE_INSTRUCTOR`                                                                                | Decide una parte `PENDIENTE` (`ACEPTADA` o `RECHAZADA`). Solo el instructor asignado a la materia al momento de decidir (E4).     |
 
 **Bandeja — `GET /api/justification-details/pending`:** paginada (20 por defecto, `sort=id,desc`: la solicitud más reciente primero, `X-Total-Count` y `Link`). Los filtros opcionales se combinan con AND:
 
@@ -1374,7 +1375,9 @@ La respuesta incluye `onTime` y las partes (`detailses`) con el estado de cada d
 | `classSectionId`             | string       | Materia a filtrar.                                                                                           |
 | `createdFrom` / `createdTo`  | `YYYY-MM-DD` | Rango sobre la **fecha de solicitud** de la cabecera; ambos extremos son inclusive (`createdTo` cubre el día completo). |
 
-Cada parte de la respuesta expone `stateJustification`, `rejectionReason`, `correctionText`, `responseDate`, `requestDate`, `outOfTimeReason`, `lateDecision`, la materia (`classSection.id`, `classSection.subjectName`) y la cabecera recortada (`justification` con `description`, `startDate`, `endDate`, `onTime` y `student`).
+Cada parte de la respuesta expone `stateJustification`, `rejectionReason`, `correctionText`, `responseDate`, `requestDate`, `outOfTimeReason`, `lateDecision`, la materia (`classSection.id`, `classSection.subjectName`) y la cabecera recortada (`justification` con `description`, `startDate`, `endDate`, `onTime`, `justificationType.id`/`.name` y `student`).
+
+**Detalle — `GET /api/justification-details/{id}`:** devuelve la parte con la misma cabecera recortada de la bandeja y, además, el soporte de la cabecera: `justification.evidence` (el archivo en base64) y `justification.evidenceContentType`. Es la lectura con la que el instructor revisa el adjunto antes de decidir (paso 4 del flujo). El alcance de lectura es el del flujo: el Administrador lee cualquier parte; el instructor solo las partes de las **materias asignadas al momento de la consulta** y el aprendiz solo las de sus propias justificaciones. Una parte fuera de ese alcance responde `404`, igual que una inexistente, para no filtrar su existencia. La bandeja `/pending` no devuelve el archivo (`evidence` no viaja en la lista): el soporte se lee de este endpoint.
 
 **Request — `PATCH /api/justification-details/{id}/decision`:**
 
@@ -1410,6 +1413,7 @@ Cada parte de la respuesta expone `stateJustification`, `rejectionReason`, `corr
     "startDate": "2026-09-10",
     "endDate": "2026-09-12",
     "onTime": true,
+    "justificationType": { "id": "665f1c2a9e13b7a1f2c8d9ec0", "name": "Incapacidad médica" },
     "student": { "id": "665f1c2a9e13b7a1f2c8d9ea0", "documentNumber": "1029384756" }
   }
 }
@@ -1446,15 +1450,15 @@ Cada parte de la respuesta expone `stateJustification`, `rejectionReason`, `corr
 | `error.alreadyProcessed`        | La parte ya no está `PENDIENTE` (E2); clave compartida con UC011.                              |
 | `error.notYourClassSection`     | Quien decide no es el instructor asignado a la materia (E4); clave compartida con UC009/UC015. |
 | `error.validation`              | Campos obligatorios ausentes o inválidos del VM.                                               |
-| `404`                           | La parte no existe.                                                                            |
+| `404`                           | La parte no existe o está fuera del alcance de lectura (materia de otro instructor).            |
 
 **Notas / lo que se necesita:**
 
-- Implementado y verificado (`JustificationDetailsResourceIT` 50/50 y `JustificationResourceIT` 53/53).
+- Implementado y verificado (`JustificationDetailsResourceIT` 55/55 y `JustificationResourceIT` 53/53).
 - **Diferido a UC018:** la entrega de las notificaciones; el puerto ya se invoca en creación (`PENDIENTE`), cancelación (`CANCELADA`) y decisión (`ACEPTADA`/`RECHAZADA`).
 - **Diferido a UC013:** la resolución automática de alertas al aprobar una justificación; hoy la aprobación solo convierte las fallas.
 - `instructorResponseDays` ya tiene consumidor: el plazo de respuesta del instructor y la marca `lateDecision`.
-- El instructor no opera el CRUD genérico de justificaciones (`/api/justifications` y los endpoints genéricos de `/api/justification-details` le responden `403`): su flujo son la bandeja y la decisión de esta sección.
+- El instructor no opera el CRUD genérico de justificaciones (`/api/justifications` y los endpoints genéricos de `/api/justification-details` le responden `403`), **salvo la lectura del detalle de una parte de sus materias** (`GET /api/justification-details/{id}`, `200` con el soporte; `404` fuera de su alcance): su flujo son la bandeja, el detalle y la decisión de esta sección.
 
 ---
 
