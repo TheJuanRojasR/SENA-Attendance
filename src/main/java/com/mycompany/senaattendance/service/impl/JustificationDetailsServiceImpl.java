@@ -48,7 +48,7 @@ import org.springframework.stereotype.Service;
  * <p>An apprentice only reads and writes the parts of their own justifications (UC011): every
  * operation is scoped to their profile, a part of another apprentice resolves as not found on
  * reads and as {@code notYourJustification} on writes. An administrator keeps full access, and
- * the instructor decision over a part arrives with UC010.
+ * the instructor reads and decides the parts of their own materias through UC010.
  *
  * <p>The update and partial update are the A5 correction: they only ever copy the apprentice
  * correction text and file, so a client can never decide a part through those endpoints. The
@@ -236,15 +236,28 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         return findCurrentApprenticeDetails(pageable);
     }
 
+    /**
+     * Reads one part. An administrator reads any part; an apprentice reads the parts of their own
+     * justifications and an instructor the parts of their own materias (UC010, flow step 4). A part
+     * outside the readable scope resolves as empty, so the response is {@code 404} and the read
+     * never leaks the existence of a part of another apprentice or another instructor. The detail
+     * carries the evidence and the type of its header, which is the support the instructor reviews
+     * before deciding.
+     *
+     * @param id the id of the part.
+     * @return the readable part, or empty when it does not exist or is out of scope.
+     */
     @Override
     public Optional<JustificationDetailsDTO> findOne(String id) {
         LOG.debug("Request to get JustificationDetails : {}", id);
         Optional<JustificationDetails> justificationDetails = justificationDetailsRepository.findOneWithEagerRelationships(id);
         if (isCurrentUserAdmin()) {
-            return justificationDetails.map(justificationDetailsMapper::toDto);
+            return justificationDetails.map(justificationDetailsMapper::toDtoWithEvidence);
         }
         String currentProfileId = currentUserProfileId();
-        return justificationDetails.filter(details -> isOwnedBy(details, currentProfileId)).map(justificationDetailsMapper::toDto);
+        return justificationDetails
+            .filter(details -> isOwnedBy(details, currentProfileId) || isAssignedTo(details, currentProfileId))
+            .map(justificationDetailsMapper::toDtoWithEvidence);
     }
 
     /**
@@ -349,10 +362,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         if (isCurrentUserAdmin()) {
             return;
         }
-        ClassSection classSection = part.getClassSection();
-        UserProfile instructor = classSection == null ? null : classSection.getInstructor();
-        String currentProfileId = currentUserProfileId();
-        if (instructor == null || currentProfileId == null || !currentProfileId.equals(instructor.getId())) {
+        if (!isAssignedTo(part, currentUserProfileId())) {
             throw notYourClassSection();
         }
     }
@@ -673,6 +683,18 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      */
     private static boolean isOwnedBy(Justification justification, String profileId) {
         return (profileId != null && justification.getStudent() != null && profileId.equals(justification.getStudent().getId()));
+    }
+
+    /**
+     * @param justificationDetails the part to check.
+     * @param profileId the profile id of the current user, or {@code null}.
+     * @return whether the materia of the part is currently assigned to that instructor profile
+     *         (UC010, E4): the readable scope of the decision flow.
+     */
+    private static boolean isAssignedTo(JustificationDetails justificationDetails, String profileId) {
+        ClassSection classSection = justificationDetails.getClassSection();
+        UserProfile instructor = classSection == null ? null : classSection.getInstructor();
+        return instructor != null && profileId != null && profileId.equals(instructor.getId());
     }
 
     /**

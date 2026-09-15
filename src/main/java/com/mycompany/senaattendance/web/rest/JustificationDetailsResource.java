@@ -35,10 +35,11 @@ import tech.jhipster.web.util.ResponseUtil;
 /**
  * REST controller for managing {@link com.mycompany.senaattendance.domain.JustificationDetails}.
  *
- * <p>Only an administrator and the owning apprentice reach the generic operations, and every
+ * <p>The administrator and the owning apprentice reach the generic operations, and every
  * operation is scoped in the service, so an apprentice only reads and writes the parts of their
- * own justifications. The instructor reads the tray of pending parts of their own materias and
- * their decision history through {@code GET /pending} (UC010, A1).
+ * own justifications. The instructor reads the detail of a part of their own materias, with the
+ * evidence of the header included, so the support is available before deciding (UC010, flow step
+ * 4), and manages the tray and the decision through their own endpoints (UC010, A1).
  */
 @RestController
 @RequestMapping("/api/justification-details")
@@ -230,11 +231,25 @@ public class JustificationDetailsResource {
     /**
      * {@code GET  /justification-details/:id} : get the "id" justificationDetails.
      *
+     * <p>The detail carries the evidence of its header and the type, so the instructor reviews the
+     * support before deciding (UC010, flow step 4). An instructor reads the parts of their own
+     * materias; a part of another materia resolves as {@code 404}, the same as a part outside the
+     * apprentice scope, so the read never leaks the existence of a foreign part. An administrator
+     * reads every part.
+     *
      * @param id the id of the justificationDetailsDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the justificationDetailsDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
+    @PreAuthorize(
+        "hasAnyAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\", \"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\", \"" +
+            AuthoritiesConstants.APPRENTICE +
+            "\")"
+    )
     public ResponseEntity<JustificationDetailsDTO> getJustificationDetails(@PathVariable("id") String id) {
         LOG.debug("REST request to get JustificationDetails : {}", id);
         Optional<JustificationDetailsDTO> justificationDetailsDTO = justificationDetailsService.findOne(id);

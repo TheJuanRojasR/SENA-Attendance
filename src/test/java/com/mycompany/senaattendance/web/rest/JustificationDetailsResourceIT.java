@@ -15,6 +15,7 @@ import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
+import com.mycompany.senaattendance.domain.JustificationType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
@@ -24,6 +25,7 @@ import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
+import com.mycompany.senaattendance.repository.JustificationTypeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
@@ -84,6 +86,9 @@ class JustificationDetailsResourceIT {
     private static final Instant DEFAULT_RESPONSE_DATE = Instant.ofEpochMilli(0L);
     private static final Instant UPDATED_RESPONSE_DATE = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
+    private static final byte[] EVIDENCE = TestUtil.createByteArray(8, "1");
+    private static final String EVIDENCE_CONTENT_TYPE = "application/pdf";
+
     private static final String ENTITY_API_URL = "/api/justification-details";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
     private static final String ENTITY_DECISION_API_URL_ID = ENTITY_API_URL + "/{id}/decision";
@@ -108,6 +113,9 @@ class JustificationDetailsResourceIT {
 
     @Autowired
     private JustificationRepository justificationRepository;
+
+    @Autowired
+    private JustificationTypeRepository justificationTypeRepository;
 
     @Autowired
     private UserProfileRepository userProfileRepository;
@@ -211,6 +219,7 @@ class JustificationDetailsResourceIT {
         justificationDetailsRepository.deleteAll();
         classSectionRepository.deleteAll();
         justificationRepository.deleteAll();
+        justificationTypeRepository.deleteAll();
         userProfileRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -535,8 +544,13 @@ class JustificationDetailsResourceIT {
 
     @Test
     @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
-    void getJustificationDetailsAsInstructorReturnsForbidden() throws Exception {
+    void getAllJustificationDetailsesAsInstructorReturnsForbidden() throws Exception {
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.USER)
+    void getJustificationDetailsWithoutAJustificationRoleReturnsForbidden() throws Exception {
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
     }
 
@@ -894,6 +908,94 @@ class JustificationDetailsResourceIT {
     @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
     void getPendingJustificationDetailsesAsApprenticeReturnsForbidden() throws Exception {
         restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL + "/pending")).andExpect(status().isForbidden());
+    }
+
+    // -----------------------------------------------------------------
+    // UC010 — Lectura del detalle de la parte por el instructor (use-cases.md:1064, paso 4)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPartOfOwnMateriaAsInstructorReadsTheEvidenceAndTheType() throws Exception {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3200000001");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection classSection = persistClassSection("Materia del instructor", instructor);
+        JustificationType type = justificationTypeRepository.save(JustificationTypeResourceIT.createEntity());
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(3), today, true);
+        justification.setJustificationType(type);
+        justification.setEvidence(EVIDENCE);
+        justification.setEvidenceContentType(EVIDENCE_CONTENT_TYPE);
+        justification = justificationRepository.save(justification);
+        JustificationDetails part = persistPart(justification, classSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL_ID, part.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.id").value(part.getId()))
+            .andExpect(jsonPath("$.classSection.id").value(classSection.getId()))
+            .andExpect(jsonPath("$.justification.student.documentNumber").value(apprentice.getDocumentNumber()))
+            .andExpect(jsonPath("$.justification.onTime").value(true))
+            .andExpect(jsonPath("$.justification.justificationType.name").value(type.getName()))
+            .andExpect(jsonPath("$.justification.evidenceContentType").value(EVIDENCE_CONTENT_TYPE))
+            .andExpect(jsonPath("$.justification.evidence").value(Base64.getEncoder().encodeToString(EVIDENCE)));
+    }
+
+    /**
+     * The tray stays light: the file is only read from the detail, so a page of 20 parts never
+     * carries 20 attachments.
+     */
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPendingJustificationDetailsesDoesNotCarryTheEvidence() throws Exception {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3200000005");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection classSection = persistClassSection("Materia del instructor", instructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(3), today, true);
+        justification.setEvidence(EVIDENCE);
+        justification.setEvidenceContentType(EVIDENCE_CONTENT_TYPE);
+        justificationRepository.save(justification);
+        persistPart(justification, classSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL + "/pending"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$[0].justification.evidence").doesNotExist())
+            .andExpect(jsonPath("$[0].justification.evidenceContentType").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getPartOfAnotherInstructorsMateriaReturnsNotFound() throws Exception {
+        persistProfile(INSTRUCTOR_LOGIN, "3200000002");
+        UserProfile otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "3200000003");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection otherClassSection = persistClassSection("Materia de otro instructor", otherInstructor);
+        JustificationDetails part = persistPart(persistJustification(apprentice), otherClassSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc.perform(get(ENTITY_API_URL_ID, part.getId())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getPartOfAnotherInstructorsMateriaAsAdminReadsItWithEvidence() throws Exception {
+        UserProfile otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "3200000004");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        ClassSection otherClassSection = persistClassSection("Materia de otro instructor", otherInstructor);
+        LocalDate today = LocalDate.now(clock);
+        Justification justification = persistJustification(apprentice, today.minusDays(3), today, true);
+        justification.setEvidence(EVIDENCE);
+        justification.setEvidenceContentType(EVIDENCE_CONTENT_TYPE);
+        justificationRepository.save(justification);
+        JustificationDetails part = persistPart(justification, otherClassSection, StateJustification.PENDIENTE);
+
+        restJustificationDetailsMockMvc
+            .perform(get(ENTITY_API_URL_ID, part.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(part.getId()))
+            .andExpect(jsonPath("$.justification.evidence").value(Base64.getEncoder().encodeToString(EVIDENCE)));
     }
 
     // -----------------------------------------------------------------
