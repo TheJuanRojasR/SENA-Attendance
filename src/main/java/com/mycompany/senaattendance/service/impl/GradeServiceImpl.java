@@ -5,6 +5,8 @@ import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
+import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
@@ -20,10 +22,12 @@ import com.mycompany.senaattendance.web.rest.errors.GradeStartDateInPastExceptio
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +46,12 @@ public class GradeServiceImpl implements GradeService {
 
     private static final String ENTITY_NAME = "grade";
 
+    // Fields an ACTIVA ficha accepts; any other editable field is locked by its state.
+    private static final Set<String> ACTIVA_EDITABLE_FIELDS = Set.of("endDate", "program", "code");
+
+    // Fields an APLAZADA ficha accepts; any other editable field is locked by its state.
+    private static final Set<String> APLAZADA_EDITABLE_FIELDS = Set.of("endDate");
+
     private final GradeRepository gradeRepository;
 
     private final GradeMapper gradeMapper;
@@ -52,6 +62,10 @@ public class GradeServiceImpl implements GradeService {
 
     private final TimeSlotRepository timeSlotRepository;
 
+    private final ClassSectionRepository classSectionRepository;
+
+    private final ApprenticeRepository apprenticeRepository;
+
     private final Clock clock;
 
     public GradeServiceImpl(
@@ -60,6 +74,8 @@ public class GradeServiceImpl implements GradeService {
         ProgramRepository programRepository,
         ModalityRepository modalityRepository,
         TimeSlotRepository timeSlotRepository,
+        ClassSectionRepository classSectionRepository,
+        ApprenticeRepository apprenticeRepository,
         Clock clock
     ) {
         this.gradeRepository = gradeRepository;
@@ -67,6 +83,8 @@ public class GradeServiceImpl implements GradeService {
         this.programRepository = programRepository;
         this.modalityRepository = modalityRepository;
         this.timeSlotRepository = timeSlotRepository;
+        this.classSectionRepository = classSectionRepository;
+        this.apprenticeRepository = apprenticeRepository;
         this.clock = clock;
     }
 
@@ -100,8 +118,13 @@ public class GradeServiceImpl implements GradeService {
         Grade grade = gradeMapper.toEntity(gradeDTO);
 
         Optional<Grade> optionalGrade = gradeRepository.findById(grade.getId());
+        // The persisted state decides which fields the update may touch, before any other rule.
+        Set<String> changedFields = optionalGrade.map(existingGrade -> validateStateEditRules(existingGrade, gradeDTO)).orElseGet(Set::of);
         // When the ficha already exists, its own id is excluded from the uniqueness check.
         validateCode(grade.getCode(), optionalGrade.isPresent() ? grade.getId() : null);
+        if (changedFields.contains("code")) {
+            validateCodeLock(grade.getId());
+        }
         // A ficha keeps its original start date when only other fields change, so the "not in
         // the past" rule applies only when the start date is actually being set or changed.
         LocalDate incomingStartDate = grade.getStartDate();
@@ -136,7 +159,13 @@ public class GradeServiceImpl implements GradeService {
         return gradeRepository
             .findById(gradeDTO.getId())
             .map(existingGrade -> {
+                // Only the fields present in the payload are compared, so a PATCH that omits a
+                // field never violates the state rules.
+                Set<String> changedFields = validateStateEditRules(existingGrade, gradeDTO);
                 validateCode(gradeDTO.getCode(), existingGrade.getId());
+                if (changedFields.contains("code")) {
+                    validateCodeLock(existingGrade.getId());
+                }
                 LocalDate persistedStartDate = existingGrade.getStartDate();
                 StateGrade currentState = existingGrade.getState();
                 gradeMapper.partialUpdate(existingGrade, gradeDTO);
@@ -275,6 +304,109 @@ public class GradeServiceImpl implements GradeService {
         if (duplicate) {
             throw new GradeCodeAlreadyUsedException();
         }
+    }
+
+    /**
+     * Enforces the per-state ficha edit rules against the state the ficha has persisted. A
+     * field counts as changed only when the payload carries a different value, so resending
+     * an unchanged field is accepted even when the state locks it.
+     *
+     * @param existingGrade the persisted ficha whose state rules apply; the state sent by the
+     *                      client is ignored.
+     * @param gradeDTO      the incoming payload: on a PUT every field is present, on a PATCH
+     *                      only the fields being modified.
+     * @return the editable fields whose incoming value differs from the persisted one.
+     * @throws BadRequestAlertException with key {@code noteditable} when a FINALIZADA ficha
+     *                                  changes any field.
+     * @throws BadRequestAlertException with key {@code fieldlocked} when an ACTIVA or
+     *                                  APLAZADA ficha changes a field its state does not allow.
+     */
+    private Set<String> validateStateEditRules(Grade existingGrade, GradeDTO gradeDTO) {
+        Set<String> changedFields = changedEditableFields(existingGrade, gradeDTO);
+        switch (existingGrade.getState()) {
+            case FINALIZADA -> {
+                if (!changedFields.isEmpty()) {
+                    throw new BadRequestAlertException("No se puede modificar una ficha finalizada", ENTITY_NAME, "noteditable");
+                }
+            }
+            case ACTIVA -> {
+                if (changedFields.stream().anyMatch(field -> !ACTIVA_EDITABLE_FIELDS.contains(field))) {
+                    throw fieldLocked();
+                }
+            }
+            case APLAZADA -> {
+                if (changedFields.stream().anyMatch(field -> !APLAZADA_EDITABLE_FIELDS.contains(field))) {
+                    throw fieldLocked();
+                }
+            }
+            default -> {
+                // PENDIENTE and CANCELADA accept changes on every editable field.
+            }
+        }
+        return changedFields;
+    }
+
+    /**
+     * @return the editable ficha fields whose incoming value differs from the persisted one.
+     *         A field absent from the payload is never reported as changed.
+     */
+    private static Set<String> changedEditableFields(Grade existingGrade, GradeDTO gradeDTO) {
+        Set<String> changedFields = new HashSet<>();
+        if (gradeDTO.getCode() != null && !Objects.equals(existingGrade.getCode(), gradeDTO.getCode())) {
+            changedFields.add("code");
+        }
+        if (gradeDTO.getStartDate() != null && !Objects.equals(existingGrade.getStartDate(), gradeDTO.getStartDate())) {
+            changedFields.add("startDate");
+        }
+        if (gradeDTO.getEndDate() != null && !Objects.equals(existingGrade.getEndDate(), gradeDTO.getEndDate())) {
+            changedFields.add("endDate");
+        }
+        if (gradeDTO.getProgram() != null && !Objects.equals(referenceId(existingGrade.getProgram()), gradeDTO.getProgram().getId())) {
+            changedFields.add("program");
+        }
+        if (gradeDTO.getModality() != null && !Objects.equals(referenceId(existingGrade.getModality()), gradeDTO.getModality().getId())) {
+            changedFields.add("modality");
+        }
+        if (gradeDTO.getTimeSlot() != null && !Objects.equals(referenceId(existingGrade.getTimeSlot()), gradeDTO.getTimeSlot().getId())) {
+            changedFields.add("timeSlot");
+        }
+        return changedFields;
+    }
+
+    /**
+     * The ficha code can only change while no class section nor apprentice references the
+     * ficha, so existing academic records keep pointing at a stable code.
+     *
+     * @param gradeId the ficha whose code is being changed.
+     * @throws BadRequestAlertException with key {@code gradeCodeLocked} when the ficha already
+     *                                  has class sections or apprentices.
+     */
+    private void validateCodeLock(String gradeId) {
+        boolean hasClassSections = !classSectionRepository.findByGradeId(gradeId).isEmpty();
+        boolean hasApprentices = !apprenticeRepository.findByGradeId(gradeId).isEmpty();
+        if (hasClassSections || hasApprentices) {
+            throw new BadRequestAlertException(
+                "El código solo puede cambiarse mientras la ficha no tenga materias ni aprendices",
+                ENTITY_NAME,
+                "gradeCodeLocked"
+            );
+        }
+    }
+
+    private static BadRequestAlertException fieldLocked() {
+        return new BadRequestAlertException("El campo no se puede modificar en el estado actual de la ficha", ENTITY_NAME, "fieldlocked");
+    }
+
+    private static String referenceId(Program program) {
+        return program == null ? null : program.getId();
+    }
+
+    private static String referenceId(Modality modality) {
+        return modality == null ? null : modality.getId();
+    }
+
+    private static String referenceId(TimeSlot timeSlot) {
+        return timeSlot == null ? null : timeSlot.getId();
     }
 
     /**

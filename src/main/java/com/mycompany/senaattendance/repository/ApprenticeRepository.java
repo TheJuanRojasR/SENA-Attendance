@@ -22,4 +22,8 @@ public interface ApprenticeRepository extends MongoRepository<Apprentice, String
 
     @Query("{'id': ?0}")
     Optional<Apprentice> findOneWithEagerRelationships(String id);
+
+    // ------- SEARCH BY GRADE ID -------
+    @Query("{'grade._id': ?0}")
+    List<Apprentice> findByGradeId(String gradeId);
 }

@@ -10,11 +10,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Apprentice;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
+import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
@@ -22,7 +27,9 @@ import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
+import com.mycompany.senaattendance.service.dto.ModalityDTO;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
+import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -87,6 +94,12 @@ class GradeResourceIT {
     @Autowired
     private TimeSlotRepository timeSlotRepository;
 
+    @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private ApprenticeRepository apprenticeRepository;
+
     @Mock
     private GradeService gradeServiceMock;
 
@@ -96,6 +109,10 @@ class GradeResourceIT {
     private Grade grade;
 
     private Grade insertedGrade;
+
+    private ClassSection insertedClassSection;
+
+    private Apprentice insertedApprentice;
 
     /**
      * Create an entity for this test.
@@ -159,6 +176,14 @@ class GradeResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedClassSection != null) {
+            classSectionRepository.delete(insertedClassSection);
+            insertedClassSection = null;
+        }
+        if (insertedApprentice != null) {
+            apprenticeRepository.delete(insertedApprentice);
+            insertedApprentice = null;
+        }
         if (insertedGrade != null) {
             gradeRepository.delete(insertedGrade);
             insertedGrade = null;
@@ -167,6 +192,41 @@ class GradeResourceIT {
         modalityRepository.deleteAll();
         programRepository.deleteAll();
         timeSlotRepository.deleteAll();
+    }
+
+    /**
+     * Persists the @DBRef targets of the ficha under test so they resolve on reload.
+     */
+    private void persistCatalogRefs() {
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+    }
+
+    /**
+     * Persists the ficha under test with the given state and date range, so the edit rules
+     * evaluate the state the database actually holds.
+     */
+    private GradeDTO persistGrade(StateGrade state, LocalDate startDate, LocalDate endDate) {
+        grade.state(state).startDate(startDate).endDate(endDate);
+        insertedGrade = gradeRepository.save(grade);
+        return gradeMapper.toDto(insertedGrade);
+    }
+
+    /**
+     * Seeds a class section linked to the ficha, which locks the ficha code.
+     */
+    private ClassSection persistClassSection(Grade grade) {
+        insertedClassSection = classSectionRepository.save(new ClassSection().subjectName("Test subject").isActive(true).grade(grade));
+        return insertedClassSection;
+    }
+
+    /**
+     * Seeds an apprentice linked to the ficha, which locks the ficha code.
+     */
+    private Apprentice persistApprentice(Grade grade) {
+        insertedApprentice = apprenticeRepository.save(new Apprentice().stateAcademic(StateAcademic.MATRICULADO).grade(grade));
+        return insertedApprentice;
     }
 
     @Test
@@ -487,14 +547,15 @@ class GradeResourceIT {
         modalityRepository.save(grade.getModality());
         timeSlotRepository.save(grade.getTimeSlot());
 
-        // Initialize the database with a manually paused ficha, so the update must preserve that state
-        insertedGrade = gradeRepository.save(grade.state(UPDATED_STATE));
+        // Initialize the database with a manually cancelled ficha, so the update must preserve
+        // that state. A cancelled ficha accepts changes on every field.
+        insertedGrade = gradeRepository.save(grade.state(StateGrade.CANCELADA));
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
         // Update the grade
         Grade updatedGrade = gradeRepository.findById(grade.getId()).orElseThrow();
-        updatedGrade.code(UPDATED_CODE).state(UPDATED_STATE).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE);
+        updatedGrade.code(UPDATED_CODE).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE);
         GradeDTO gradeDTO = gradeMapper.toDto(updatedGrade);
 
         restGradeMockMvc
@@ -543,7 +604,8 @@ class GradeResourceIT {
         Grade other = createEntity().code(UPDATED_CODE);
         other = gradeRepository.save(other);
         try {
-            GradeDTO gradeDTO = gradeMapper.toDto(other);
+            // Reload the ficha so the payload references the same catalog ids the database holds.
+            GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(other.getId()).orElseThrow());
             gradeDTO.setCode(DEFAULT_CODE);
 
             restGradeMockMvc
@@ -582,15 +644,11 @@ class GradeResourceIT {
 
     @Test
     void putGradeWithEndDateBeforeStartDateReturnsBadRequest() throws Exception {
-        // Persist the @DBRef targets so they resolve on reload
-        programRepository.save(grade.getProgram());
-        modalityRepository.save(grade.getModality());
-        timeSlotRepository.save(grade.getTimeSlot());
-        insertedGrade = gradeRepository.save(grade);
-
-        GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
-        gradeDTO.setStartDate(DEFAULT_START_DATE.plusDays(10));
-        gradeDTO.setEndDate(DEFAULT_START_DATE.plusDays(5));
+        // A PENDIENTE ficha accepts date changes, so the date order rule is reached.
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        gradeDTO.setStartDate(today.plusDays(20));
+        gradeDTO.setEndDate(today.plusDays(15));
 
         restGradeMockMvc
             .perform(
@@ -599,19 +657,14 @@ class GradeResourceIT {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.datesorder"));
 
-        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(10));
     }
 
     @Test
     void putGradeWithChangedStartDateInThePastReturnsBadRequest() throws Exception {
-        // Persist the @DBRef targets so they resolve on reload
-        programRepository.save(grade.getProgram());
-        modalityRepository.save(grade.getModality());
-        timeSlotRepository.save(grade.getTimeSlot());
-        insertedGrade = gradeRepository.save(grade);
-
+        // A PENDIENTE ficha accepts moving its start date, so the past-date rule is reached.
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
         gradeDTO.setStartDate(today.minusDays(1));
         gradeDTO.setEndDate(today.plusDays(30));
 
@@ -622,7 +675,7 @@ class GradeResourceIT {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.startdateinpast"));
 
-        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(10));
     }
 
     @Test
@@ -632,13 +685,10 @@ class GradeResourceIT {
         inactiveModality = modalityRepository.save(inactiveModality);
 
         try {
-            // Persist the @DBRef targets so they resolve on reload
-            programRepository.save(grade.getProgram());
-            modalityRepository.save(grade.getModality());
-            timeSlotRepository.save(grade.getTimeSlot());
-            insertedGrade = gradeRepository.save(grade);
-
-            GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+            // A PENDIENTE ficha accepts changing the modality, so the catalog rule is reached.
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            persistCatalogRefs();
+            GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
             gradeDTO.getModality().setId(inactiveModality.getId());
 
             restGradeMockMvc
@@ -661,13 +711,10 @@ class GradeResourceIT {
         inactiveTimeSlot = timeSlotRepository.save(inactiveTimeSlot);
 
         try {
-            // Persist the @DBRef targets so they resolve on reload
-            programRepository.save(grade.getProgram());
-            modalityRepository.save(grade.getModality());
-            timeSlotRepository.save(grade.getTimeSlot());
-            insertedGrade = gradeRepository.save(grade);
-
-            GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+            // A PENDIENTE ficha accepts changing the time slot, so the catalog rule is reached.
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            persistCatalogRefs();
+            GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
             gradeDTO.getTimeSlot().setId(inactiveTimeSlot.getId());
 
             restGradeMockMvc
@@ -681,6 +728,222 @@ class GradeResourceIT {
         } finally {
             timeSlotRepository.delete(inactiveTimeSlot);
         }
+    }
+
+    @Test
+    void putFinalizadaGradeRejectsAnyChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.FINALIZADA, today.minusDays(40), today.minusDays(10));
+        gradeDTO.setEndDate(today.minusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.noteditable"));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.minusDays(10));
+    }
+
+    @Test
+    void putActivaGradeRejectsStartDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+        gradeDTO.setStartDate(today.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.fieldlocked"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.minusDays(10));
+    }
+
+    @Test
+    void putActivaGradeRejectsModalityChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+        gradeDTO.setModality(new ModalityDTO());
+        gradeDTO.getModality().setId("other-modality");
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.fieldlocked"));
+
+        assertThat(getPersistedGrade(grade).getModality().getId()).isEqualTo("fixed-id-for-tests");
+    }
+
+    @Test
+    void putActivaGradeRejectsTimeSlotChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+        gradeDTO.setTimeSlot(new TimeSlotDTO());
+        gradeDTO.getTimeSlot().setId("other-time-slot");
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.fieldlocked"));
+
+        assertThat(getPersistedGrade(grade).getTimeSlot().getId()).isEqualTo("fixed-id-for-tests");
+    }
+
+    @Test
+    void putActivaGradeAllowsEndDateAndProgramChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+        gradeDTO.setEndDate(today.plusDays(45));
+        gradeDTO.setProgram(new ProgramDTO());
+        gradeDTO.getProgram().setId("other-program");
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.ACTIVA.toString()))
+            .andExpect(jsonPath("$.endDate").value(today.plusDays(45).toString()))
+            .andExpect(jsonPath("$.program.id").value("other-program"));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(45));
+    }
+
+    @Test
+    void putAplazadaGradeRejectsStartDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.APLAZADA, today.minusDays(10), today.plusDays(10));
+        gradeDTO.setStartDate(today.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.fieldlocked"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.minusDays(10));
+    }
+
+    @Test
+    void putAplazadaGradeAllowsEndDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.APLAZADA, today.minusDays(10), today.plusDays(10));
+        gradeDTO.setEndDate(today.plusDays(60));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.APLAZADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(60));
+    }
+
+    @Test
+    void putPendienteGradeAllowsFieldChanges() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        gradeDTO.setStartDate(today.plusDays(5));
+        gradeDTO.setEndDate(today.plusDays(60));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.PENDIENTE.toString()));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(5));
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(60));
+    }
+
+    @Test
+    void putCanceladaGradeAllowsFieldChanges() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.CANCELADA, today.plusDays(10), today.plusDays(40));
+        gradeDTO.setStartDate(today.plusDays(5));
+        gradeDTO.setProgram(new ProgramDTO());
+        gradeDTO.getProgram().setId("other-program");
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.CANCELADA.toString()))
+            .andExpect(jsonPath("$.program.id").value("other-program"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(5));
+    }
+
+    @Test
+    void putGradeWithClassSectionsRejectsCodeChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        persistClassSection(insertedGrade);
+        gradeDTO.setCode(UPDATED_CODE);
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void putGradeWithApprenticesRejectsCodeChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        persistApprentice(insertedGrade);
+        gradeDTO.setCode(UPDATED_CODE);
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void putGradeWithoutAssociationsAllowsCodeChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistCatalogRefs();
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        gradeDTO.setCode(UPDATED_CODE);
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(UPDATED_CODE);
     }
 
     @Test
@@ -769,8 +1032,9 @@ class GradeResourceIT {
 
     @Test
     void fullUpdateGradeWithPatch() throws Exception {
-        // Initialize the database with a manually paused ficha, so the patch must preserve that state
-        insertedGrade = gradeRepository.save(grade.state(UPDATED_STATE));
+        // Initialize the database with a manually cancelled ficha, so the patch must preserve
+        // that state. A cancelled ficha accepts changes on every field.
+        insertedGrade = gradeRepository.save(grade.state(StateGrade.CANCELADA));
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
@@ -778,7 +1042,7 @@ class GradeResourceIT {
         Grade partialUpdatedGrade = new Grade();
         partialUpdatedGrade.setId(grade.getId());
 
-        partialUpdatedGrade.code(UPDATED_CODE).state(UPDATED_STATE).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE);
+        partialUpdatedGrade.code(UPDATED_CODE).state(StateGrade.CANCELADA).startDate(UPDATED_START_DATE).endDate(UPDATED_END_DATE);
 
         restGradeMockMvc
             .perform(
@@ -864,12 +1128,14 @@ class GradeResourceIT {
 
     @Test
     void patchGradeWithEndDateBeforeStartDateReturnsBadRequest() throws Exception {
-        insertedGrade = gradeRepository.save(grade);
+        // A PENDIENTE ficha accepts date changes, so the date order rule is reached.
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
 
         Grade partialUpdatedGrade = new Grade();
         partialUpdatedGrade.setId(grade.getId());
-        partialUpdatedGrade.setStartDate(DEFAULT_START_DATE.plusDays(10));
-        partialUpdatedGrade.setEndDate(DEFAULT_START_DATE.plusDays(5));
+        partialUpdatedGrade.setStartDate(today.plusDays(20));
+        partialUpdatedGrade.setEndDate(today.plusDays(15));
 
         restGradeMockMvc
             .perform(
@@ -880,14 +1146,15 @@ class GradeResourceIT {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.datesorder"));
 
-        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(10));
     }
 
     @Test
     void patchGradeWithChangedStartDateInThePastReturnsBadRequest() throws Exception {
-        insertedGrade = gradeRepository.save(grade);
-
+        // A PENDIENTE ficha accepts moving its start date, so the past-date rule is reached.
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+
         Grade partialUpdatedGrade = new Grade();
         partialUpdatedGrade.setId(grade.getId());
         partialUpdatedGrade.setStartDate(today.minusDays(1));
@@ -902,7 +1169,7 @@ class GradeResourceIT {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("error.startdateinpast"));
 
-        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(10));
     }
 
     @Test
@@ -933,7 +1200,9 @@ class GradeResourceIT {
         inactiveModality = modalityRepository.save(inactiveModality);
 
         try {
-            insertedGrade = gradeRepository.save(grade);
+            // A PENDIENTE ficha accepts changing the modality, so the catalog rule is reached.
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
 
             Grade partialUpdatedGrade = new Grade();
             partialUpdatedGrade.setId(grade.getId());
@@ -961,7 +1230,9 @@ class GradeResourceIT {
         inactiveTimeSlot = timeSlotRepository.save(inactiveTimeSlot);
 
         try {
-            insertedGrade = gradeRepository.save(grade);
+            // A PENDIENTE ficha accepts changing the time slot, so the catalog rule is reached.
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
 
             Grade partialUpdatedGrade = new Grade();
             partialUpdatedGrade.setId(grade.getId());
@@ -980,6 +1251,218 @@ class GradeResourceIT {
         } finally {
             timeSlotRepository.delete(inactiveTimeSlot);
         }
+    }
+
+    @Test
+    void patchFinalizadaGradeRejectsAnyChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.FINALIZADA, today.minusDays(40), today.minusDays(10));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setEndDate(today.minusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.noteditable"));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.minusDays(10));
+    }
+
+    @Test
+    void patchActivaGradeRejectsStartDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setStartDate(today.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.fieldlocked"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.minusDays(10));
+    }
+
+    @Test
+    void patchActivaGradeAllowsEndDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setEndDate(today.plusDays(45));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.ACTIVA.toString()))
+            .andExpect(jsonPath("$.endDate").value(today.plusDays(45).toString()));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(45));
+    }
+
+    @Test
+    void patchAplazadaGradeRejectsForbiddenChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.APLAZADA, today.minusDays(10), today.plusDays(10));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setTimeSlot(new TimeSlot().id("other-time-slot"));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.fieldlocked"));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(10));
+    }
+
+    @Test
+    void patchAplazadaGradeAllowsEndDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.APLAZADA, today.minusDays(10), today.plusDays(10));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setEndDate(today.plusDays(60));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.APLAZADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(60));
+    }
+
+    @Test
+    void patchPendienteGradeAllowsStartDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setStartDate(today.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.PENDIENTE.toString()));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(5));
+    }
+
+    @Test
+    void patchCanceladaGradeAllowsStartDateChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.CANCELADA, today.plusDays(10), today.plusDays(40));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setStartDate(today.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.CANCELADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.plusDays(5));
+    }
+
+    @Test
+    void patchGradeWithClassSectionsRejectsCodeChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        persistClassSection(insertedGrade);
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setCode(UPDATED_CODE);
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void patchGradeWithApprenticesRejectsCodeChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+        persistApprentice(insertedGrade);
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setCode(UPDATED_CODE);
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeCodeLocked"));
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void patchGradeWithoutAssociationsAllowsCodeChange() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setCode(UPDATED_CODE);
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedGrade(grade).getCode()).isEqualTo(UPDATED_CODE);
     }
 
     @Test
