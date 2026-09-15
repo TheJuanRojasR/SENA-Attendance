@@ -15,6 +15,7 @@ import com.mycompany.senaattendance.service.mapper.ApprenticeMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.vm.EnrollApprenticeVM;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,9 +57,13 @@ public class ApprenticeServiceImpl implements ApprenticeService {
      * Enrolls the apprentice in the ficha (UC008). The academic state is set by the server as
      * {@code MATRICULADO}, so a state sent by the client is never persisted.
      *
-     * <p>Rejections: a missing or deactivated apprentice account ({@code apprenticeInactive}),
-     * an apprentice that already has a record in the ficha in any state
-     * ({@code apprenticeAlreadyEnrolled}) and a ficha that is not {@code PENDIENTE} or
+     * <p>The document number is not unique on its own: the unique key is the
+     * (documentType, documentNumber) pair, so a number shared by more than one profile does not
+     * identify a student and is rejected as {@code apprenticeInactive}.
+     *
+     * <p>Rejections: a missing, deactivated or ambiguous apprentice account
+     * ({@code apprenticeInactive}), an apprentice that already has a record in the ficha in any
+     * state ({@code apprenticeAlreadyEnrolled}) and a ficha that is not {@code PENDIENTE} or
      * {@code ACTIVA} ({@code gradeNotOperable}).
      */
     @Override
@@ -73,10 +78,19 @@ public class ApprenticeServiceImpl implements ApprenticeService {
             throw new BadRequestAlertException("La ficha no permite esta operación en su estado actual", ENTITY_NAME, "gradeNotOperable");
         }
 
-        UserProfile student = userProfileRepository
-            .findByDocumentNumber(enrollApprenticeVM.getDocumentNumber().trim())
-            .filter(profile -> profile.getUser() != null && profile.getUser().isActivated())
-            .orElseThrow(() -> new BadRequestAlertException("Aprendiz no existe o no está activo", ENTITY_NAME, "apprenticeInactive"));
+        List<UserProfile> documentProfiles = userProfileRepository.findAllByDocumentNumber(enrollApprenticeVM.getDocumentNumber().trim());
+        if (documentProfiles.size() != 1) {
+            throw new BadRequestAlertException(
+                "El número de documento no identifica a un único aprendiz",
+                ENTITY_NAME,
+                "apprenticeInactive"
+            );
+        }
+
+        UserProfile student = documentProfiles.get(0);
+        if (student.getUser() == null || !student.getUser().isActivated()) {
+            throw new BadRequestAlertException("Aprendiz no existe o no está activo", ENTITY_NAME, "apprenticeInactive");
+        }
 
         if (apprenticeRepository.existsByStudentIdAndGradeId(student.getId(), grade.getId())) {
             throw new BadRequestAlertException(

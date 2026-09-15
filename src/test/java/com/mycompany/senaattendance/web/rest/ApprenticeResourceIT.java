@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Apprentice;
+import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
@@ -15,6 +16,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
+import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -64,6 +66,9 @@ class ApprenticeResourceIT {
     private UserProfileRepository userProfileRepository;
 
     @Autowired
+    private DocumentTypeRepository documentTypeRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -75,6 +80,8 @@ class ApprenticeResourceIT {
     private final List<User> insertedUsers = new ArrayList<>();
 
     private final List<UserProfile> insertedProfiles = new ArrayList<>();
+
+    private final List<DocumentType> insertedDocumentTypes = new ArrayList<>();
 
     private final List<Grade> insertedGrades = new ArrayList<>();
 
@@ -91,6 +98,8 @@ class ApprenticeResourceIT {
         insertedGrades.clear();
         insertedProfiles.forEach(userProfileRepository::delete);
         insertedProfiles.clear();
+        insertedDocumentTypes.forEach(documentTypeRepository::delete);
+        insertedDocumentTypes.clear();
         insertedUsers.forEach(userRepository::delete);
         insertedUsers.clear();
     }
@@ -105,6 +114,19 @@ class ApprenticeResourceIT {
      * @return the persisted apprentice profile.
      */
     private UserProfile persistApprenticeProfile(String documentNumber, boolean activated) {
+        return persistApprenticeProfile(documentNumber, activated, UserProfileResourceIT.createEntity().getDocumentType());
+    }
+
+    /**
+     * Persists a profile backed by a real user account with an explicit document type, so two
+     * profiles can share a document number under the (documentType, documentNumber) unique key.
+     *
+     * @param documentNumber the document number that identifies the apprentice.
+     * @param activated whether the apprentice account is active.
+     * @param documentType the document type the profile is issued with.
+     * @return the persisted apprentice profile.
+     */
+    private UserProfile persistApprenticeProfile(String documentNumber, boolean activated, DocumentType documentType) {
         String suffix = UUID.randomUUID().toString().replace("-", "");
 
         User user = UserResourceIT.createEntity();
@@ -115,10 +137,22 @@ class ApprenticeResourceIT {
         insertedUsers.add(userRepository.save(user));
 
         UserProfile profile = UserProfileResourceIT.createEntity();
+        profile.setDocumentType(documentType);
         profile.setDocumentNumber(documentNumber);
         profile.setUser(user);
         insertedProfiles.add(userProfileRepository.save(profile));
         return profile;
+    }
+
+    /**
+     * Persists a document type so a profile can reference a real one.
+     *
+     * @return the persisted document type.
+     */
+    private DocumentType persistDocumentType() {
+        DocumentType documentType = documentTypeRepository.save(DocumentTypeResourceIT.createEntity());
+        insertedDocumentTypes.add(documentType);
+        return documentType;
     }
 
     /**
@@ -216,6 +250,28 @@ class ApprenticeResourceIT {
     void enrollInactiveApprenticeIsRejected() throws Exception {
         persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, false);
         Grade grade = persistGrade("UC00803", StateGrade.ACTIVA);
+
+        long databaseSizeBeforeCreate = apprenticeRepository.count();
+
+        restApprenticeMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(enrollPayload(DEFAULT_DOCUMENT_NUMBER, grade.getId())))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.apprenticeInactive"));
+
+        assertThat(apprenticeRepository.count()).isEqualTo(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    void enrollWithAmbiguousDocumentNumberIsRejected() throws Exception {
+        // The same number is valid across document types, so it does not identify a single
+        // apprentice: the enrollment must reject it instead of failing with a server error.
+        persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true, persistDocumentType());
+        persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true, persistDocumentType());
+        Grade grade = persistGrade("UC00810", StateGrade.ACTIVA);
 
         long databaseSizeBeforeCreate = apprenticeRepository.count();
 

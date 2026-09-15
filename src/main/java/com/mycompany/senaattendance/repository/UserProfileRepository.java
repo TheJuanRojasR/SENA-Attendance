@@ -30,6 +30,16 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // ------- SEARCH USER PROFILE BY DOCUMENT NUMBER -------
     Optional<UserProfile> findByDocumentNumber(String documentNumber);
 
+    /**
+     * Returns every profile that uses the given document number. The number alone does not
+     * identify a profile: the unique key is the (documentType, documentNumber) pair, so the same
+     * number can belong to profiles with different document types.
+     *
+     * @param documentNumber the document number to look up.
+     * @return all profiles with that document number, possibly empty.
+     */
+    List<UserProfile> findAllByDocumentNumber(String documentNumber);
+
     // ------- SEARCH USER PROFILE BY DOCUMENT TYPE AND DOCUMENT NUMBER -------
     Optional<UserProfile> findByDocumentTypeAndDocumentNumber(String documentTypeId, String documentNumber);
 
