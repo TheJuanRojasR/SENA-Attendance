@@ -879,7 +879,7 @@ El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CE
 
 **Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.programInactive` ("No se pueden crear fichas para un programa inactivo"), `400 error.validation`; `403`; `404`.
 
-**Notas / lo que se necesita:** `PUT` y `PATCH` aplican las mismas reglas de estado (un trimestre **cerrado** no se edita; en **activo** la fecha inicio está congelada y la fecha fin no puede ser anterior a hoy; en **futuro** la fecha inicio debe seguir siendo futura; cambiar la fecha inicio se bloquea si hay asistencias), validan orden de fechas (E2) y solape (E1) y recalculan `status`. **Eliminar en uso (E6):** si el trimestre tiene horarios o asistencias, `DELETE` responde `400 error.trimesterInUse`. La escritura está restringida a `ROLE_ADMIN`. **Pendiente:** al crear aún no se exige fecha inicio ≥ mañana ni fecha fin ≥ hoy (E2), y el estado sigue siendo un booleano `status`, por lo que no se puede filtrar por los tres estados (Futuro/Activo/Cerrado) que pide el UC.
+**Notas / lo que se necesita:** no existe cálculo automático de Pendiente/Activa/Finalizada por fechas, ni acciones de Aplazar, Reanudar o Cancelar, ni los cinco estados del UC (el enum solo tiene `ACTIVA`, `INACTIVA`, `APLAZADA`). No se valida el código numérico ni su unicidad (E1), ni las reglas de edición por estado (A1), ni la guarda de eliminación por aprendices o asistencias. El guardado de programa activo solo aplica en `POST`; `PUT` y `PATCH` no lo revalidan. `GET /api/grades/active` quedó sin `@PreAuthorize`: cualquier usuario autenticado puede consultarlo.
 
 ---
 
