@@ -44,7 +44,10 @@ public class JustificationDetails implements Serializable {
     @Field("correction_file_url_content_type")
     private String correctionFileUrlContentType;
 
-    @NotNull
+    /**
+     * Instant of the instructor decision, or {@code null} while the part is pending (UC011).
+     * Correcting a rejected part (A5) clears it: the part reopens with no response yet.
+     */
     @Field("response_date")
     private Instant responseDate;
 

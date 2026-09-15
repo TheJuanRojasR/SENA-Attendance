@@ -58,9 +58,11 @@ public interface JustificationService {
     Optional<JustificationDTO> findOne(String id);
 
     /**
-     * Delete the "id" justification.
+     * Cancels a pending justification (UC011, A4): every part moves to {@code CANCELADA}, which
+     * releases the days it reserved in the per-type quota.
      *
-     * @param id the id of the entity.
+     * @param id the id of the justification to cancel.
+     * @return the cancelled justification.
      */
-    void delete(String id);
+    JustificationDTO cancel(String id);
 }

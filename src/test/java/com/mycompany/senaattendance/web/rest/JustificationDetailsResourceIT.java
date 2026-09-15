@@ -1,7 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
 import static com.mycompany.senaattendance.domain.JustificationDetailsAsserts.*;
-import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -26,10 +25,13 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,6 +81,9 @@ class JustificationDetailsResourceIT {
 
     @Autowired
     private ObjectMapper om;
+
+    @Autowired
+    private Clock clock;
 
     @Autowired
     private JustificationDetailsRepository justificationDetailsRepository;
@@ -605,76 +610,138 @@ class JustificationDetailsResourceIT {
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
     }
 
+    // -----------------------------------------------------------------
+    // UC011 — Subsanar una parte rechazada (use-cases.md:1003, A5, E3/E5)
+    // -----------------------------------------------------------------
+
     @Test
-    void partialUpdateJustificationDetailsWithPatch() throws Exception {
-        // Initialize the database
-        insertedJustificationDetails = justificationDetailsRepository.save(justificationDetails);
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void correctRejectedPartWithinTheWindowReopensIt() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        Justification justification = persistJustification(apprentice);
+        JustificationDetails part = persistPart(justification, StateJustification.RECHAZADA, Instant.now(clock));
 
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the justificationDetails using partial update
-        JustificationDetails partialUpdatedJustificationDetails = new JustificationDetails();
-        partialUpdatedJustificationDetails.setId(justificationDetails.getId());
-
-        partialUpdatedJustificationDetails
-            .stateJustification(UPDATED_STATE_JUSTIFICATION)
-            .rejectionReason(UPDATED_REJECTION_REASON)
-            .correctionText(UPDATED_CORRECTION_TEXT)
-            .correctionFileUrl(UPDATED_CORRECTION_FILE_URL)
-            .correctionFileUrlContentType(UPDATED_CORRECTION_FILE_URL_CONTENT_TYPE)
-            .responseDate(UPDATED_RESPONSE_DATE);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", part.getId());
+        payload.put("correctionText", UPDATED_CORRECTION_TEXT);
+        payload.put("correctionFileUrl", UPDATED_CORRECTION_FILE_URL);
+        payload.put("correctionFileUrlContentType", UPDATED_CORRECTION_FILE_URL_CONTENT_TYPE);
+        // The client tries to decide the part: the state, the response date and the rejection
+        // reason are server-owned and must be ignored.
+        payload.put("stateJustification", StateJustification.ACEPTADA.toString());
+        payload.put("responseDate", UPDATED_RESPONSE_DATE.toString());
 
         restJustificationDetailsMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedJustificationDetails.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedJustificationDetails))
+                patch(ENTITY_API_URL_ID, part.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(payload))
             )
-            .andExpect(status().isOk());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("PENDIENTE"))
+            .andExpect(jsonPath("$.correctionText").value(UPDATED_CORRECTION_TEXT));
 
-        // Validate the JustificationDetails in the database
-
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertJustificationDetailsUpdatableFieldsEquals(
-            createUpdateProxyForBean(partialUpdatedJustificationDetails, justificationDetails),
-            getPersistedJustificationDetails(justificationDetails)
-        );
+        JustificationDetails reloaded = justificationDetailsRepository.findById(part.getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.PENDIENTE);
+        assertThat(reloaded.getCorrectionText()).isEqualTo(UPDATED_CORRECTION_TEXT);
+        assertThat(reloaded.getCorrectionFileUrl()).isEqualTo(UPDATED_CORRECTION_FILE_URL);
+        assertThat(reloaded.getCorrectionFileUrlContentType()).isEqualTo(UPDATED_CORRECTION_FILE_URL_CONTENT_TYPE);
+        assertThat(reloaded.getResponseDate()).isNull();
+        // The rejection reason stays as the trace of why the part was rejected.
+        assertThat(reloaded.getRejectionReason()).isEqualTo(DEFAULT_REJECTION_REASON);
     }
 
     @Test
-    void fullUpdateJustificationDetailsWithPatch() throws Exception {
-        // Initialize the database
-        insertedJustificationDetails = justificationDetailsRepository.save(justificationDetails);
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void correctRejectedPartOutsideTheWindowReturnsCorrectionExpired() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        Justification justification = persistJustification(apprentice);
+        JustificationDetails part = persistPart(justification, StateJustification.RECHAZADA, Instant.now(clock).minus(10, ChronoUnit.DAYS));
 
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the justificationDetails using partial update
-        JustificationDetails partialUpdatedJustificationDetails = new JustificationDetails();
-        partialUpdatedJustificationDetails.setId(justificationDetails.getId());
-
-        partialUpdatedJustificationDetails
-            .stateJustification(UPDATED_STATE_JUSTIFICATION)
-            .rejectionReason(UPDATED_REJECTION_REASON)
-            .correctionText(UPDATED_CORRECTION_TEXT)
-            .correctionFileUrl(UPDATED_CORRECTION_FILE_URL)
-            .correctionFileUrlContentType(UPDATED_CORRECTION_FILE_URL_CONTENT_TYPE)
-            .responseDate(UPDATED_RESPONSE_DATE);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", part.getId());
+        payload.put("correctionText", UPDATED_CORRECTION_TEXT);
 
         restJustificationDetailsMockMvc
             .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedJustificationDetails.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedJustificationDetails))
+                patch(ENTITY_API_URL_ID, part.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(payload))
             )
-            .andExpect(status().isOk());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.correctionExpired"));
 
-        // Validate the JustificationDetails in the database
+        JustificationDetails reloaded = justificationDetailsRepository.findById(part.getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.RECHAZADA);
+        assertThat(reloaded.getCorrectionText()).isEqualTo(DEFAULT_CORRECTION_TEXT);
+    }
 
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertJustificationDetailsUpdatableFieldsEquals(
-            partialUpdatedJustificationDetails,
-            getPersistedJustificationDetails(partialUpdatedJustificationDetails)
-        );
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void correctAcceptedPartReturnsAlreadyProcessed() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        Justification justification = persistJustification(apprentice);
+        JustificationDetails part = persistPart(justification, StateJustification.ACEPTADA, Instant.now(clock));
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", part.getId());
+        payload.put("correctionText", UPDATED_CORRECTION_TEXT);
+
+        restJustificationDetailsMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, part.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(payload))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.alreadyProcessed"));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(part.getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.ACEPTADA);
+        assertThat(reloaded.getCorrectionText()).isEqualTo(DEFAULT_CORRECTION_TEXT);
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void correctCancelledPartReturnsAlreadyProcessed() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        Justification justification = persistJustification(apprentice);
+        JustificationDetails part = persistPart(justification, StateJustification.CANCELADA, Instant.now(clock));
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", part.getId());
+        payload.put("correctionText", UPDATED_CORRECTION_TEXT);
+
+        restJustificationDetailsMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, part.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(payload))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.alreadyProcessed"));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(part.getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.CANCELADA);
+        assertThat(reloaded.getCorrectionText()).isEqualTo(DEFAULT_CORRECTION_TEXT);
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void correctPendingPartOnlyUpdatesTheCorrectionFields() throws Exception {
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        Justification justification = persistJustification(apprentice);
+        JustificationDetails part = persistPart(justification, StateJustification.PENDIENTE, null);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", part.getId());
+        payload.put("correctionText", UPDATED_CORRECTION_TEXT);
+        payload.put("stateJustification", StateJustification.RECHAZADA.toString());
+        payload.put("responseDate", UPDATED_RESPONSE_DATE.toString());
+
+        restJustificationDetailsMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, part.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(payload))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("PENDIENTE"))
+            .andExpect(jsonPath("$.correctionText").value(UPDATED_CORRECTION_TEXT));
+
+        JustificationDetails reloaded = justificationDetailsRepository.findById(part.getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.PENDIENTE);
+        assertThat(reloaded.getResponseDate()).isNull();
     }
 
     @Test
@@ -790,6 +857,17 @@ class JustificationDetailsResourceIT {
 
     private JustificationDetails persistJustificationDetails(Justification justification) {
         return justificationDetailsRepository.save(justificationDetailsFor(justification));
+    }
+
+    /**
+     * Persists a part of the given justification in the requested state, with the response date
+     * the correction window is computed from.
+     */
+    private JustificationDetails persistPart(Justification justification, StateJustification state, Instant responseDate) {
+        JustificationDetails part = justificationDetailsFor(justification);
+        part.setStateJustification(state);
+        part.setResponseDate(responseDate);
+        return justificationDetailsRepository.save(part);
     }
 
     protected long getRepositoryCount() {

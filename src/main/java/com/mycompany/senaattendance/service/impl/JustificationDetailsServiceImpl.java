@@ -4,6 +4,7 @@ import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
@@ -14,7 +15,11 @@ import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationDetailsMapper;
+import com.mycompany.senaattendance.service.util.BusinessDays;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.bson.types.ObjectId;
@@ -31,6 +36,9 @@ import org.springframework.stereotype.Service;
  * operation is scoped to their profile, a part of another apprentice resolves as not found on
  * reads and as {@code notYourJustification} on writes. An administrator keeps full access, and
  * the instructor decision over a part arrives with UC010.
+ *
+ * <p>The partial update is the A5 correction: it only ever copies the apprentice correction
+ * text and file, so a client can never decide a part through this endpoint.
  */
 @Service
 public class JustificationDetailsServiceImpl implements JustificationDetailsService {
@@ -38,6 +46,12 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
     private static final Logger LOG = LoggerFactory.getLogger(JustificationDetailsServiceImpl.class);
 
     private static final String ENTITY_NAME = "justificationDetails";
+
+    /**
+     * Business days the apprentice has to correct a rejected part, counted from the day after
+     * the rejection (UC011, A5/E5).
+     */
+    private static final int CORRECTION_BUSINESS_DAYS = 2;
 
     private final JustificationDetailsRepository justificationDetailsRepository;
 
@@ -49,18 +63,22 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final UserProfileRepository userProfileRepository;
 
+    private final Clock clock;
+
     public JustificationDetailsServiceImpl(
         JustificationDetailsRepository justificationDetailsRepository,
         JustificationDetailsMapper justificationDetailsMapper,
         JustificationRepository justificationRepository,
         UserRepository userRepository,
-        UserProfileRepository userProfileRepository
+        UserProfileRepository userProfileRepository,
+        Clock clock
     ) {
         this.justificationDetailsRepository = justificationDetailsRepository;
         this.justificationDetailsMapper = justificationDetailsMapper;
         this.justificationRepository = justificationRepository;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
+        this.clock = clock;
     }
 
     @Override
@@ -90,13 +108,69 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
             .findById(justificationDetailsDTO.getId())
             .map(existingJustificationDetails -> {
                 validateOwnership(existingJustificationDetails);
-                justificationDetailsMapper.partialUpdate(existingJustificationDetails, justificationDetailsDTO);
-                validateJustificationOwnership(idOf(existingJustificationDetails.getJustification()));
-
+                applyCorrection(existingJustificationDetails, justificationDetailsDTO);
                 return existingJustificationDetails;
             })
             .map(justificationDetailsRepository::save)
             .map(justificationDetailsMapper::toDto);
+    }
+
+    /**
+     * Applies a correction (UC011, A5) over a part. Only the apprentice correction text and file
+     * are ever copied from the payload: the state, the response date, the rejection reason and
+     * the relationships stay server-owned, so a client patch can never decide a part.
+     *
+     * <p>A rejected part can only be corrected inside the two business days after its rejection;
+     * outside that window it stays rejected for good (E5). A pending part has no rejection to
+     * reopen, so it keeps its state and only sees its correction fields updated. An accepted or
+     * cancelled part is already processed and is rejected with {@code alreadyProcessed} (E3).
+     *
+     * @param part the persisted part to correct.
+     * @param payload the correction payload.
+     * @throws BadRequestAlertException with the key {@code alreadyProcessed} or
+     *         {@code correctionExpired}.
+     */
+    private void applyCorrection(JustificationDetails part, JustificationDetailsDTO payload) {
+        StateJustification state = part.getStateJustification();
+        if (state != StateJustification.PENDIENTE && state != StateJustification.RECHAZADA) {
+            throw alreadyProcessed();
+        }
+        if (state == StateJustification.RECHAZADA && !isWithinCorrectionWindow(part.getResponseDate())) {
+            throw new BadRequestAlertException("El plazo para subsanar esta justificación ha vencido", ENTITY_NAME, "correctionExpired");
+        }
+        if (payload.getCorrectionText() != null) {
+            part.setCorrectionText(payload.getCorrectionText());
+        }
+        if (payload.getCorrectionFileUrl() != null) {
+            part.setCorrectionFileUrl(payload.getCorrectionFileUrl());
+        }
+        if (payload.getCorrectionFileUrlContentType() != null) {
+            part.setCorrectionFileUrlContentType(payload.getCorrectionFileUrlContentType());
+        }
+        if (state == StateJustification.RECHAZADA) {
+            // The part reopens as pending, so it has no response left; the rejection reason is
+            // kept as the trace of why it was rejected until the next decision (UC010) replaces it.
+            part.setStateJustification(StateJustification.PENDIENTE);
+            part.setResponseDate(null);
+        }
+    }
+
+    /**
+     * The correction window of a rejected part (UC011, A5/E5): two business days counted from
+     * the day after the rejection, so a rejection on a Friday can be corrected until the
+     * following Tuesday. A part without a response date cannot prove a valid window and counts
+     * as expired.
+     *
+     * @param responseDate the instant the part was rejected, or {@code null}.
+     * @return whether today is still within the correction window.
+     */
+    private boolean isWithinCorrectionWindow(Instant responseDate) {
+        if (responseDate == null) {
+            return false;
+        }
+        LocalDate rejectionDay = LocalDate.ofInstant(responseDate, clock.getZone());
+        LocalDate deadline = BusinessDays.plus(rejectionDay, CORRECTION_BUSINESS_DAYS);
+        return !LocalDate.now(clock).isAfter(deadline);
     }
 
     @Override
@@ -272,5 +346,13 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      */
     private static BadRequestAlertException notYourJustification() {
         return new BadRequestAlertException("Solo puedes gestionar tus propias justificaciones", ENTITY_NAME, "notYourJustification");
+    }
+
+    /**
+     * @return the error thrown when the part carries a decision and can no longer be corrected
+     *         (UC011, E3).
+     */
+    private static BadRequestAlertException alreadyProcessed() {
+        return new BadRequestAlertException("Esta justificación ya fue procesada y no puede modificarse", ENTITY_NAME, "alreadyProcessed");
     }
 }

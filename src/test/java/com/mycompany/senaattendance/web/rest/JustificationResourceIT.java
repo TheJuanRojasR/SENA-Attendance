@@ -571,21 +571,6 @@ class JustificationResourceIT {
     }
 
     @Test
-    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
-    void deleteJustificationOfAnotherApprenticeReturnsBadRequest() throws Exception {
-        persistApprentice(APPRENTICE_LOGIN);
-        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
-        Justification otherJustification = persistJustification(otherApprentice, persistJustificationType());
-
-        restJustificationMockMvc
-            .perform(delete(ENTITY_API_URL_ID, otherJustification.getId()).accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("error.notYourJustification"));
-
-        assertThat(justificationRepository.existsById(otherJustification.getId())).isTrue();
-    }
-
-    @Test
     @WithMockUser(username = "justifications_instructor", authorities = AuthoritiesConstants.INSTRUCTOR)
     void getJustificationsAsInstructorReturnsForbidden() throws Exception {
         restJustificationMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
@@ -807,19 +792,18 @@ class JustificationResourceIT {
     }
 
     @Test
-    void deleteJustification() throws Exception {
+    void deleteJustificationIsMethodNotAllowed() throws Exception {
         // Initialize the database
         insertedJustification = justificationRepository.save(justification);
 
         long databaseSizeBeforeDelete = getRepositoryCount();
 
-        // Delete the justification
+        // UC011 does not contemplate deleting a justification: the hard DELETE was retired.
         restJustificationMockMvc
             .perform(delete(ENTITY_API_URL_ID, justification.getId()).accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNoContent());
+            .andExpect(status().isMethodNotAllowed());
 
-        // Validate the database contains one less item
-        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
     }
 
     // -----------------------------------------------------------------
@@ -1105,6 +1089,160 @@ class JustificationResourceIT {
         assertThat(justificationDetailsRepository.count()).isEqualTo(2);
     }
 
+    // -----------------------------------------------------------------
+    // UC011 — Edit, cancel and correct (use-cases.md:1001-1004, A3-A5, E3/E5)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void editPendingJustificationRecalculatesTheDeadlineMark() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate outOfTimeFailure = today.minusDays(10);
+        LocalDate inTimeFailure = today;
+        persistRulesFixture(5, 3, outOfTimeFailure, inTimeFailure);
+
+        JustificationDTO created = createJustificationViaApi(outOfTimeFailure, outOfTimeFailure);
+        assertThat(created.getOnTime()).isFalse();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", created.getId());
+        payload.put("description", UPDATED_DESCRIPTION);
+        payload.put("startDate", inTimeFailure.toString());
+        payload.put("endDate", inTimeFailure.toString());
+
+        // The edit recalculates the deadline mark and revalidates the creation rules.
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, created.getId()).contentType("application/merge-patch+json").content(om.writeValueAsBytes(payload))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.description").value(UPDATED_DESCRIPTION))
+            .andExpect(jsonPath("$.onTime").value(true));
+
+        assertThat(justificationRepository.findById(created.getId()).orElseThrow().getOnTime()).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void editJustificationWithADecisionReturnsAlreadyProcessed() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+        JustificationDTO created = createJustificationViaApi(failure, failure);
+        persistDecision(created.getId(), StateJustification.ACEPTADA);
+
+        Map<String, Object> patchPayload = new HashMap<>();
+        patchPayload.put("id", created.getId());
+        patchPayload.put("description", UPDATED_DESCRIPTION);
+
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, created.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(patchPayload))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.alreadyProcessed"));
+
+        JustificationDTO updatePayload = justificationMapper.toDto(justificationRepository.findById(created.getId()).orElseThrow());
+        updatePayload.setDescription(UPDATED_DESCRIPTION);
+
+        restJustificationMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, created.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(updatePayload))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.alreadyProcessed"));
+
+        assertThat(justificationRepository.findById(created.getId()).orElseThrow().getDescription()).isEqualTo(DEFAULT_DESCRIPTION);
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void cancelPendingJustificationCancelsItsPartsAndReleasesTheQuota() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate firstFailure = today.minusDays(20);
+        LocalDate secondFailure = today.minusDays(13);
+        LocalDate thirdFailure = today;
+        persistRulesFixture(2, 5, firstFailure, secondFailure, thirdFailure);
+        JustificationDTO created = createJustificationViaApi(firstFailure, secondFailure);
+
+        // The two days of the quota are reserved, so a third date does not fit.
+        postJustification(justificationPayload(thirdFailure, thirdFailure, rulesClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.quotaExceeded"));
+
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/cancelled")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(Map.of("id", created.getId())))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(created.getId()))
+            .andExpect(jsonPath("$.detailses", hasSize(1)))
+            .andExpect(jsonPath("$.detailses[0].stateJustification").value("CANCELADA"));
+
+        // The cancelled parts release their days: the blocked date enters and a date of the
+        // cancelled justification enters again.
+        postJustification(justificationPayload(thirdFailure, thirdFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+        postJustification(justificationPayload(firstFailure, firstFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void cancelJustificationWithADecisionReturnsAlreadyProcessed() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+        JustificationDTO created = createJustificationViaApi(failure, failure);
+        persistDecision(created.getId(), StateJustification.RECHAZADA);
+
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/cancelled")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(Map.of("id", created.getId())))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.alreadyProcessed"));
+
+        assertThat(justificationDetailsRepository.findAll().get(0).getStateJustification()).isEqualTo(StateJustification.RECHAZADA);
+    }
+
+    @Test
+    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void cancelJustificationOfAnotherApprenticeReturnsBadRequest() throws Exception {
+        persistApprentice(APPRENTICE_LOGIN);
+        UserProfile otherApprentice = persistApprentice(OTHER_APPRENTICE_LOGIN);
+        Justification otherJustification = persistJustification(otherApprentice, persistJustificationType());
+
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/cancelled")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(Map.of("id", otherJustification.getId())))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourJustification"));
+
+        assertThat(justificationRepository.existsById(otherJustification.getId())).isTrue();
+    }
+
+    @Test
+    void cancelJustificationAsAdminCancelsIt() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+        JustificationDTO created = createJustificationViaApi(failure, failure);
+
+        restJustificationMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/cancelled")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(Map.of("id", created.getId())))
+            )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.detailses[0].stateJustification").value("CANCELADA"));
+    }
+
     /**
      * Persists an apprentice with a resolvable login, so the service can resolve their profile
      * from the security context.
@@ -1142,6 +1280,37 @@ class JustificationResourceIT {
 
     private Justification persistJustification(UserProfile student, JustificationType justificationType) {
         return justificationRepository.save(justificationFor(student, justificationType));
+    }
+
+    /**
+     * Creates a justification over the UC011 rules fixture through the API and returns its DTO.
+     */
+    private JustificationDTO createJustificationViaApi(LocalDate startDate, LocalDate endDate) throws Exception {
+        return om.readValue(
+            postJustification(justificationPayload(startDate, endDate, rulesClassSection.getId()))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            JustificationDTO.class
+        );
+    }
+
+    /**
+     * Moves the first part of a justification to a decision state, simulating the instructor
+     * decision that arrives with UC010.
+     */
+    private void persistDecision(String justificationId, StateJustification state) {
+        justificationDetailsRepository
+            .findAll()
+            .stream()
+            .filter(part -> part.getJustification() != null && justificationId.equals(part.getJustification().getId()))
+            .findFirst()
+            .ifPresent(part -> {
+                part.setStateJustification(state);
+                part.setResponseDate(Instant.now(clock));
+                justificationDetailsRepository.save(part);
+            });
     }
 
     protected long getRepositoryCount() {

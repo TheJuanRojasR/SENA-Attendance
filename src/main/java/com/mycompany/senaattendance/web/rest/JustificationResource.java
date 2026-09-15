@@ -5,6 +5,7 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.JustificationIdVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -147,6 +148,27 @@ public class JustificationResource {
     }
 
     /**
+     * {@code PATCH  /justifications/cancelled} : Cancel the pending justification identified by
+     * {@code id} (UC011, A4). Every part moves to {@code CANCELADA}, which releases the days it
+     * reserved in the per-type quota. The body must carry the justification {@code id}.
+     *
+     * @param justificationIdVM the request body carrying the justification id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the cancelled
+     *         justification, {@code 400 (Bad Request)} when the justification is unknown, already
+     *         processed or owned by another apprentice.
+     */
+    @PatchMapping("/cancelled")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
+    public ResponseEntity<JustificationDTO> cancelJustification(@Valid @RequestBody JustificationIdVM justificationIdVM) {
+        String id = justificationIdVM.getId();
+        LOG.debug("REST request to cancel Justification : {}", id);
+        JustificationDTO justificationDTO = justificationService.cancel(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "justification.cancelled", id))
+            .body(justificationDTO);
+    }
+
+    /**
      * {@code GET  /justifications} : get all the Justifications.
      *
      * <p>An administrator reads every justification; an apprentice reads only their own.
@@ -187,21 +209,5 @@ public class JustificationResource {
         LOG.debug("REST request to get Justification : {}", id);
         Optional<JustificationDTO> justificationDTO = justificationService.findOne(id);
         return ResponseUtil.wrapOrNotFound(justificationDTO);
-    }
-
-    /**
-     * {@code DELETE  /justifications/:id} : delete the "id" justification.
-     *
-     * @param id the id of the justificationDTO to delete.
-     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
-    public ResponseEntity<Void> deleteJustification(@PathVariable("id") String id) {
-        LOG.debug("REST request to delete Justification : {}", id);
-        justificationService.delete(id);
-        return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id))
-            .build();
     }
 }

@@ -173,6 +173,7 @@ public class JustificationServiceImpl implements JustificationService {
         Optional<Justification> optionalJustification = justificationRepository.findById(justification.getId());
         if (optionalJustification.isPresent()) {
             Justification existingJustification = optionalJustification.get();
+            validateNotProcessed(existingJustification);
             justification.setCreatedBy(existingJustification.getCreatedBy());
             justification.setCreatedDate(existingJustification.getCreatedDate());
             justification.setDetailses(existingJustification.getDetailses());
@@ -211,6 +212,7 @@ public class JustificationServiceImpl implements JustificationService {
             .findById(justificationDTO.getId())
             .map(existingJustification -> {
                 validateOwnership(existingJustification);
+                validateNotProcessed(existingJustification);
                 // The deadline mark is server-owned: a client patch never sets it directly.
                 justificationDTO.setOnTime(null);
                 justificationMapper.partialUpdate(existingJustification, justificationDTO);
@@ -266,10 +268,23 @@ public class JustificationServiceImpl implements JustificationService {
     }
 
     @Override
-    public void delete(String id) {
-        LOG.debug("Request to delete Justification : {}", id);
-        justificationRepository.findById(id).ifPresent(this::validateOwnership);
-        justificationRepository.deleteById(id);
+    public JustificationDTO cancel(String justificationId) {
+        LOG.debug("Request to cancel Justification : {}", justificationId);
+        Justification justification = justificationId == null ? null : justificationRepository.findById(justificationId).orElse(null);
+        if (justification == null) {
+            throw isCurrentUserAdmin() ? idNotFound() : notYourJustification();
+        }
+        validateOwnership(justification);
+        List<JustificationDetails> parts = partsOf(justification.getId());
+        if (parts.isEmpty() || parts.stream().anyMatch(part -> isDecided(part.getStateJustification()))) {
+            throw alreadyProcessed();
+        }
+        for (JustificationDetails part : parts) {
+            part.setStateJustification(StateJustification.CANCELADA);
+            justificationDetailsRepository.save(part);
+        }
+        Justification cancelled = justificationRepository.findById(justification.getId()).orElseThrow();
+        return justificationMapper.toDto(cancelled);
     }
 
     /**
@@ -598,6 +613,30 @@ public class JustificationServiceImpl implements JustificationService {
     }
 
     /**
+     * Rejects an edit or a cancellation whose justification already carries a decision (UC011,
+     * E3). A justification without parts (legacy rows) has nothing decided yet, so it keeps the
+     * generic edit behavior.
+     *
+     * @param justification the justification to check.
+     * @throws BadRequestAlertException with the key {@code alreadyProcessed}.
+     */
+    private void validateNotProcessed(Justification justification) {
+        if (hasDecision(justification.getId())) {
+            throw alreadyProcessed();
+        }
+    }
+
+    /**
+     * @param justificationId the justification id.
+     * @return whether any part already carries a decision.
+     */
+    private boolean hasDecision(String justificationId) {
+        return partsOf(justificationId)
+            .stream()
+            .anyMatch(part -> isDecided(part.getStateJustification()));
+    }
+
+    /**
      * @param state the state of a part.
      * @return whether the part already carries a decision.
      */
@@ -651,9 +690,9 @@ public class JustificationServiceImpl implements JustificationService {
     }
 
     /**
-     * Creates one pending part per affected materia (UC011, flow step 6). A new justification has
-     * no decision yet, so the decision text starts empty; the model requires a response date on
-     * every part, so the creation instant is stored until the instructor decides.
+     * Creates one pending part per affected materia (UC011, flow step 6). A new part has no
+     * instructor response yet, so its response date starts null until the instructor decides
+     * (UC010); the rejection reason and the correction text start empty.
      *
      * @param classSections the affected materias.
      * @param justification the persisted justification that owns the parts.
@@ -667,7 +706,7 @@ public class JustificationServiceImpl implements JustificationService {
                 .rejectionReason("")
                 .correctionText("")
                 .correctionFileUrlContentType("")
-                .responseDate(Instant.now(clock))
+                .responseDate(null)
                 .classSection(classSection)
                 .justification(justification);
             parts.add(justificationDetailsRepository.save(part));
@@ -817,6 +856,22 @@ public class JustificationServiceImpl implements JustificationService {
      */
     private static BadRequestAlertException notYourJustification() {
         return new BadRequestAlertException("Solo puedes gestionar tus propias justificaciones", ENTITY_NAME, "notYourJustification");
+    }
+
+    /**
+     * @return the error thrown when an edit or a cancellation targets a justification that
+     *         already carries a decision (UC011, E3).
+     */
+    private static BadRequestAlertException alreadyProcessed() {
+        return new BadRequestAlertException("Esta justificación ya fue procesada y no puede modificarse", ENTITY_NAME, "alreadyProcessed");
+    }
+
+    /**
+     * @return the error thrown when an administrator operates on a justification that does not
+     *         exist.
+     */
+    private static BadRequestAlertException idNotFound() {
+        return new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
     }
 
     /**
