@@ -17,6 +17,7 @@ import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.TrimesterService;
@@ -27,7 +28,6 @@ import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.vm.AttendanceConfirmationVM;
 import com.mycompany.senaattendance.web.rest.vm.AttendanceSessionVM;
 import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -105,21 +106,6 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.clock = clock;
     }
 
-    @Override
-    public AttendanceDTO save(AttendanceDTO attendanceDTO) {
-        LOG.debug("Request to save Attendance : {}", attendanceDTO);
-        Attendance attendance = attendanceMapper.toEntity(attendanceDTO);
-
-        attendance.setCreatedDate(Instant.now());
-        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
-        if (currentUserLogin.isPresent()) {
-            attendance.setCreatedBy(currentUserLogin.get());
-        }
-
-        attendance = attendanceRepository.save(attendance);
-        return attendanceMapper.toDto(attendance);
-    }
-
     /**
      * Registers the attendance session of one class section on a session date (UC009). The
      * session is upserted mark by mark, keyed by materia, aprendiz and fecha; the apprentices
@@ -151,63 +137,121 @@ public class AttendanceServiceImpl implements AttendanceService {
         return buildSession(classSection, attendanceSessionVM.getDate(), enrolledApprentices.size());
     }
 
+    /**
+     * Edits the state of one attendance record (A2). The record must belong to a materia assigned
+     * to the current instructor, the trimester of the session date must still be active, and only
+     * Presente or Falla are accepted because Justificada arrives through an approved justification
+     * (UC010). Everything but the state of the record is preserved.
+     *
+     * @param id the id of the record to edit.
+     * @param stateAttendance the new state.
+     * @return the persisted record, or empty when it does not exist.
+     * @throws BadRequestAlertException when the current user is not the assigned instructor, when
+     *         the state is not editable or when the trimester is already closed.
+     */
     @Override
-    public AttendanceDTO update(AttendanceDTO attendanceDTO) {
-        LOG.debug("Request to update Attendance : {}", attendanceDTO);
-        Attendance attendance = attendanceMapper.toEntity(attendanceDTO);
+    public Optional<AttendanceDTO> updateState(String id, StateAttendance stateAttendance) {
+        LOG.debug("Request to edit the state of Attendance : {}, {}", id, stateAttendance);
+        return attendanceRepository.findById(id).map(attendance -> {
+            validateAssignedInstructor(attendance.getClassSection());
+            validateEditableState(stateAttendance);
+            validateActiveTrimester(attendance.getDate());
 
-        Optional<Attendance> optionalAttendance = attendanceRepository.findById(attendance.getId());
-        if (optionalAttendance.isPresent()) {
-            Attendance existingAttendance = optionalAttendance.get();
-            attendance.setCreatedBy(existingAttendance.getCreatedBy());
-            attendance.setCreatedDate(existingAttendance.getCreatedDate());
-        } else {
-            attendance.setCreatedDate(Instant.now());
-            Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
-            if (currentUserLogin.isPresent()) {
-                attendance.setCreatedBy(currentUserLogin.get());
-            }
+            attendance.setStateAttendance(stateAttendance);
+            return attendanceMapper.toDto(attendanceRepository.save(attendance));
+        });
+    }
+
+    @Override
+    public Page<AttendanceDTO> findAllForCurrentUser(Pageable pageable) {
+        LOG.debug("Request to get the page of Attendances the current user can read");
+        if (isCurrentUserAdmin()) {
+            return attendanceRepository.findAll(pageable).map(attendanceMapper::toDto);
         }
 
-        attendance = attendanceRepository.save(attendance);
-        return attendanceMapper.toDto(attendance);
+        List<ObjectId> classSectionIds = currentInstructorClassSectionIds();
+        if (classSectionIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return attendanceRepository.findByClassSection_IdIn(classSectionIds, pageable).map(attendanceMapper::toDto);
     }
 
     @Override
-    public Optional<AttendanceDTO> partialUpdate(AttendanceDTO attendanceDTO) {
-        LOG.debug("Request to partially update Attendance : {}", attendanceDTO);
-
-        return attendanceRepository
-            .findById(attendanceDTO.getId())
-            .map(existingAttendance -> {
-                attendanceMapper.partialUpdate(existingAttendance, attendanceDTO);
-
-                return existingAttendance;
-            })
-            .map(attendanceRepository::save)
-            .map(attendanceMapper::toDto);
-    }
-
-    @Override
-    public Page<AttendanceDTO> findAll(Pageable pageable) {
-        LOG.debug("Request to get all Attendances");
-        return attendanceRepository.findAll(pageable).map(attendanceMapper::toDto);
-    }
-
-    public Page<AttendanceDTO> findAllWithEagerRelationships(Pageable pageable) {
-        return attendanceRepository.findAllWithEagerRelationships(pageable).map(attendanceMapper::toDto);
-    }
-
-    @Override
-    public Optional<AttendanceDTO> findOne(String id) {
+    public Optional<AttendanceDTO> findOneForCurrentUser(String id) {
         LOG.debug("Request to get Attendance : {}", id);
-        return attendanceRepository.findOneWithEagerRelationships(id).map(attendanceMapper::toDto);
+        return attendanceRepository.findOneWithEagerRelationships(id).filter(this::isReadableByCurrentUser).map(attendanceMapper::toDto);
     }
 
-    @Override
-    public void delete(String id) {
-        LOG.debug("Request to delete Attendance : {}", id);
-        attendanceRepository.deleteById(id);
+    /**
+     * @return whether the current user is an administrator, who reads every attendance record.
+     */
+    private static boolean isCurrentUserAdmin() {
+        return SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN);
+    }
+
+    /**
+     * Resolves whether the current user can read the record: an administrator reads everything,
+     * and an instructor only the records of the materias assigned to them.
+     *
+     * @param attendance the record to read.
+     * @return whether the record is inside the readable scope of the current user.
+     */
+    private boolean isReadableByCurrentUser(Attendance attendance) {
+        if (isCurrentUserAdmin()) {
+            return true;
+        }
+
+        ClassSection classSection = attendance.getClassSection();
+        if (classSection == null || classSection.getInstructor() == null) {
+            return false;
+        }
+        String currentProfileId = currentUserProfileId();
+        return currentProfileId != null && currentProfileId.equals(classSection.getInstructor().getId());
+    }
+
+    /**
+     * Resolves the materias assigned to the current instructor. A user without a resolvable
+     * profile or without assigned materias reads no records.
+     *
+     * @return the ObjectId values of the assigned materias, possibly empty.
+     */
+    private List<ObjectId> currentInstructorClassSectionIds() {
+        String currentProfileId = currentUserProfileId();
+        if (currentProfileId == null) {
+            return List.of();
+        }
+        return classSectionRepository
+            .findByInstructorId(currentProfileId)
+            .stream()
+            .map(ClassSection::getId)
+            .filter(AttendanceServiceImpl::isObjectId)
+            .map(ObjectId::new)
+            .toList();
+    }
+
+    /**
+     * @param id the candidate id.
+     * @return whether the id is a 24-hex string convertible into an {@code ObjectId}.
+     */
+    private static boolean isObjectId(String id) {
+        return id != null && id.length() == 24 && ObjectId.isValid(id);
+    }
+
+    /**
+     * Rejects a state the instructor cannot set on a record: it only exists as Presente or Falla,
+     * and Justificada only arrives through an approved justification (UC010).
+     *
+     * @param stateAttendance the requested state.
+     * @throws BadRequestAlertException when the state is not Presente or Falla.
+     */
+    private static void validateEditableState(StateAttendance stateAttendance) {
+        if (stateAttendance != StateAttendance.PRESENTE && stateAttendance != StateAttendance.FALLA) {
+            throw new BadRequestAlertException(
+                "La asistencia solo se puede editar como Presente o Falla",
+                ENTITY_NAME,
+                "invalidAttendanceState"
+            );
+        }
     }
 
     /**
@@ -283,18 +327,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new BadRequestAlertException("No puedes registrar asistencia para fechas futuras", ENTITY_NAME, "futureSessionDate");
         }
 
-        Trimester trimester = trimesterRepository.findAllContaining(date).stream().findFirst().orElse(null);
-        if (trimester == null) {
-            throw new BadRequestAlertException("La fecha seleccionada está fuera del trimestre vigente", ENTITY_NAME, "dateOutOfTrimester");
-        }
-
-        StateTrimester trimesterState = trimesterService.classify(trimester);
-        if (trimesterState == StateTrimester.CERRADO) {
-            throw new BadRequestAlertException("No se puede modificar: el trimestre ya fue cerrado", ENTITY_NAME, "trimesterClosed");
-        }
-        if (trimesterState != StateTrimester.ACTIVO) {
-            throw new BadRequestAlertException("La fecha seleccionada está fuera del trimestre vigente", ENTITY_NAME, "dateOutOfTrimester");
-        }
+        validateActiveTrimester(date);
 
         Grade grade = classSection.getGrade();
         if (grade != null && (date.isBefore(grade.getStartDate()) || date.isAfter(grade.getEndDate()))) {
@@ -307,6 +340,29 @@ public class AttendanceServiceImpl implements AttendanceService {
                 ENTITY_NAME,
                 "nonTeachingDate"
             );
+        }
+    }
+
+    /**
+     * Resolves the trimester that contains the date and rejects anything but an active one. A
+     * closed trimester blocks its whole range (E1), and a date outside every trimester or inside
+     * a not-yet-started one is out of the current period.
+     *
+     * @param date the date to validate.
+     * @throws BadRequestAlertException with the key of the rule the date violates.
+     */
+    private void validateActiveTrimester(LocalDate date) {
+        Trimester trimester = trimesterRepository.findAllContaining(date).stream().findFirst().orElse(null);
+        if (trimester == null) {
+            throw new BadRequestAlertException("La fecha seleccionada está fuera del trimestre vigente", ENTITY_NAME, "dateOutOfTrimester");
+        }
+
+        StateTrimester trimesterState = trimesterService.classify(trimester);
+        if (trimesterState == StateTrimester.CERRADO) {
+            throw new BadRequestAlertException("No se puede modificar: el trimestre ya fue cerrado", ENTITY_NAME, "trimesterClosed");
+        }
+        if (trimesterState != StateTrimester.ACTIVO) {
+            throw new BadRequestAlertException("La fecha seleccionada está fuera del trimestre vigente", ENTITY_NAME, "dateOutOfTrimester");
         }
     }
 

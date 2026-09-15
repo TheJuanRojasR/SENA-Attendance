@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -36,8 +37,6 @@ import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
-import com.mycompany.senaattendance.service.dto.AttendanceDTO;
-import com.mycompany.senaattendance.service.mapper.AttendanceMapper;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -82,9 +81,6 @@ class AttendanceResourceIT {
 
     @Autowired
     private MockMvc restAttendanceMockMvc;
-
-    @Autowired
-    private AttendanceMapper attendanceMapper;
 
     @Autowired
     private AttendanceRepository attendanceRepository;
@@ -156,6 +152,8 @@ class AttendanceResourceIT {
 
     private UserProfile instructor;
 
+    private UserProfile otherInstructor;
+
     private UserProfile firstStudent;
 
     private UserProfile secondStudent;
@@ -167,6 +165,8 @@ class AttendanceResourceIT {
     private Grade grade;
 
     private ClassSection classSection;
+
+    private ClassSection otherClassSection;
 
     private LocalDate sessionDate;
 
@@ -216,14 +216,14 @@ class AttendanceResourceIT {
 
     /**
      * Persists the fixture graph the session tests need: an active trimester, one operable ficha
-     * with an assigned instructor and two enrolled apprentices, plus an extra profile without an
-     * enrollment.
+     * with an assigned instructor and two enrolled apprentices, a second materia of the same ficha
+     * assigned to another instructor, plus an extra profile without an enrollment.
      */
     @BeforeEach
     void initSessionFixture() {
         documentType = persistDocumentType();
         instructor = persistProfile(INSTRUCTOR_LOGIN, "1000000001", AuthoritiesConstants.INSTRUCTOR);
-        persistProfile(OTHER_INSTRUCTOR_LOGIN, "1000000002", AuthoritiesConstants.INSTRUCTOR);
+        otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "1000000002", AuthoritiesConstants.INSTRUCTOR);
         firstStudent = persistProfile("session_student_1", "2000000001", AuthoritiesConstants.APPRENTICE);
         secondStudent = persistProfile("session_student_2", "2000000002", AuthoritiesConstants.APPRENTICE);
         unenrolledStudent = persistProfile("session_student_3", "2000000003", AuthoritiesConstants.APPRENTICE);
@@ -233,6 +233,7 @@ class AttendanceResourceIT {
         trimester = persistTrimester("Trimestre de sesión", today.minusDays(60), today.plusDays(60));
         grade = persistGrade("SES-001", today.minusDays(30), today.plusDays(30));
         classSection = persistClassSection("Materia de sesión", grade, instructor);
+        otherClassSection = persistClassSection("Otra materia de sesión", grade, otherInstructor);
         persistEnrollment(firstStudent, grade, StateAcademic.MATRICULADO);
         persistEnrollment(secondStudent, grade, StateAcademic.MATRICULADO);
     }
@@ -267,43 +268,181 @@ class AttendanceResourceIT {
     }
 
     // -----------------------------------------------------------------
-    // Generic attendance CRUD
+    // The generic CRUD is not part of the use case
     // -----------------------------------------------------------------
 
     @Test
-    void createAttendance() throws Exception {
-        long databaseSizeBeforeCreate = attendanceRepository.count();
-        AttendanceDTO attendanceDTO = attendanceMapper.toDto(
-            new Attendance().date(sessionDate).stateAttendance(StateAttendance.PRESENTE).classSection(classSection).student(firstStudent)
-        );
-
+    void createAttendanceIsNotAllowed() throws Exception {
         restAttendanceMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(attendanceDTO)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").isNotEmpty())
-            .andExpect(jsonPath("$.stateAttendance").value(StateAttendance.PRESENTE.toString()));
-
-        assertThat(attendanceRepository.count()).isEqualTo(databaseSizeBeforeCreate + 1);
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isMethodNotAllowed());
     }
 
     @Test
-    void getAttendance() throws Exception {
-        insertedAttendances.add(
-            attendanceRepository.save(
-                new Attendance()
-                    .date(sessionDate)
-                    .stateAttendance(StateAttendance.PRESENTE)
-                    .classSection(classSection)
-                    .student(firstStudent)
-            )
-        );
+    void replaceAttendanceIsNotAllowed() throws Exception {
+        restAttendanceMockMvc
+            .perform(put(ENTITY_API_URL_ID, UUID.randomUUID().toString()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void deleteAttendanceIsNotAllowed() throws Exception {
+        restAttendanceMockMvc
+            .perform(delete(ENTITY_API_URL_ID, UUID.randomUUID().toString()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isMethodNotAllowed());
+    }
+
+    // -----------------------------------------------------------------
+    // A2 — Edit one record's state
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchAttendanceStateAsAssignedInstructorUpdatesOnlyTheState() throws Exception {
+        Attendance attendance = persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+
+        Map<String, Object> payload = statePayload(attendance.getId(), StateAttendance.FALLA);
+        // The payload may carry the materia, the apprentice and the date, but the edit ignores them.
+        payload.put("date", sessionDate.minusDays(2).toString());
+        payload.put("classSection", Map.of("id", otherClassSection.getId()));
+        payload.put("student", Map.of("id", secondStudent.getId()));
 
         restAttendanceMockMvc
-            .perform(get(ENTITY_API_URL_ID, insertedAttendances.get(0).getId()))
+            .perform(
+                patch(ENTITY_API_URL_ID, attendance.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(payload))
+            )
             .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.stateAttendance").value(StateAttendance.FALLA.toString()));
+
+        Attendance reloaded = attendanceRepository.findById(attendance.getId()).orElseThrow();
+        assertThat(reloaded.getStateAttendance()).isEqualTo(StateAttendance.FALLA);
+        assertThat(reloaded.getDate()).isEqualTo(sessionDate);
+        assertThat(reloaded.getClassSection().getId()).isEqualTo(classSection.getId());
+        assertThat(reloaded.getStudent().getId()).isEqualTo(firstStudent.getId());
+    }
+
+    @Test
+    @WithMockUser(username = OTHER_INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchAttendanceStateOfAnotherInstructorsRecordReturnsBadRequest() throws Exception {
+        Attendance attendance = persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, attendance.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(statePayload(attendance.getId(), StateAttendance.FALLA)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notYourClassSection"));
+
+        assertThat(attendanceRepository.findById(attendance.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.PRESENTE
+        );
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchAttendanceStateToJustifiedReturnsBadRequest() throws Exception {
+        Attendance attendance = persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, attendance.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(statePayload(attendance.getId(), StateAttendance.JUSTIFICADA)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidAttendanceState"));
+
+        assertThat(attendanceRepository.findById(attendance.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.PRESENTE
+        );
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchAttendanceStateInClosedTrimesterReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        Attendance attendance = persistAttendance(classSection, firstStudent, today.minusDays(10), StateAttendance.PRESENTE);
+        trimester.setEndDate(today.minusDays(5));
+        trimesterRepository.save(trimester);
+
+        restAttendanceMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, attendance.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(statePayload(attendance.getId(), StateAttendance.FALLA)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+
+        assertThat(attendanceRepository.findById(attendance.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.PRESENTE
+        );
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void patchNonExistingAttendanceReturnsNotFound() throws Exception {
+        String missingId = UUID.randomUUID().toString();
+
+        restAttendanceMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, missingId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(statePayload(missingId, StateAttendance.FALLA)))
+            )
+            .andExpect(status().isNotFound());
+    }
+
+    // -----------------------------------------------------------------
+    // Scoped readings
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAttendancesAsInstructorReturnsOnlyTheRecordsOfOwnClassSections() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].classSection.id").value(classSection.getId()))
+            .andExpect(jsonPath("$[0].student.documentNumber").value("2000000001"));
+    }
+
+    @Test
+    void getAttendancesAsAdminReturnsEveryRecord() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "2"))
+            .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    @Test
+    void getAttendanceAsAdminReadsAnyRecord() throws Exception {
+        Attendance attendance = persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL_ID, attendance.getId()))
+            .andExpect(status().isOk())
             .andExpect(jsonPath("$.date").value(sessionDate.toString()))
-            .andExpect(jsonPath("$.stateAttendance").value(StateAttendance.PRESENTE.toString()));
+            .andExpect(jsonPath("$.stateAttendance").value(StateAttendance.FALLA.toString()));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAttendanceOfAnotherInstructorsRecordReturnsNotFound() throws Exception {
+        Attendance attendance = persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, attendance.getId())).andExpect(status().isNotFound());
     }
 
     @Test
@@ -312,18 +451,16 @@ class AttendanceResourceIT {
     }
 
     @Test
-    void deleteAttendance() throws Exception {
-        insertedAttendances.add(
-            attendanceRepository.save(
-                new Attendance().date(sessionDate).stateAttendance(StateAttendance.FALLA).classSection(classSection).student(firstStudent)
-            )
-        );
+    @WithMockUser(username = "attendance_apprentice", authorities = AuthoritiesConstants.APPRENTICE)
+    void getAttendancesAsApprenticeReturnsForbidden() throws Exception {
+        restAttendanceMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
+        restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
 
-        restAttendanceMockMvc
-            .perform(delete(ENTITY_API_URL_ID, insertedAttendances.get(0).getId()).accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNoContent());
-
-        assertThat(attendanceRepository.findById(insertedAttendances.get(0).getId())).isEmpty();
+    @Test
+    @WithMockUser(username = "attendance_coordinator", authorities = AuthoritiesConstants.COORDINATOR)
+    void getAttendancesAsCoordinatorReturnsForbidden() throws Exception {
+        restAttendanceMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
     }
 
     // -----------------------------------------------------------------
@@ -702,6 +839,21 @@ class AttendanceResourceIT {
         Map<String, Object> confirmation = confirmation(studentId, stateAttendance);
         confirmation.put("id", id);
         return confirmation;
+    }
+
+    private static Map<String, Object> statePayload(String id, StateAttendance stateAttendance) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", id);
+        payload.put("stateAttendance", stateAttendance.name());
+        return payload;
+    }
+
+    private Attendance persistAttendance(ClassSection classSection, UserProfile student, LocalDate date, StateAttendance stateAttendance) {
+        Attendance attendance = attendanceRepository.save(
+            new Attendance().date(date).stateAttendance(stateAttendance).classSection(classSection).student(student)
+        );
+        insertedAttendances.add(attendance);
+        return attendance;
     }
 
     private DocumentType persistDocumentType() {
