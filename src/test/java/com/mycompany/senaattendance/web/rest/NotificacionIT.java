@@ -3,8 +3,12 @@ package com.mycompany.senaattendance.web.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,6 +62,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.domain.Pageable;
@@ -66,6 +71,7 @@ import org.springframework.mail.MailSendException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
  * Integration tests for the persistence of the notifications (UC018): the credential fallback
@@ -79,6 +85,8 @@ class NotificacionIT {
 
     private static final String APPRENTICE_LOGIN = "notifications_apprentice";
     private static final String INSTRUCTOR_LOGIN = "notifications_instructor";
+
+    private static final String RESEND_CREDENTIALS_URL = "/api/admin/users/resend-credentials";
 
     private static final String PENDING_MESSAGE = "Tu justificación quedó registrada y está pendiente de revisión.";
     private static final String CANCELLED_MESSAGE = "Tu justificación fue cancelada.";
@@ -202,13 +210,85 @@ class NotificacionIT {
         // User + profile were still saved despite the mail failure
         User created = userRepository.findOneByLogin(expectedLogin).orElseThrow();
         assertThat(created.getEmail()).isEqualTo("failed.mail@example.com");
+        // The creation email links to the reset page, so the reset key must never be null
+        assertThat(created.getResetKey()).isNotBlank();
         assertThat(userProfileRepository.findByDocumentNumber(documentNumber)).isPresent();
+
+        // The user handed to the mocked mail carries the same reset key the template renders
+        ArgumentCaptor<User> creationMailUser = ArgumentCaptor.forClass(User.class);
+        verify(mailService).sendCreationEmailSync(creationMailUser.capture());
+        assertThat(creationMailUser.getValue().getResetKey()).isNotBlank();
 
         // A pending CREDENTIALS notification was persisted for the user
         List<Notificacion> notificaciones = notificacionRepository.findByUser(created, Pageable.unpaged()).getContent();
         assertThat(notificaciones).hasSize(1);
         assertThat(notificaciones.get(0).getTipo()).isEqualTo(NotificacionTipo.CREDENTIALS);
         assertThat(notificaciones.get(0).getEstado()).isEqualTo(NotificacionEstado.PENDIENTE);
+    }
+
+    @Test
+    void resendCredentialsSendsResetLinkAndMarksTheNotificationAsSent() throws Exception {
+        UserProfile profile = persistProfile("notifications_resend_ok");
+        Notificacion pending = persistCredentialNotification(profile.getUser(), NotificacionEstado.PENDIENTE);
+        when(mailService.sendPasswordResetMailSync(any(User.class))).thenReturn(true);
+
+        restUserMockMvc
+            .perform(resendCredentials(profile.getDocumentNumber()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value("notifications_resend_ok"))
+            .andExpect(jsonPath("$.mustChangePassword").value(true));
+
+        User resent = userRepository.findById(profile.getUser().getId()).orElseThrow();
+        assertThat(resent.getResetKey()).isNotBlank();
+        assertThat(resent.isMustChangePassword()).isTrue();
+        assertThat(notificacionRepository.findById(pending.getId()).orElseThrow().getEstado()).isEqualTo(NotificacionEstado.ENVIADA);
+
+        ArgumentCaptor<User> mailUser = ArgumentCaptor.forClass(User.class);
+        verify(mailService).sendPasswordResetMailSync(mailUser.capture());
+        assertThat(mailUser.getValue().getResetKey()).isEqualTo(resent.getResetKey());
+    }
+
+    @Test
+    void resendCredentialsKeepsTheNotificationRetryableWhenTheMailFails() throws Exception {
+        UserProfile profile = persistProfile("notifications_resend_fail");
+        Notificacion pending = persistCredentialNotification(profile.getUser(), NotificacionEstado.PENDIENTE);
+        when(mailService.sendPasswordResetMailSync(any(User.class))).thenThrow(new MailSendException("SMTP connection refused"));
+
+        restUserMockMvc.perform(resendCredentials(profile.getDocumentNumber())).andExpect(status().isOk());
+
+        assertThat(notificacionRepository.findById(pending.getId()).orElseThrow().getEstado()).isEqualTo(NotificacionEstado.REINTENTAR);
+    }
+
+    @Test
+    void resendCredentialsWithoutOpenNotificationStillSendsTheMail() throws Exception {
+        UserProfile profile = persistProfile("notifications_resend_none");
+        when(mailService.sendPasswordResetMailSync(any(User.class))).thenReturn(true);
+
+        restUserMockMvc.perform(resendCredentials(profile.getDocumentNumber())).andExpect(status().isOk());
+
+        assertThat(notificationsOf(profile)).isEmpty();
+        verify(mailService).sendPasswordResetMailSync(any(User.class));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void resendCredentialsIsForbiddenForNonAdmin() throws Exception {
+        UserProfile profile = persistProfile("notifications_resend_forbidden");
+
+        restUserMockMvc.perform(resendCredentials(profile.getDocumentNumber())).andExpect(status().isForbidden());
+
+        verifyNoInteractions(mailService);
+        assertThat(userRepository.findById(profile.getUser().getId()).orElseThrow().getResetKey()).isNull();
+    }
+
+    @Test
+    void resendCredentialsWithUnknownDocumentReturnsDocumentNumberNotFound() throws Exception {
+        restUserMockMvc
+            .perform(resendCredentials("UNKNOWN0001"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.documentNumberNotFound"));
+
+        verifyNoInteractions(mailService);
     }
 
     @Test
@@ -383,6 +463,25 @@ class NotificacionIT {
         List<Notificacion> notifications = notificationsOf(profile);
         assertThat(notifications).hasSize(1);
         return notifications.get(0);
+    }
+
+    /**
+     * Builds the PATCH request the Administrator uses to resend the access credentials through a
+     * fresh reset link (UC006, E7).
+     */
+    private MockHttpServletRequestBuilder resendCredentials(String documentNumber) throws Exception {
+        return patch(RESEND_CREDENTIALS_URL)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(om.writeValueAsBytes(Map.of("documentNumber", documentNumber)));
+    }
+
+    /**
+     * Persists the open CREDENTIALS notification that the resend must close (UC006, E7).
+     */
+    private Notificacion persistCredentialNotification(User user, NotificacionEstado estado) {
+        return notificacionRepository.save(
+            new Notificacion().user(user).tipo(NotificacionTipo.CREDENTIALS).estado(estado).read(false).mensaje("SMTP connection refused")
+        );
     }
 
     /**

@@ -154,11 +154,56 @@ public class UserService {
             .map(UserProfile::getUser)
             .filter(User::isActivated)
             .map(user -> {
-                user.setResetKey(RandomUtil.generateResetKey());
-                user.setResetDate(Instant.now());
-                userRepository.save(user);
-                return user;
+                assignResetKey(user);
+                return userRepository.save(user);
             });
+    }
+
+    /**
+     * Generates a fresh reset link for the user identified by the given document number and
+     * marks the password change as mandatory, so the Administrator can resend the access after a
+     * failed credentials email (UC006, E7). The notification lifecycle is owned by the caller.
+     *
+     * @param documentNumber the unique document number identifying the user profile.
+     * @return the user with the new reset key and the forced password change.
+     * @throws BadRequestAlertException if no profile or user matches the document number.
+     */
+    @Transactional
+    public User resendCredentials(String documentNumber) {
+        String normalized = StringUtils.trimToEmpty(documentNumber);
+
+        UserProfile profile = userProfileRepository
+            .findByDocumentNumber(normalized)
+            .orElseThrow(() ->
+                new BadRequestAlertException(
+                    "No user profile found for document number: " + normalized,
+                    "userProfile",
+                    "documentNumberNotFound"
+                )
+            );
+
+        User user = profile.getUser();
+        if (user == null) {
+            throw new BadRequestAlertException("No user found for document number: " + normalized, "userManagement", "userNotFound");
+        }
+
+        assignResetKey(user);
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+        LOG.debug("Resent credentials for User: {}", user.getLogin());
+        return user;
+    }
+
+    /**
+     * Generates a fresh reset key and stamps its request date, so a reset link stays valid for
+     * {@link #RESET_KEY_VALIDITY_MINUTES} and the templates render a non-empty link. The caller
+     * owns the write.
+     *
+     * @param user the user that receives the new reset key.
+     */
+    private void assignResetKey(User user) {
+        user.setResetKey(RandomUtil.generateResetKey());
+        user.setResetDate(Instant.now());
     }
 
     public User registerUser(ManagedUserVM userVM, String password) {
@@ -277,6 +322,9 @@ public class UserService {
         user.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
         user.setActivated(true);
         user.setMustChangePassword(true);
+        // The creation email links to the reset page through the reset key (UC006, E7): without it
+        // the template renders an empty link. The same key is refreshed when the admin resends.
+        assignResetKey(user);
 
         user.setAuthorities(buildAuthorities(userVM.getRole()));
 

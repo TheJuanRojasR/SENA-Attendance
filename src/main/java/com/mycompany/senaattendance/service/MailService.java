@@ -177,4 +177,22 @@ public class MailService {
         LOG.debug("Sending password reset email to '{}'", user.getEmail());
         sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title");
     }
+
+    /**
+     * Sends the password-reset email synchronously and PROPAGATES {@link MailException}
+     * (and any checked {@link MessagingException}) instead of swallowing it, so the caller can
+     * detect a failed delivery and keep the notification retryable (UC018, E3).
+     *
+     * @param user the user whose reset email is being sent.
+     * @return {@code true} when the email was sent, {@code false} when the user has no email address.
+     */
+    public boolean sendPasswordResetMailSync(User user) throws MessagingException {
+        if (user.getEmail() == null) {
+            LOG.debug("Email doesn't exist for user '{}'", user.getLogin());
+            return false;
+        }
+        LOG.debug("Sending password reset email to '{}'", user.getEmail());
+        sendEmailFromTemplateThrowing(user, "mail/passwordResetEmail", "email.reset.title");
+        return true;
+    }
 }
