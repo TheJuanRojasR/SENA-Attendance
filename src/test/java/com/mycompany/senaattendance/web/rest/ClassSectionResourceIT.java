@@ -581,6 +581,34 @@ class ClassSectionResourceIT {
         restClassSectionMockMvc.perform(get(ENTITY_API_URL_ID, Long.MAX_VALUE)).andExpect(status().isNotFound());
     }
 
+    // -----------------------------------------------------------------
+    // Authorization: generic reads are restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAllClassSectionsAsInstructorReturnsForbidden() throws Exception {
+        restClassSectionMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllClassSectionsAsApprenticeReturnsForbidden() throws Exception {
+        restClassSectionMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getClassSectionAsInstructorReturnsForbidden() throws Exception {
+        restClassSectionMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getClassSectionAsApprenticeReturnsForbidden() throws Exception {
+        restClassSectionMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
+
     @Test
     void putExistingClassSection() throws Exception {
         // Persist the @DBRef targets so they resolve on reload

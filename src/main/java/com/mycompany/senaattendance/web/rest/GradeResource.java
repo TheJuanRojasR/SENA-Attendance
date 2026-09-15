@@ -200,7 +200,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Grades in body.
      */
     @GetMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<GradeDTO>> getAllGrades(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -222,7 +222,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of active Grades in body.
      */
     @GetMapping("/active")
-    //@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<GradeDTO>> getActiveGrades() {
         LOG.debug("REST request to get all active Grades");
         List<GradeDTO> activeGrades = gradeService.findActiveGrades();
@@ -236,7 +236,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the gradeDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<GradeDTO> getGrade(@PathVariable("id") String id) {
         LOG.debug("REST request to get Grade : {}", id);
         Optional<GradeDTO> gradeDTO = gradeService.findOne(id);

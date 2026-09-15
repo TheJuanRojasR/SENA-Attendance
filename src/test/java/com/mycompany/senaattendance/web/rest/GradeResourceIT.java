@@ -578,6 +578,59 @@ class GradeResourceIT {
     }
 
     @Test
+    void getActiveGrades() throws Exception {
+        // Initialize the database
+        insertedGrade = gradeRepository.save(grade);
+
+        // Get all the active gradeList
+        restGradeMockMvc
+            .perform(get(ENTITY_API_URL + "/active"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(grade.getId())));
+    }
+
+    // -----------------------------------------------------------------
+    // Authorization: generic reads are restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAllGradesAsInstructorReturnsForbidden() throws Exception {
+        restGradeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllGradesAsApprenticeReturnsForbidden() throws Exception {
+        restGradeMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getGradeAsInstructorReturnsForbidden() throws Exception {
+        restGradeMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getGradeAsApprenticeReturnsForbidden() throws Exception {
+        restGradeMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getActiveGradesAsInstructorReturnsForbidden() throws Exception {
+        restGradeMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getActiveGradesAsApprenticeReturnsForbidden() throws Exception {
+        restGradeMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isForbidden());
+    }
+
+    @Test
     void putExistingGrade() throws Exception {
         // Persist the @DBRef targets so they resolve on reload
         programRepository.save(grade.getProgram());

@@ -139,6 +139,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Sections in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<ClassSectionDTO>> getAllClassSections(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -161,6 +162,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the classSectionDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassSectionDTO> getClassSection(@PathVariable("id") String id) {
         LOG.debug("REST request to get ClassSection : {}", id);
         Optional<ClassSectionDTO> classSectionDTO = classSectionService.findOne(id);
