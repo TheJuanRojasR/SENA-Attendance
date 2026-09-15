@@ -35,6 +35,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service Implementation for managing {@link com.mycompany.senaattendance.domain.Grade}.
@@ -219,6 +220,63 @@ public class GradeServiceImpl implements GradeService {
             .filter(grade -> grade.getState() != null && grade.getState().equals(StateGrade.ACTIVA))
             .map(gradeMapper::toDto)
             .collect(Collectors.toCollection(LinkedList::new));
+    }
+
+    /**
+     * Postpones a ficha that has not started or is active. The transition is evaluated
+     * against the persisted state, and no field edit rules or date/catalog validations run.
+     */
+    @Override
+    @Transactional
+    public GradeDTO postpone(String id) {
+        LOG.debug("Request to postpone Grade : {}", id);
+        Grade grade = findGradeForAction(id);
+        if (grade.getState() != StateGrade.PENDIENTE && grade.getState() != StateGrade.ACTIVA) {
+            throw new BadRequestAlertException("La ficha no se puede aplazar en su estado actual", ENTITY_NAME, "invalidtransition");
+        }
+        grade.setState(StateGrade.APLAZADA);
+        return gradeMapper.toDto(gradeRepository.save(grade));
+    }
+
+    /**
+     * Resumes a postponed ficha, recomputing its state from the date range the same way the
+     * daily job does.
+     */
+    @Override
+    @Transactional
+    public GradeDTO resume(String id) {
+        LOG.debug("Request to resume Grade : {}", id);
+        Grade grade = findGradeForAction(id);
+        if (grade.getState() != StateGrade.APLAZADA) {
+            throw new BadRequestAlertException("La ficha no se puede reanudar en su estado actual", ENTITY_NAME, "invalidtransition");
+        }
+        grade.setState(classifyState(LocalDate.now(clock), grade.getStartDate(), grade.getEndDate()));
+        return gradeMapper.toDto(gradeRepository.save(grade));
+    }
+
+    /**
+     * Cancels a ficha that is not already cancelled. Cancellation is definitive and blocks
+     * every later operation on the ficha.
+     */
+    @Override
+    @Transactional
+    public GradeDTO cancel(String id) {
+        LOG.debug("Request to cancel Grade : {}", id);
+        Grade grade = findGradeForAction(id);
+        if (grade.getState() == StateGrade.CANCELADA) {
+            throw new BadRequestAlertException("La ficha ya está cancelada", ENTITY_NAME, "invalidtransition");
+        }
+        grade.setState(StateGrade.CANCELADA);
+        return gradeMapper.toDto(gradeRepository.save(grade));
+    }
+
+    /**
+     * @param id the ficha id.
+     * @return the persisted ficha.
+     * @throws BadRequestAlertException with key {@code idnotfound} when no ficha matches the id.
+     */
+    private Grade findGradeForAction(String id) {
+        return gradeRepository.findById(id).orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
     }
 
     /**

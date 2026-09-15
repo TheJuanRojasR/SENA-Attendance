@@ -899,6 +899,141 @@ class GradeServiceImplTest {
         verify(gradeRepository, never()).save(any(Grade.class));
     }
 
+    // -----------------------------------------------------------------
+    // postpone() / resume() / cancel() lifecycle actions
+    // -----------------------------------------------------------------
+
+    @Test
+    void postponeSetsAplazadaFromPendiente() {
+        Grade grade = grade("g-1", StateGrade.PENDIENTE, TODAY.plusDays(10), TODAY.plusDays(40));
+        stubFindById(grade);
+        stubSaveAndMap(grade);
+
+        GradeDTO result = gradeService.postpone("g-1");
+
+        assertThat(result.getState()).isEqualTo(StateGrade.APLAZADA);
+        assertThat(grade.getState()).isEqualTo(StateGrade.APLAZADA);
+        verify(gradeRepository).save(grade);
+    }
+
+    @Test
+    void postponeSetsAplazadaFromActiva() {
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(grade);
+        stubSaveAndMap(grade);
+
+        GradeDTO result = gradeService.postpone("g-1");
+
+        assertThat(result.getState()).isEqualTo(StateGrade.APLAZADA);
+        assertThat(grade.getState()).isEqualTo(StateGrade.APLAZADA);
+    }
+
+    @Test
+    void postponeRejectsAnyOtherState() {
+        for (StateGrade state : List.of(StateGrade.APLAZADA, StateGrade.FINALIZADA, StateGrade.CANCELADA)) {
+            Grade grade = grade("g-" + state, state, TODAY.minusDays(10), TODAY.plusDays(10));
+            stubFindById(grade);
+
+            assertThatExceptionOfType(BadRequestAlertException.class)
+                .isThrownBy(() -> gradeService.postpone(grade.getId()))
+                .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("invalidtransition"));
+        }
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void resumeReclassifiesPendienteForFutureRange() {
+        mockClockAt(TODAY);
+        Grade grade = grade("g-1", StateGrade.APLAZADA, TODAY.plusDays(10), TODAY.plusDays(40));
+        stubFindById(grade);
+        stubSaveAndMap(grade);
+
+        GradeDTO result = gradeService.resume("g-1");
+
+        assertThat(result.getState()).isEqualTo(StateGrade.PENDIENTE);
+        assertThat(grade.getState()).isEqualTo(StateGrade.PENDIENTE);
+        verify(gradeRepository).save(grade);
+    }
+
+    @Test
+    void resumeReclassifiesActivaForCurrentRange() {
+        mockClockAt(TODAY);
+        Grade grade = grade("g-1", StateGrade.APLAZADA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(grade);
+        stubSaveAndMap(grade);
+
+        GradeDTO result = gradeService.resume("g-1");
+
+        assertThat(result.getState()).isEqualTo(StateGrade.ACTIVA);
+    }
+
+    @Test
+    void resumeReclassifiesFinalizadaForPastRange() {
+        mockClockAt(TODAY);
+        Grade grade = grade("g-1", StateGrade.APLAZADA, TODAY.minusDays(40), TODAY.minusDays(10));
+        stubFindById(grade);
+        stubSaveAndMap(grade);
+
+        GradeDTO result = gradeService.resume("g-1");
+
+        assertThat(result.getState()).isEqualTo(StateGrade.FINALIZADA);
+    }
+
+    @Test
+    void resumeRejectsNonPostponedStates() {
+        for (StateGrade state : List.of(StateGrade.PENDIENTE, StateGrade.ACTIVA, StateGrade.FINALIZADA, StateGrade.CANCELADA)) {
+            Grade grade = grade("g-" + state, state, TODAY.minusDays(10), TODAY.plusDays(10));
+            stubFindById(grade);
+
+            assertThatExceptionOfType(BadRequestAlertException.class)
+                .isThrownBy(() -> gradeService.resume(grade.getId()))
+                .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("invalidtransition"));
+        }
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void cancelSetsCanceladaFromEveryNonCancelledState() {
+        for (StateGrade state : List.of(StateGrade.PENDIENTE, StateGrade.ACTIVA, StateGrade.FINALIZADA, StateGrade.APLAZADA)) {
+            Grade grade = grade("g-" + state, state, TODAY.minusDays(10), TODAY.plusDays(10));
+            stubFindById(grade);
+            stubSaveAndMap(grade);
+
+            assertThat(gradeService.cancel(grade.getId()).getState()).isEqualTo(StateGrade.CANCELADA);
+            assertThat(grade.getState()).isEqualTo(StateGrade.CANCELADA);
+        }
+        verify(gradeRepository, times(4)).save(any(Grade.class));
+    }
+
+    @Test
+    void cancelRejectsAlreadyCancelledState() {
+        Grade grade = grade("g-1", StateGrade.CANCELADA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(grade);
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.cancel("g-1"))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("invalidtransition"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void lifecycleActionsRejectMissingGrade() {
+        when(gradeRepository.findById("missing")).thenReturn(Optional.empty());
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.postpone("missing"))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("idnotfound"));
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.resume("missing"))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("idnotfound"));
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.cancel("missing"))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("idnotfound"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
     /**
      * Configures the mocked {@link Clock} so {@code LocalDate.now(clock)} returns
      * {@code today} in the system zone, matching the production

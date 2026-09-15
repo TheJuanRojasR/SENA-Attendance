@@ -80,4 +80,31 @@ public interface GradeService {
      * {@code CANCELADA}) are left untouched.
      */
     void syncStates();
+
+    /**
+     * Postpones a ficha: only a {@code PENDIENTE} or {@code ACTIVA} ficha moves to
+     * {@code APLAZADA}, a manual state that stays until the ficha is resumed.
+     *
+     * @param id the ficha id.
+     * @return the updated ficha.
+     */
+    GradeDTO postpone(String id);
+
+    /**
+     * Resumes a postponed ficha: only an {@code APLAZADA} ficha is accepted, and its state is
+     * recomputed from its date range ({@code PENDIENTE}, {@code ACTIVA} or {@code FINALIZADA}).
+     *
+     * @param id the ficha id.
+     * @return the updated ficha.
+     */
+    GradeDTO resume(String id);
+
+    /**
+     * Cancels a ficha: any state except {@code CANCELADA} moves to {@code CANCELADA}, a
+     * definitive state that blocks every operation on the ficha.
+     *
+     * @param id the ficha id.
+     * @return the updated ficha.
+     */
+    GradeDTO cancel(String id);
 }

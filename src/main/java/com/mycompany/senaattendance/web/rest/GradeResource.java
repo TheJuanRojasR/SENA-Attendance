@@ -5,6 +5,7 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.GradeIdVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -138,6 +139,69 @@ public class GradeResource {
             result,
             HeaderUtil.createEntityUpdateAlert(applicationName, true, ENTITY_NAME, gradeDTO.getId())
         );
+    }
+
+    /**
+     * {@code PATCH  /grades/postponed} : Postpone the ficha identified by {@code id}. Only a
+     * PENDIENTE or ACTIVA ficha can be postponed, moving it to APLAZADA. The body must carry
+     * the ficha {@code id}.
+     *
+     * @param gradeIdVM the request body carrying the ficha id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated
+     *         ficha, {@code 400 (Bad Request)} if the id is invalid, no ficha matches it or
+     *         the current state cannot be postponed, or {@code 403 (Forbidden)} for non-admin
+     *         users.
+     */
+    @PatchMapping("/postponed")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> postponeGrade(@Valid @RequestBody GradeIdVM gradeIdVM) {
+        String id = gradeIdVM.getId();
+        LOG.debug("REST request to postpone Grade : {}", id);
+        GradeDTO gradeDTO = gradeService.postpone(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "grade.postponed", id))
+            .body(gradeDTO);
+    }
+
+    /**
+     * {@code PATCH  /grades/resumed} : Resume the postponed ficha identified by {@code id}.
+     * Its state is recomputed from its date range. The body must carry the ficha {@code id}.
+     *
+     * @param gradeIdVM the request body carrying the ficha id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated
+     *         ficha, {@code 400 (Bad Request)} if the id is invalid, no ficha matches it or
+     *         the ficha is not postponed, or {@code 403 (Forbidden)} for non-admin users.
+     */
+    @PatchMapping("/resumed")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> resumeGrade(@Valid @RequestBody GradeIdVM gradeIdVM) {
+        String id = gradeIdVM.getId();
+        LOG.debug("REST request to resume Grade : {}", id);
+        GradeDTO gradeDTO = gradeService.resume(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "grade.resumed", id))
+            .body(gradeDTO);
+    }
+
+    /**
+     * {@code PATCH  /grades/cancelled} : Cancel the ficha identified by {@code id}. Any ficha
+     * that is not already cancelled moves to CANCELADA, a definitive state. The body must
+     * carry the ficha {@code id}.
+     *
+     * @param gradeIdVM the request body carrying the ficha id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated
+     *         ficha, {@code 400 (Bad Request)} if the id is invalid, no ficha matches it or
+     *         the ficha is already cancelled, or {@code 403 (Forbidden)} for non-admin users.
+     */
+    @PatchMapping("/cancelled")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> cancelGrade(@Valid @RequestBody GradeIdVM gradeIdVM) {
+        String id = gradeIdVM.getId();
+        LOG.debug("REST request to cancel Grade : {}", id);
+        GradeDTO gradeDTO = gradeService.cancel(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "grade.cancelled", id))
+            .body(gradeDTO);
     }
 
     /**

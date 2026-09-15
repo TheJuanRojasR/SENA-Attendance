@@ -48,6 +48,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Integration tests for the {@link GradeResource} REST controller.
@@ -1522,6 +1523,210 @@ class GradeResourceIT {
 
         // Validate the Grade in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    // -----------------------------------------------------------------
+    // Lifecycle actions: postpone / resume / cancel
+    // -----------------------------------------------------------------
+
+    @Test
+    void postponeGradeFromPendienteSetsAplazada() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+
+        performLifecycleAction("postponed", gradeDTO.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.APLAZADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.APLAZADA);
+    }
+
+    @Test
+    void postponeGradeFromActivaSetsAplazada() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+
+        performLifecycleAction("postponed", gradeDTO.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.APLAZADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.APLAZADA);
+    }
+
+    @Test
+    void postponeGradeFromFinalizadaReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.FINALIZADA, today.minusDays(40), today.minusDays(10));
+
+        performLifecycleAction("postponed", gradeDTO.getId())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidtransition"));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.FINALIZADA);
+    }
+
+    @Test
+    void postponeGradeWithoutIdReturnsBadRequest() throws Exception {
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/postponed")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}")
+            )
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void postponeNonExistingGradeReturnsBadRequest() throws Exception {
+        performLifecycleAction("postponed", UUID.randomUUID().toString())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnotfound"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void postponeGradeAsNonAdminReturnsForbidden() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+
+        performLifecycleAction("postponed", gradeDTO.getId()).andExpect(status().isForbidden());
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.PENDIENTE);
+    }
+
+    @Test
+    void resumeGradeReclassifiesStateFromDates() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.APLAZADA, today.plusDays(10), today.plusDays(40));
+
+        // Future range: the ficha has not started yet.
+        performLifecycleAction("resumed", gradeDTO.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.PENDIENTE.toString()));
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.PENDIENTE);
+
+        // Current range: the ficha is active today.
+        reassignGradeAsAplazada(today.minusDays(10), today.plusDays(10));
+        performLifecycleAction("resumed", grade.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.ACTIVA.toString()));
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.ACTIVA);
+
+        // Past range: the ficha has already finished.
+        reassignGradeAsAplazada(today.minusDays(40), today.minusDays(10));
+        performLifecycleAction("resumed", grade.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.FINALIZADA.toString()));
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.FINALIZADA);
+    }
+
+    @Test
+    void resumeGradeFromActivaReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+
+        performLifecycleAction("resumed", gradeDTO.getId())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidtransition"));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.ACTIVA);
+    }
+
+    @Test
+    void resumeNonExistingGradeReturnsBadRequest() throws Exception {
+        performLifecycleAction("resumed", UUID.randomUUID().toString())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnotfound"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void resumeGradeAsNonAdminReturnsForbidden() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.APLAZADA, today.plusDays(10), today.plusDays(40));
+
+        performLifecycleAction("resumed", gradeDTO.getId()).andExpect(status().isForbidden());
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.APLAZADA);
+    }
+
+    @Test
+    void cancelGradeFromActivaSetsCancelada() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.ACTIVA, today.minusDays(10), today.plusDays(10));
+
+        performLifecycleAction("cancelled", gradeDTO.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.CANCELADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.CANCELADA);
+    }
+
+    @Test
+    void cancelGradeFromFinalizadaSetsCancelada() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.FINALIZADA, today.minusDays(40), today.minusDays(10));
+
+        performLifecycleAction("cancelled", gradeDTO.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.state").value(StateGrade.CANCELADA.toString()));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.CANCELADA);
+    }
+
+    @Test
+    void cancelGradeFromCanceladaReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.CANCELADA, today.minusDays(10), today.plusDays(10));
+
+        performLifecycleAction("cancelled", gradeDTO.getId())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidtransition"));
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.CANCELADA);
+    }
+
+    @Test
+    void cancelNonExistingGradeReturnsBadRequest() throws Exception {
+        performLifecycleAction("cancelled", UUID.randomUUID().toString())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnotfound"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void cancelGradeAsNonAdminReturnsForbidden() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
+
+        performLifecycleAction("cancelled", gradeDTO.getId()).andExpect(status().isForbidden());
+
+        assertThat(getPersistedGrade(grade).getState()).isEqualTo(StateGrade.PENDIENTE);
+    }
+
+    /**
+     * Performs one of the ficha lifecycle actions ({@code postponed}, {@code resumed},
+     * {@code cancelled}) with the given ficha id in the request body.
+     */
+    private ResultActions performLifecycleAction(String action, String id) throws Exception {
+        var body = om.createObjectNode().put("id", id);
+        return restGradeMockMvc.perform(
+            patch(ENTITY_API_URL + "/" + action)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(om.writeValueAsBytes(body))
+        );
+    }
+
+    /**
+     * Rewrites the persisted ficha under test as APLAZADA with the given range, so a resume
+     * action can be exercised against another date window.
+     */
+    private void reassignGradeAsAplazada(LocalDate startDate, LocalDate endDate) {
+        Grade persisted = getPersistedGrade(grade);
+        persisted.setStartDate(startDate);
+        persisted.setEndDate(endDate);
+        persisted.setState(StateGrade.APLAZADA);
+        insertedGrade = gradeRepository.save(persisted);
     }
 
     @Test
