@@ -55,7 +55,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Implementado    |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Implementado    |
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Implementado    |
-| [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Parcial         |
+| [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Implementado    |
 | [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Parcial         |
 | [UC009](#uc009--gestionar-listas-de-asistencia)     | Gestionar listas de asistencia     | Parcial         |
 | [UC011](#uc011--gestionar-asistencia-aprendiz)      | Gestionar asistencia (Aprendiz)    | Parcial         |
@@ -980,38 +980,52 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 
 ## UC008 — Gestionar aprendices
 
-**Módulo:** Aprendices e instructor | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Aprendices e instructor | **Actor:** Administrador | **Estado:** Implementado
 
-**Feature:** Vinculación y desvinculación de aprendices a fichas mediante el registro `Apprentice`, con estado académico.
+**Feature:** Vinculación por número de documento y desvinculación con motivo de aprendices a fichas mediante el registro `Apprentice`, con estado académico. El servidor resuelve el perfil por documento y fija el estado académico en cada operación.
 
 **Endpoints:**
 
-| Método | Ruta                    | Acceso                                               | Descripción                   |
-| ------ | ----------------------- | ---------------------------------------------------- | ----------------------------- |
-| GET    | `/api/apprentices`      | Autenticado                                          | Lista paginada de vínculos.   |
-| GET    | `/api/apprentices/{id}` | Autenticado                                          | Detalle.                      |
-| POST   | `/api/apprentices`      | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Crea el vínculo; `201`.       |
-| PUT    | `/api/apprentices/{id}` | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Reemplaza; `200`.             |
-| PATCH  | `/api/apprentices/{id}` | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Actualización parcial; `200`. |
-| DELETE | `/api/apprentices/{id}` | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Elimina el vínculo; `204`.    |
+| Método | Ruta                        | Acceso                           | Descripción                                                                                                |
+| ------ | --------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/apprentices`          | `ROLE_ADMIN`                     | Vincula al aprendiz identificado por documento; `201` con el vínculo creado.                              |
+| GET    | `/api/apprentices`          | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Lista **paginada** de vínculos; filtros opcionales `gradeId`, `documentNumber`, `name` y `stateAcademic`. |
+| GET    | `/api/apprentices/{id}`     | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Detalle de un vínculo; `404` si no existe.                                                                 |
+| PATCH  | `/api/apprentices/unlinked` | `ROLE_ADMIN`                     | Desvincula con motivo; `204` si elimina el registro y `200` con el DTO si lo conserva.                    |
+
+No existen `PUT`, `PATCH` ni `DELETE /api/apprentices/{id}`: el UC solo contempla vincular, desvincular y consultar.
 
 **Request — `POST /api/apprentices`**
 
 ```json
 {
-  "stateAcademic": "MATRICULADO",
-  "student": { "id": "665f1c2a9e13b7a1f2c8d9ea0" },
+  "documentNumber": "1029384756",
   "grade": { "id": "665f1c2a9e13b7a1f2c8d9e70" }
 }
 ```
 
-| Campo           | Tipo   | Obligatorio | Reglas                                                                                                                                                                              |
-| --------------- | ------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stateAcademic` | string | Sí          | `@NotNull`; enum `StateAcademic`: `MATRICULADO`, `RETIRO_VOLUNTARIO`, `APLAZADO`, `CANCELADO`, `INACTIVO`. El cliente define el estado; la vinculación debería nacer `MATRICULADO`. |
-| `student`       | objeto | Sí          | `@NotNull`; referencia al `UserProfile` del aprendiz.                                                                                                                               |
-| `grade`         | objeto | Sí          | `@NotNull`; referencia a la ficha.                                                                                                                                                  |
+| Campo            | Tipo   | Obligatorio | Reglas                                                                           |
+| ---------------- | ------ | ----------- | -------------------------------------------------------------------------------- |
+| `documentNumber` | string | Sí          | `@NotBlank`, 1–30, `@Pattern(\d+)`: solo dígitos, con el mismo formato de UC001. |
+| `grade`          | objeto | Sí          | `@NotNull`; referencia a la ficha por `id`.                                      |
 
-**Response:** `201 Created`
+El estado académico **no viaja en el request**: el servidor fija `MATRICULADO` al crear el vínculo e ignora el `stateAcademic` que envíe el cliente.
+
+**Request — `PATCH /api/apprentices/unlinked`**
+
+```json
+{
+  "id": "665f1c2a9e13b7a1f2c8d9eb0",
+  "reason": "RETIRO_VOLUNTARIO"
+}
+```
+
+| Campo    | Tipo   | Obligatorio | Reglas                                                                                                                   |
+| -------- | ------ | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `id`     | string | Sí          | `@NotNull`; id del vínculo (`Apprentice`), no del aprendiz.                                                              |
+| `reason` | string | Sí          | `@NotNull`; solo `RETIRO_VOLUNTARIO`, `APLAZADO` o `CANCELADO`. Cualquier otro valor responde `error.invalidunlinkreason`. |
+
+**Response:** `201 Created` con el `ApprenticeDTO` creado. El DTO devuelve `id`, `stateAcademic`, `student` (resumen con `id`, `documentNumber`, `firstName` y `firstLastName`) y `grade` (resumen con `id` y `code`).
 
 ```json
 {
@@ -1019,25 +1033,22 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
   "stateAcademic": "MATRICULADO",
   "student": {
     "id": "665f1c2a9e13b7a1f2c8d9ea0",
-    "firstName": "Ana",
-    "firstLastName": "Gómez",
     "documentNumber": "1029384756",
-    "phoneNumber": "3001234567",
-    "documentType": { "id": "64f1c2a9e13b7a1f2c8d9e01", "name": "Cédula de ciudadanía", "initials": "CC" }
+    "firstName": "Ana",
+    "firstLastName": "Gómez"
   },
   "grade": {
     "id": "665f1c2a9e13b7a1f2c8d9e70",
-    "code": "3412345",
-    "state": "ACTIVA",
-    "startDate": "2026-09-01",
-    "endDate": "2027-03-31"
+    "code": "3412345"
   }
 }
 ```
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403`; `404`.
+`PATCH /api/apprentices/unlinked` responde `204 No Content` sin cuerpo cuando el aprendiz no tiene asistencias en la ficha y el registro se elimina; si tiene asistencias, responde `200 OK` con el `ApprenticeDTO` y su `stateAcademic` pasa a ser el motivo. `GET /api/apprentices` es **paginado** (`page`/`size`/`sort`, 20 por defecto) y devuelve un arreglo JSON con las cabeceras `X-Total-Count` y `Link`; sus filtros son **opcionales** y se combinan con AND: `gradeId` (ficha), `documentNumber` (fragmento del número), `name` (fragmento del primer nombre o del primer apellido) y `stateAcademic` (valor del enum). Se devuelve una página vacía cuando ningún perfil coincide con los filtros de texto o cuando `gradeId` no es un id válido.
 
-**Notas / lo que se necesita:** el flujo del UC no está modelado: la API no recibe el número de documento ni valida que el aprendiz exista/esté activo (E1), no impide duplicados ni reingresos a la misma ficha (E2), no verifica el estado de la ficha (E3) y no distingue si la desvinculación debe eliminar o conservar el registro según asistencias. Además, `ROLE_INSTRUCTOR` puede crear, modificar y eliminar vínculos, algo reservado al Administrador en el UC. No hay endpoint para "desvincular con motivo" ni para listar fichas de un aprendiz.
+**Errores:** `400 error.apprenticeInactive` (el aprendiz no existe, su cuenta no está activa o su documento no identifica a un único perfil, E1); `400 error.apprenticeAlreadyEnrolled` (ya existe un registro de ese aprendiz en esa ficha en cualquier estado, E2); `400 error.gradeNotOperable` (la ficha no está `PENDIENTE` ni `ACTIVA`, E3); `400 error.invalidunlinkreason` (el motivo no es `RETIRO_VOLUNTARIO`, `APLAZADO` ni `CANCELADO`); `400 error.idnotfound` (ficha o vínculo inexistente); `400 error.validation` con `fieldErrors` (E4: documento con formato inválido, `id` o `reason` ausentes); `403`; `404`.
+
+**Notas / lo que se necesita:** reglas de UC008 implementadas. **Vincular:** el request identifica al aprendiz por **número de documento** y el servidor resuelve el `UserProfile`; el vínculo nace con `stateAcademic = MATRICULADO` **fijado por el servidor** (el valor que envíe el cliente se ignora). El documento se valida con el mismo formato de UC001 (solo dígitos, 1–30). **E1:** el número de documento no es único por sí solo —la clave única es el par tipo + número—, así que un número compartido por más de un perfil no identifica a un aprendiz y se rechaza con `error.apprenticeInactive`, igual que una cuenta inexistente o desactivada. **E2:** `error.apprenticeAlreadyEnrolled` bloquea el reingreso a la **misma** ficha aunque el registro previo esté desvinculado. **E3:** vincular y desvincular solo operan sobre fichas `PENDIENTE` o `ACTIVA`. **A1 — Desvincular:** el id del vínculo viaja en el body de `PATCH /api/apprentices/unlinked`; sin asistencias en la ficha el registro se **elimina** (`204`) y con asistencias se **conserva** con el `stateAcademic` igual al motivo (`200`), de modo que el historial de asistencia nunca se pierde. **A2 — Consultar:** `GET /api/apprentices` acepta los cuatro filtros opcionales más la paginación estándar y devuelve del aprendiz el documento y el nombre. **Roles:** `POST` y `PATCH /unlinked` son solo `ROLE_ADMIN`; `GET` de lista y detalle quedan para `ROLE_ADMIN` o `ROLE_INSTRUCTOR`. Se retiraron los endpoints genéricos `PUT`, `PATCH` y `DELETE /api/apprentices/{id}`. UC008 no cambió el modelo de datos: no agrega migraciones Mongock (el próximo orden libre es 011). Verificación: `ApprenticeResourceIT` 34/34.
 
 ---
 

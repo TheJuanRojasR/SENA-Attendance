@@ -372,6 +372,27 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC008 — Gestionar aprendices
+
+**Estado del backend:** implementado. La vinculación identifica al aprendiz por **número de documento** (no por id de perfil) y el servidor fija el estado académico `MATRICULADO`; la desvinculación lleva motivo y conserva el historial cuando existen asistencias. Ver [`docs/api-contracts.md#uc008--gestionar-aprendices`](./api-contracts.md#uc008--gestionar-aprendices).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** el alta pasó a `POST /api/apprentices` con `documentNumber` + `grade` y **sin `stateAcademic`** (el servidor siempre matricula); `PUT`, `PATCH` y `DELETE /api/apprentices/{id}` fueron **retirados** (el UC solo contempla vincular, desvincular y consultar); la desvinculación es `PATCH /api/apprentices/unlinked` con el `id` del vínculo **en el body**; y las lecturas quedaron restringidas a `ROLE_ADMIN` o `ROLE_INSTRUCTOR`, con la escritura solo `ROLE_ADMIN`. El frontend stock de JHipster sigue posteando `{ stateAcademic, student, grade }`, armando `PUT`/`PATCH`/`DELETE` con el `id` en la ruta y mostrando la pantalla a cualquier rol.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                    | Estado      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Alta: enviar `{ documentNumber, grade: { id } }` y **no enviar `stateAcademic`**. El backend resuelve el aprendiz por documento y siempre crea el vínculo como `MATRICULADO`; el documento debe tener el formato de UC001 (solo dígitos, 1–30).                                                                          | `Pendiente` |
+| 2   | Manejar `400 error.apprenticeInactive` (E1: aprendiz inexistente, cuenta inactiva o documento que identifica a más de un perfil): mostrar "Aprendiz no existe o no está activo" y no continuar.                                                                                                                          | `Pendiente` |
+| 3   | Manejar `400 error.apprenticeAlreadyEnrolled` (E2: ya existe un registro de ese aprendiz en la ficha, en cualquier estado): mostrar "Este aprendiz ya tiene un registro en esta ficha" y no ofrecer reintentar la vinculación.                                                                                           | `Pendiente` |
+| 4   | Manejar `400 error.gradeNotOperable` (E3: ficha fuera de `PENDIENTE`/`ACTIVA`) al vincular y al desvincular. La clave es **compartida con UC015**: el texto debe indicar que la ficha no permite la operación, sin limitarse a materias.                                                                                 | `Pendiente` |
+| 5   | Validar el documento en el cliente (solo dígitos, 1–30) y manejar `400 error.validation` con `documentNumber` en `fieldErrors` (E4).                                                                                                                                                                                    | `Pendiente` |
+| 6   | Desvincular con `PATCH /api/apprentices/unlinked` enviando `{ id, reason }` en el body (el `id` es del vínculo, no del aprendiz): select de motivo Retiro voluntario (`RETIRO_VOLUNTARIO`), Aplazado (`APLAZADO`) o Cancelado (`CANCELADO`) con confirmación previa; manejar `400 error.invalidunlinkreason` si el valor no es válido. | `Pendiente` |
+| 7   | Interpretar ambos finales de la desvinculación: `204` sin cuerpo cuando el registro se elimina (sin asistencias) y `200` con el DTO cuando se conserva (con asistencias); mostrar "Aprendiz desvinculado" o "Aprendiz desvinculado. Se conservó su historial de asistencia" según el caso.                              | `Pendiente` |
+| 8   | Consultar (A2) con `GET /api/apprentices` paginado (`page`/`size`/`sort`, `X-Total-Count`/`Link`) y filtros opcionales `gradeId`, `documentNumber`, `name` y `stateAcademic`; la respuesta trae del aprendiz `documentNumber`, `firstName` y `firstLastName`, más `stateAcademic` y la ficha (`id`, `code`).              | `Pendiente` |
+| 9   | Mostrar la gestión de aprendices **solo a `ROLE_ADMIN`**; las lecturas (lista y detalle) aceptan `ROLE_ADMIN` o `ROLE_INSTRUCTOR` y responden `403` a los demás.                                                                                                                                                        | `Pendiente` |
+| 10  | Adaptar el modelo y el reducer stock (`apprentice.model.ts`, `apprentice.reducer.ts`): quitar `stateAcademic` y `student` del alta, eliminar las mutaciones a los endpoints retirados y actualizar las pruebas que usen el payload viejo.                                                                                | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -379,7 +400,6 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | UC    | Nombre                             | Contrato                                              |
 | ----- | ---------------------------------- | ----------------------------------------------------- |
 | UC006 | Gestionar perfiles                 | [`docs/api-contracts.md`](./api-contracts.md) — UC006 |
-| UC008 | Gestionar aprendices               | [`docs/api-contracts.md`](./api-contracts.md) — UC008 |
 | UC009 | Gestionar listas de asistencia     | [`docs/api-contracts.md`](./api-contracts.md) — UC009 |
 | UC010 | Gestionar justificaciones          | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
 | UC011 | Gestionar asistencia (Aprendiz)    | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
@@ -455,9 +475,12 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.scheduleCrossesMidnight` | "La sesión debe iniciar y terminar el mismo día."                                                  | Alta/edición de horario (UC015-E5).                    |
 | `error.scheduleOutOfTimeSlot`  | "El horario debe estar dentro de la jornada de la ficha."                                          | Alta/edición de horario (UC015-E3).                    |
 | `error.scheduleOverlap`        | "El horario se solapa con otro horario de la ficha en ese trimestre."                              | Alta/edición de horario (UC015-E4).                    |
-| `error.gradeNotOperable`       | "No se pueden crear ni modificar materias en una ficha en su estado actual."                       | Alta/edición de materia (UC015-E1).                    |
+| `error.gradeNotOperable`       | "La ficha no permite esta operación en su estado actual."                                            | Vinculación/desvinculación de aprendiz (UC008-E3) y alta/edición de materia (UC015-E1); **clave compartida**, el texto debe servir para ambos formularios. |
 | `error.trimesterClosed`        | "No se pueden modificar los horarios: el trimestre ya fue cerrado."                                | Alta/edición/eliminación de horario (UC015-E6).        |
 | `error.classSectionInUse`      | "No es posible eliminar la materia: tiene registros de asistencia. Puedes desactivarla para retirarla de operación." | Eliminación de materia (UC015-A3).                     |
+| `error.apprenticeInactive`     | "Aprendiz no existe o no está activo."                                                              | Vinculación de aprendiz (UC008-E1).                    |
+| `error.apprenticeAlreadyEnrolled` | "Este aprendiz ya tiene un registro en esta ficha."                                              | Vinculación de aprendiz (UC008-E2).                    |
+| `error.invalidunlinkreason`    | "El motivo de desvinculación no es válido."                                                         | Desvinculación de aprendiz (UC008-A1).                 |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
