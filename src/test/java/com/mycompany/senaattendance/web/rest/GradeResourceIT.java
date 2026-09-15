@@ -57,10 +57,10 @@ class GradeResourceIT {
     private static final StateGrade DEFAULT_STATE = StateGrade.ACTIVA;
     private static final StateGrade UPDATED_STATE = StateGrade.APLAZADA;
 
-    private static final LocalDate DEFAULT_START_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate DEFAULT_START_DATE = LocalDate.now(ZoneId.systemDefault());
     private static final LocalDate UPDATED_START_DATE = LocalDate.now(ZoneId.systemDefault());
 
-    private static final LocalDate DEFAULT_END_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate DEFAULT_END_DATE = LocalDate.now(ZoneId.systemDefault()).plusDays(30);
     private static final LocalDate UPDATED_END_DATE = LocalDate.now(ZoneId.systemDefault());
 
     private static final String ENTITY_API_URL = "/api/grades";
@@ -114,11 +114,14 @@ class GradeResourceIT {
         Modality modality;
         modality = ModalityResourceIT.createEntity();
         modality.setId("fixed-id-for-tests");
+        // The ficha catalog references must be active for a valid create/update
+        modality.setIsActive(true);
         grade.setModality(modality);
         // Add required entity
         TimeSlot timeSlot;
         timeSlot = TimeSlotResourceIT.createEntity();
         timeSlot.setId("fixed-id-for-tests");
+        timeSlot.setIsActive(true);
         grade.setTimeSlot(timeSlot);
         return grade;
     }
@@ -210,6 +213,85 @@ class GradeResourceIT {
             assertSameRepositoryCount(databaseSizeBeforeTest);
         } finally {
             programRepository.delete(inactiveProgram);
+        }
+    }
+
+    @Test
+    void createGradeWithEndDateBeforeStartDateReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+
+        GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+        gradeDTO.setStartDate(DEFAULT_START_DATE.plusDays(10));
+        gradeDTO.setEndDate(DEFAULT_START_DATE.plusDays(5));
+
+        restGradeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.datesorder"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createGradeWithStartDateInThePastReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+
+        GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+        gradeDTO.setStartDate(today.minusDays(1));
+        gradeDTO.setEndDate(today.plusDays(30));
+
+        restGradeMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.startdateinpast"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    void createGradeWithInactiveModalityReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+
+        Modality inactiveModality = ModalityResourceIT.createEntity();
+        inactiveModality.setIsActive(false);
+        inactiveModality = modalityRepository.save(inactiveModality);
+
+        try {
+            GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+            gradeDTO.getModality().setId(inactiveModality.getId());
+
+            restGradeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.modalityInactive"));
+
+            assertSameRepositoryCount(databaseSizeBeforeTest);
+        } finally {
+            modalityRepository.delete(inactiveModality);
+        }
+    }
+
+    @Test
+    void createGradeWithInactiveTimeSlotReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+
+        TimeSlot inactiveTimeSlot = TimeSlotResourceIT.createEntity();
+        inactiveTimeSlot.setIsActive(false);
+        inactiveTimeSlot = timeSlotRepository.save(inactiveTimeSlot);
+
+        try {
+            GradeDTO gradeDTO = gradeMapper.toDto(createEntity());
+            gradeDTO.getTimeSlot().setId(inactiveTimeSlot.getId());
+
+            restGradeMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.timeSlotInactive"));
+
+            assertSameRepositoryCount(databaseSizeBeforeTest);
+        } finally {
+            timeSlotRepository.delete(inactiveTimeSlot);
         }
     }
 
@@ -499,6 +581,109 @@ class GradeResourceIT {
     }
 
     @Test
+    void putGradeWithEndDateBeforeStartDateReturnsBadRequest() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+        insertedGrade = gradeRepository.save(grade);
+
+        GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+        gradeDTO.setStartDate(DEFAULT_START_DATE.plusDays(10));
+        gradeDTO.setEndDate(DEFAULT_START_DATE.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.datesorder"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+    }
+
+    @Test
+    void putGradeWithChangedStartDateInThePastReturnsBadRequest() throws Exception {
+        // Persist the @DBRef targets so they resolve on reload
+        programRepository.save(grade.getProgram());
+        modalityRepository.save(grade.getModality());
+        timeSlotRepository.save(grade.getTimeSlot());
+        insertedGrade = gradeRepository.save(grade);
+
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+        gradeDTO.setStartDate(today.minusDays(1));
+        gradeDTO.setEndDate(today.plusDays(30));
+
+        restGradeMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.startdateinpast"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+    }
+
+    @Test
+    void putGradeWithInactiveModalityReturnsBadRequest() throws Exception {
+        Modality inactiveModality = ModalityResourceIT.createEntity();
+        inactiveModality.setIsActive(false);
+        inactiveModality = modalityRepository.save(inactiveModality);
+
+        try {
+            // Persist the @DBRef targets so they resolve on reload
+            programRepository.save(grade.getProgram());
+            modalityRepository.save(grade.getModality());
+            timeSlotRepository.save(grade.getTimeSlot());
+            insertedGrade = gradeRepository.save(grade);
+
+            GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+            gradeDTO.getModality().setId(inactiveModality.getId());
+
+            restGradeMockMvc
+                .perform(
+                    put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.modalityInactive"));
+
+            assertThat(getPersistedGrade(grade).getModality().getId()).isEqualTo("fixed-id-for-tests");
+        } finally {
+            modalityRepository.delete(inactiveModality);
+        }
+    }
+
+    @Test
+    void putGradeWithInactiveTimeSlotReturnsBadRequest() throws Exception {
+        TimeSlot inactiveTimeSlot = TimeSlotResourceIT.createEntity();
+        inactiveTimeSlot.setIsActive(false);
+        inactiveTimeSlot = timeSlotRepository.save(inactiveTimeSlot);
+
+        try {
+            // Persist the @DBRef targets so they resolve on reload
+            programRepository.save(grade.getProgram());
+            modalityRepository.save(grade.getModality());
+            timeSlotRepository.save(grade.getTimeSlot());
+            insertedGrade = gradeRepository.save(grade);
+
+            GradeDTO gradeDTO = gradeMapper.toDto(gradeRepository.findById(grade.getId()).orElseThrow());
+            gradeDTO.getTimeSlot().setId(inactiveTimeSlot.getId());
+
+            restGradeMockMvc
+                .perform(
+                    put(ENTITY_API_URL_ID, gradeDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(gradeDTO))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.timeSlotInactive"));
+
+            assertThat(getPersistedGrade(grade).getTimeSlot().getId()).isEqualTo("fixed-id-for-tests");
+        } finally {
+            timeSlotRepository.delete(inactiveTimeSlot);
+        }
+    }
+
+    @Test
     void putNonExistingGrade() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
         grade.setId(UUID.randomUUID().toString());
@@ -675,6 +860,126 @@ class GradeResourceIT {
             .andExpect(status().isOk());
 
         assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
+    void patchGradeWithEndDateBeforeStartDateReturnsBadRequest() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setStartDate(DEFAULT_START_DATE.plusDays(10));
+        partialUpdatedGrade.setEndDate(DEFAULT_START_DATE.plusDays(5));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.datesorder"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+    }
+
+    @Test
+    void patchGradeWithChangedStartDateInThePastReturnsBadRequest() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setStartDate(today.minusDays(1));
+        partialUpdatedGrade.setEndDate(today.plusDays(30));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.startdateinpast"));
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(DEFAULT_START_DATE);
+    }
+
+    @Test
+    void patchGradeWithUnchangedStartDateInThePastIsAccepted() throws Exception {
+        LocalDate today = LocalDate.now(ZoneId.systemDefault());
+        insertedGrade = gradeRepository.save(grade.startDate(today.minusDays(30)).endDate(today.plusDays(10)));
+
+        Grade partialUpdatedGrade = new Grade();
+        partialUpdatedGrade.setId(grade.getId());
+        partialUpdatedGrade.setEndDate(today.plusDays(20));
+
+        restGradeMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(om.writeValueAsBytes(partialUpdatedGrade))
+            )
+            .andExpect(status().isOk());
+
+        assertThat(getPersistedGrade(grade).getStartDate()).isEqualTo(today.minusDays(30));
+        assertThat(getPersistedGrade(grade).getEndDate()).isEqualTo(today.plusDays(20));
+    }
+
+    @Test
+    void patchGradeWithInactiveModalityReturnsBadRequest() throws Exception {
+        Modality inactiveModality = ModalityResourceIT.createEntity();
+        inactiveModality.setIsActive(false);
+        inactiveModality = modalityRepository.save(inactiveModality);
+
+        try {
+            insertedGrade = gradeRepository.save(grade);
+
+            Grade partialUpdatedGrade = new Grade();
+            partialUpdatedGrade.setId(grade.getId());
+            partialUpdatedGrade.setModality(new Modality().id(inactiveModality.getId()));
+
+            restGradeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedGrade))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.modalityInactive"));
+
+            assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+        } finally {
+            modalityRepository.delete(inactiveModality);
+        }
+    }
+
+    @Test
+    void patchGradeWithInactiveTimeSlotReturnsBadRequest() throws Exception {
+        TimeSlot inactiveTimeSlot = TimeSlotResourceIT.createEntity();
+        inactiveTimeSlot.setIsActive(false);
+        inactiveTimeSlot = timeSlotRepository.save(inactiveTimeSlot);
+
+        try {
+            insertedGrade = gradeRepository.save(grade);
+
+            Grade partialUpdatedGrade = new Grade();
+            partialUpdatedGrade.setId(grade.getId());
+            partialUpdatedGrade.setTimeSlot(new TimeSlot().id(inactiveTimeSlot.getId()));
+
+            restGradeMockMvc
+                .perform(
+                    patch(ENTITY_API_URL_ID, partialUpdatedGrade.getId())
+                        .contentType("application/merge-patch+json")
+                        .content(om.writeValueAsBytes(partialUpdatedGrade))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("error.timeSlotInactive"));
+
+            assertThat(getPersistedGrade(grade).getCode()).isEqualTo(DEFAULT_CODE);
+        } finally {
+            timeSlotRepository.delete(inactiveTimeSlot);
+        }
     }
 
     @Test

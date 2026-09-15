@@ -17,6 +17,8 @@ public final class ErrorConstants {
     public static final URI PROGRAM_INITIALS_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-initials-already-used");
     public static final URI PROGRAM_NAME_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/program-name-already-used");
     public static final URI GRADE_CODE_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/grade-code-already-used");
+    public static final URI GRADE_DATES_ORDER_TYPE = URI.create(PROBLEM_BASE_URL + "/grade-dates-order");
+    public static final URI GRADE_START_DATE_IN_PAST_TYPE = URI.create(PROBLEM_BASE_URL + "/grade-start-date-in-past");
     public static final URI TIME_SLOT_NAME_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/time-slot-name-already-used");
     public static final URI MODALITY_NAME_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/modality-name-already-used");
     public static final URI DOCUMENT_TYPE_NAME_ALREADY_USED_TYPE = URI.create(PROBLEM_BASE_URL + "/document-type-name-already-used");

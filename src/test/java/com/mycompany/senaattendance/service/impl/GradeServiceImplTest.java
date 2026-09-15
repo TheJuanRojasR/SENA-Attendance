@@ -10,13 +10,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.Modality;
+import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.GradeCodeAlreadyUsedException;
+import com.mycompany.senaattendance.web.rest.errors.GradeDatesOrderException;
+import com.mycompany.senaattendance.web.rest.errors.GradeStartDateInPastException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -31,7 +37,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Unit tests for the date-driven ficha state lifecycle in {@link GradeServiceImpl}: state
  * computation on creation, preservation of manual states on edition, the daily
- * {@code syncStates()} job, and the numeric/unique rules of the ficha code.
+ * {@code syncStates()} job, the numeric/unique rules of the ficha code, the date-range
+ * rules and the active catalog checks.
  */
 @ExtendWith(MockitoExtension.class)
 class GradeServiceImplTest {
@@ -48,6 +55,12 @@ class GradeServiceImplTest {
 
     @Mock
     private ProgramRepository programRepository;
+
+    @Mock
+    private ModalityRepository modalityRepository;
+
+    @Mock
+    private TimeSlotRepository timeSlotRepository;
 
     @Mock
     private Clock clock;
@@ -91,18 +104,22 @@ class GradeServiceImplTest {
     }
 
     @Test
-    void saveComputesFinalizadaWhenEndIsInPast() {
+    void updateRecomputesFinalizadaWhenRangeIsInThePast() {
         mockClockAt(TODAY);
-        Grade grade = grade("g-1", StateGrade.CANCELADA, TODAY.minusDays(40), TODAY.minusDays(10));
-        GradeDTO dto = toDto(grade);
-        when(gradeMapper.toEntity(dto)).thenReturn(grade);
-        when(gradeRepository.save(grade)).thenReturn(grade);
-        when(gradeMapper.toDto(grade)).thenAnswer(invocation -> toDto(invocation.getArgument(0)));
+        // A ficha that already started keeps its past start date when other fields change;
+        // its automatic state is re-derived from the resulting range.
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(40), TODAY.minusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(40), TODAY.minusDays(10));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+        when(gradeRepository.save(incoming)).thenReturn(incoming);
+        when(gradeMapper.toDto(incoming)).thenAnswer(invocation -> toDto(invocation.getArgument(0)));
 
-        GradeDTO result = gradeService.save(dto);
+        GradeDTO result = gradeService.update(dto);
 
         assertThat(result.getState()).isEqualTo(StateGrade.FINALIZADA);
-        assertThat(grade.getState()).isEqualTo(StateGrade.FINALIZADA);
+        assertThat(incoming.getState()).isEqualTo(StateGrade.FINALIZADA);
     }
 
     // -----------------------------------------------------------------
@@ -342,6 +359,199 @@ class GradeServiceImplTest {
 
         assertThat(result.getCode()).isEqualTo(DEFAULT_CODE);
         verify(gradeRepository).existsByCodeAndIdNot(DEFAULT_CODE, "g-1");
+    }
+
+    // -----------------------------------------------------------------
+    // date validation: range order and past start date
+    // -----------------------------------------------------------------
+
+    @Test
+    void saveRejectsEndDateBeforeStartDate() {
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY.plusDays(10), TODAY.plusDays(5));
+        GradeDTO dto = toDto(grade);
+        when(gradeMapper.toEntity(dto)).thenReturn(grade);
+
+        assertThatExceptionOfType(GradeDatesOrderException.class)
+            .isThrownBy(() -> gradeService.save(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("datesorder"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void saveRejectsStartDateInThePast() {
+        mockClockAt(TODAY);
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(1), TODAY.plusDays(10));
+        GradeDTO dto = toDto(grade);
+        when(gradeMapper.toEntity(dto)).thenReturn(grade);
+
+        assertThatExceptionOfType(GradeStartDateInPastException.class)
+            .isThrownBy(() -> gradeService.save(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("startdateinpast"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateRejectsEndDateBeforeStartDate() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.minusDays(20));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+
+        assertThatExceptionOfType(GradeDatesOrderException.class).isThrownBy(() -> gradeService.update(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateRejectsChangedStartDateInThePast() {
+        mockClockAt(TODAY);
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(5), TODAY.plusDays(10));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+
+        assertThatExceptionOfType(GradeStartDateInPastException.class).isThrownBy(() -> gradeService.update(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateAllowsUnchangedStartDateInThePast() {
+        mockClockAt(TODAY);
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(20));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+        when(gradeRepository.save(incoming)).thenReturn(incoming);
+        when(gradeMapper.toDto(incoming)).thenAnswer(invocation -> toDto(invocation.getArgument(0)));
+
+        GradeDTO result = gradeService.update(dto);
+
+        assertThat(result.getStartDate()).isEqualTo(TODAY.minusDays(10));
+        assertThat(result.getState()).isEqualTo(StateGrade.ACTIVA);
+        verify(gradeRepository).save(incoming);
+    }
+
+    @Test
+    void partialUpdateRejectsEndDateBeforeStartDate() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(existing);
+        stubMapperMerge();
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setEndDate(TODAY.minusDays(20));
+
+        assertThatExceptionOfType(GradeDatesOrderException.class).isThrownBy(() -> gradeService.partialUpdate(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void partialUpdateRejectsChangedStartDateInThePast() {
+        mockClockAt(TODAY);
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(existing);
+        stubMapperMerge();
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setStartDate(TODAY.minusDays(5));
+
+        assertThatExceptionOfType(GradeStartDateInPastException.class).isThrownBy(() -> gradeService.partialUpdate(dto));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void partialUpdateAllowsUnchangedStartDateInThePast() {
+        mockClockAt(TODAY);
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        stubFindById(existing);
+        stubMapperMerge();
+        stubSaveAndMap(existing);
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setEndDate(TODAY.plusDays(20));
+
+        GradeDTO result = gradeService.partialUpdate(dto).orElseThrow();
+
+        assertThat(result.getStartDate()).isEqualTo(TODAY.minusDays(10));
+        verify(gradeRepository).save(existing);
+    }
+
+    // -----------------------------------------------------------------
+    // active catalog validation: program, modality and time slot
+    // -----------------------------------------------------------------
+
+    @Test
+    void saveRejectsInactiveModality() {
+        mockClockAt(TODAY);
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY, TODAY.plusDays(10)).modality(new Modality().id("m-1"));
+        GradeDTO dto = toDto(grade);
+        when(gradeMapper.toEntity(dto)).thenReturn(grade);
+        when(modalityRepository.findById("m-1")).thenReturn(Optional.of(new Modality().id("m-1").isActive(false)));
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.save(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("modalityInactive"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void saveRejectsInactiveTimeSlot() {
+        mockClockAt(TODAY);
+        Grade grade = grade("g-1", StateGrade.ACTIVA, TODAY, TODAY.plusDays(10)).timeSlot(new TimeSlot().id("t-1"));
+        GradeDTO dto = toDto(grade);
+        when(gradeMapper.toEntity(dto)).thenReturn(grade);
+        when(timeSlotRepository.findById("t-1")).thenReturn(Optional.of(new TimeSlot().id("t-1").isActive(false)));
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.save(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("timeSlotInactive"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void updateRejectsInactiveModality() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10));
+        Grade incoming = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10)).modality(new Modality().id("m-1"));
+        GradeDTO dto = toDto(incoming);
+        when(gradeMapper.toEntity(dto)).thenReturn(incoming);
+        when(gradeRepository.findById("g-1")).thenReturn(Optional.of(existing));
+        when(modalityRepository.findById("m-1")).thenReturn(Optional.of(new Modality().id("m-1").isActive(false)));
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.update(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("modalityInactive"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    @Test
+    void partialUpdateRejectsInactiveTimeSlot() {
+        Grade existing = grade("g-1", StateGrade.ACTIVA, TODAY.minusDays(10), TODAY.plusDays(10)).timeSlot(new TimeSlot().id("t-1"));
+        stubFindById(existing);
+        stubMapperMerge();
+        when(timeSlotRepository.findById("t-1")).thenReturn(Optional.of(new TimeSlot().id("t-1").isActive(false)));
+
+        GradeDTO dto = new GradeDTO();
+        dto.setId("g-1");
+        dto.setEndDate(TODAY.plusDays(20));
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.partialUpdate(dto))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("timeSlotInactive"));
+
+        verify(gradeRepository, never()).save(any(Grade.class));
     }
 
     // -----------------------------------------------------------------

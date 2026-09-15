@@ -1,21 +1,28 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.domain.Program;
+import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ModalityRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
+import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.GradeCodeAlreadyUsedException;
+import com.mycompany.senaattendance.web.rest.errors.GradeDatesOrderException;
+import com.mycompany.senaattendance.web.rest.errors.GradeStartDateInPastException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -41,12 +48,25 @@ public class GradeServiceImpl implements GradeService {
 
     private final ProgramRepository programRepository;
 
+    private final ModalityRepository modalityRepository;
+
+    private final TimeSlotRepository timeSlotRepository;
+
     private final Clock clock;
 
-    public GradeServiceImpl(GradeRepository gradeRepository, GradeMapper gradeMapper, ProgramRepository programRepository, Clock clock) {
+    public GradeServiceImpl(
+        GradeRepository gradeRepository,
+        GradeMapper gradeMapper,
+        ProgramRepository programRepository,
+        ModalityRepository modalityRepository,
+        TimeSlotRepository timeSlotRepository,
+        Clock clock
+    ) {
         this.gradeRepository = gradeRepository;
         this.gradeMapper = gradeMapper;
         this.programRepository = programRepository;
+        this.modalityRepository = modalityRepository;
+        this.timeSlotRepository = timeSlotRepository;
         this.clock = clock;
     }
 
@@ -55,8 +75,9 @@ public class GradeServiceImpl implements GradeService {
         LOG.debug("Request to save Grade : {}", gradeDTO);
         Grade grade = gradeMapper.toEntity(gradeDTO);
 
-        validateProgramActiveForGrade(grade.getProgram());
         validateCode(grade.getCode(), null);
+        validateDates(grade.getStartDate(), grade.getEndDate(), true);
+        validateActiveCatalogs(grade.getProgram(), grade.getModality(), grade.getTimeSlot());
 
         // The state is always derived from the dates; any state sent by the client is ignored.
         grade.setState(classifyState(LocalDate.now(clock), grade.getStartDate(), grade.getEndDate()));
@@ -81,6 +102,14 @@ public class GradeServiceImpl implements GradeService {
         Optional<Grade> optionalGrade = gradeRepository.findById(grade.getId());
         // When the ficha already exists, its own id is excluded from the uniqueness check.
         validateCode(grade.getCode(), optionalGrade.isPresent() ? grade.getId() : null);
+        // A ficha keeps its original start date when only other fields change, so the "not in
+        // the past" rule applies only when the start date is actually being set or changed.
+        LocalDate incomingStartDate = grade.getStartDate();
+        boolean startDateChanged = optionalGrade
+            .map(existingGrade -> !Objects.equals(existingGrade.getStartDate(), incomingStartDate))
+            .orElse(true);
+        validateDates(grade.getStartDate(), grade.getEndDate(), startDateChanged);
+        validateActiveCatalogs(grade.getProgram(), grade.getModality(), grade.getTimeSlot());
 
         if (optionalGrade.isPresent()) {
             Grade existingGrade = optionalGrade.get();
@@ -108,8 +137,12 @@ public class GradeServiceImpl implements GradeService {
             .findById(gradeDTO.getId())
             .map(existingGrade -> {
                 validateCode(gradeDTO.getCode(), existingGrade.getId());
+                LocalDate persistedStartDate = existingGrade.getStartDate();
                 StateGrade currentState = existingGrade.getState();
                 gradeMapper.partialUpdate(existingGrade, gradeDTO);
+                boolean startDateChanged = !Objects.equals(persistedStartDate, existingGrade.getStartDate());
+                validateDates(existingGrade.getStartDate(), existingGrade.getEndDate(), startDateChanged);
+                validateActiveCatalogs(existingGrade.getProgram(), existingGrade.getModality(), existingGrade.getTimeSlot());
                 existingGrade.setState(
                     resolveState(currentState, LocalDate.now(clock), existingGrade.getStartDate(), existingGrade.getEndDate())
                 );
@@ -245,6 +278,36 @@ public class GradeServiceImpl implements GradeService {
     }
 
     /**
+     * Validates the resulting date range of a ficha: the end date can never be before the
+     * start date, and a start date in the past is rejected only when it is being set or
+     * changed. That way an already started ficha can still be edited without moving its start.
+     *
+     * @param startDate        the resulting start date.
+     * @param endDate          the resulting end date.
+     * @param startDateChanged whether the start date differs from the persisted one (always {@code true} on creation).
+     * @throws GradeDatesOrderException      if the end date is before the start date.
+     * @throws GradeStartDateInPastException if the start date is being set to a past day.
+     */
+    private void validateDates(LocalDate startDate, LocalDate endDate, boolean startDateChanged) {
+        if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+            throw new GradeDatesOrderException();
+        }
+        if (startDateChanged && startDate != null && startDate.isBefore(LocalDate.now(clock))) {
+            throw new GradeStartDateInPastException();
+        }
+    }
+
+    /**
+     * Validates that the referenced program, modality and time slot are still active, so a
+     * ficha cannot be created or updated against a catalog entry disabled in the meantime.
+     */
+    private void validateActiveCatalogs(Program program, Modality modality, TimeSlot timeSlot) {
+        validateProgramActiveForGrade(program);
+        validateModalityActiveForGrade(modality);
+        validateTimeSlotActiveForGrade(timeSlot);
+    }
+
+    /**
      * A ficha (grade) can only be created for an ACTIVE program. If the referenced
      * program exists and is inactive, creating a new ficha under it is rejected (A2).
      * A reference to a program that is not persisted is left untouched.
@@ -258,6 +321,38 @@ public class GradeServiceImpl implements GradeService {
         programRepository.findById(program.getId()).ifPresent(existing -> {
             if (Boolean.FALSE.equals(existing.getStatus())) {
                 throw new BadRequestAlertException("No se pueden crear fichas para un programa inactivo", "program", "programInactive");
+            }
+        });
+    }
+
+    /**
+     * A ficha can only be saved for an ACTIVE modality. If the referenced modality exists
+     * and is inactive, saving is rejected (E3). A reference to a modality that is not
+     * persisted is left untouched.
+     */
+    private void validateModalityActiveForGrade(Modality modality) {
+        if (modality == null || modality.getId() == null) {
+            return;
+        }
+        modalityRepository.findById(modality.getId()).ifPresent(existing -> {
+            if (Boolean.FALSE.equals(existing.getIsActive())) {
+                throw new BadRequestAlertException("No se pueden crear fichas para una modalidad inactiva", "modality", "modalityInactive");
+            }
+        });
+    }
+
+    /**
+     * A ficha can only be saved for an ACTIVE time slot. If the referenced time slot exists
+     * and is inactive, saving is rejected (E3). A reference to a time slot that is not
+     * persisted is left untouched.
+     */
+    private void validateTimeSlotActiveForGrade(TimeSlot timeSlot) {
+        if (timeSlot == null || timeSlot.getId() == null) {
+            return;
+        }
+        timeSlotRepository.findById(timeSlot.getId()).ifPresent(existing -> {
+            if (Boolean.FALSE.equals(existing.getIsActive())) {
+                throw new BadRequestAlertException("No se pueden crear fichas para una jornada inactiva", "timeSlot", "timeSlotInactive");
             }
         });
     }
