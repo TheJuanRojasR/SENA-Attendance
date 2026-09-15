@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.ClassSectionAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -14,6 +15,7 @@ import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
@@ -24,6 +26,7 @@ import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
@@ -64,6 +67,17 @@ class ClassSectionResourceIT {
     private static final String ACTIVE_INSTRUCTOR_ID = "active-instructor";
     private static final String INACTIVE_INSTRUCTOR_ID = "inactive-instructor";
 
+    private static final String MINE_INSTRUCTOR_ID = "mine-instructor";
+    private static final String MINE_INSTRUCTOR_LOGIN = "instructor_" + MINE_INSTRUCTOR_ID;
+    private static final String MINE_PROGRAM_ID = "mine-program";
+    private static final String MINE_PROGRAM_NAME = "Analisis y Desarrollo de Software";
+    private static final String MINE_OPERABLE_GRADE_ID = "mine-grade-operable";
+    private static final String MINE_OPERABLE_GRADE_CODE = "2281001";
+    private static final String MINE_NON_OPERABLE_GRADE_ID = "mine-grade-non-operable";
+    private static final String MINE_NON_OPERABLE_GRADE_CODE = "2281002";
+    private static final LocalDate MINE_START_DATE = LocalDate.of(2026, 1, 15);
+    private static final LocalDate MINE_END_DATE = LocalDate.of(2026, 12, 15);
+
     private static final String ENTITY_API_URL = "/api/class-sections";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
@@ -75,6 +89,9 @@ class ClassSectionResourceIT {
 
     @Autowired
     private GradeRepository gradeRepository;
+
+    @Autowired
+    private ProgramRepository programRepository;
 
     @Autowired
     private UserProfileRepository userProfileRepository;
@@ -110,6 +127,8 @@ class ClassSectionResourceIT {
     private final List<User> insertedInstructorUsers = new ArrayList<>();
 
     private final List<ClassSection> extraInsertedClassSections = new ArrayList<>();
+
+    private final List<Program> insertedPrograms = new ArrayList<>();
 
     /**
      * Create an entity for this test.
@@ -228,6 +247,55 @@ class ClassSectionResourceIT {
         return "operable-" + state.name().toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * Persists a program so the fichas seeded for the my-class-sections tests resolve their
+     * program reference and the payload can carry the program name.
+     *
+     * @param id the program id to use.
+     * @return the persisted program.
+     */
+    private Program persistProgram(String id) {
+        Program program = ProgramResourceIT.createEntity();
+        program.setId(id);
+        program.setName(MINE_PROGRAM_NAME);
+        Program persisted = programRepository.save(program);
+        insertedPrograms.add(persisted);
+        return persisted;
+    }
+
+    /**
+     * Persists a ficha with a real program behind it, using the seeded date range. The seeded
+     * ficha is removed by the grade cleanup of {@link #cleanup()}.
+     *
+     * @param id the ficha id to use.
+     * @param code the ficha number exposed in the payload.
+     * @param state the state to persist.
+     * @param program the persisted program of the ficha.
+     * @return the persisted ficha.
+     */
+    private Grade persistGradeWithProgram(String id, String code, StateGrade state, Program program) {
+        Grade grade = new Grade().code(code).state(state).startDate(MINE_START_DATE).endDate(MINE_END_DATE).program(program);
+        grade.setId(id);
+        return gradeRepository.save(grade);
+    }
+
+    /**
+     * Persists a class section assigned to the given instructor and ficha, registered for cleanup.
+     *
+     * @param instructor the instructor profile assigned to the class section.
+     * @param grade the ficha of the class section.
+     * @param subjectName the subject name.
+     * @param isActive whether the subject is active.
+     * @return the persisted class section.
+     */
+    private ClassSection persistClassSectionForInstructor(UserProfile instructor, Grade grade, String subjectName, boolean isActive) {
+        ClassSection persisted = classSectionRepository.save(
+            new ClassSection().subjectName(subjectName).isActive(isActive).instructor(instructor).grade(grade)
+        );
+        extraInsertedClassSections.add(persisted);
+        return persisted;
+    }
+
     @BeforeEach
     void initTest() {
         classSection = createEntity();
@@ -258,6 +326,9 @@ class ClassSectionResourceIT {
         // Remove the related documents persisted for the PUT tests
         gradeRepository.deleteAll();
         userProfileRepository.deleteAll();
+        // Remove the programs seeded for the my-class-sections payload tests
+        insertedPrograms.forEach(programRepository::delete);
+        insertedPrograms.clear();
         // Remove the user accounts seeded as instructors
         insertedInstructorUsers.forEach(userRepository::delete);
         insertedInstructorUsers.clear();
@@ -1106,6 +1177,41 @@ class ClassSectionResourceIT {
         assertThat(classSectionRepository.findById(insertedClassSection.getId())).isEmpty();
         assertThat(classScheduleRepository.findById(insertedSchedule.getId())).isEmpty();
         assertThat(classExceptionRepository.findById(insertedException.getId())).isEmpty();
+    }
+
+    // -----------------------------------------------------------------
+    // My class sections (UC017)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = MINE_INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getMyClassSectionsExposesTheFichaDataOfTheCurrentInstructor() throws Exception {
+        UserProfile instructor = persistInstructor(MINE_INSTRUCTOR_ID, true);
+        Program program = persistProgram(MINE_PROGRAM_ID);
+        Grade operableGrade = persistGradeWithProgram(MINE_OPERABLE_GRADE_ID, MINE_OPERABLE_GRADE_CODE, StateGrade.ACTIVA, program);
+        Grade nonOperableGrade = persistGradeWithProgram(
+            MINE_NON_OPERABLE_GRADE_ID,
+            MINE_NON_OPERABLE_GRADE_CODE,
+            StateGrade.FINALIZADA,
+            program
+        );
+        persistClassSectionForInstructor(instructor, operableGrade, "Programacion", true);
+        // A non-operable ficha with an inactive subject must still be listed, with its state
+        persistClassSectionForInstructor(instructor, nonOperableGrade, "Bases de Datos", false);
+
+        restClassSectionMockMvc
+            .perform(get(ENTITY_API_URL + "/mine"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(2)))
+            .andExpect(jsonPath("$.[*].grade.code", hasItem(MINE_OPERABLE_GRADE_CODE)))
+            .andExpect(jsonPath("$.[*].grade.code", hasItem(MINE_NON_OPERABLE_GRADE_CODE)))
+            .andExpect(jsonPath("$.[*].grade.state", hasItem(StateGrade.ACTIVA.name())))
+            .andExpect(jsonPath("$.[*].grade.state", hasItem(StateGrade.FINALIZADA.name())))
+            .andExpect(jsonPath("$.[*].grade.startDate", hasItem(MINE_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].grade.endDate", hasItem(MINE_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].grade.program.name", hasItem(MINE_PROGRAM_NAME)))
+            .andExpect(jsonPath("$.[*].subjectName", hasItem("Bases de Datos")))
+            .andExpect(jsonPath("$.[*].isActive", hasItem(false)));
     }
 
     // -----------------------------------------------------------------
