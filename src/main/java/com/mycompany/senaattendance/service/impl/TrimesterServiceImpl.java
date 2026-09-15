@@ -70,9 +70,10 @@ public class TrimesterServiceImpl implements TrimesterService {
     public TrimesterDTO save(TrimesterDTO trimesterDTO) {
         LOG.debug("Request to save Trimester : {}", trimesterDTO);
         Trimester trimester = trimesterMapper.toEntity(trimesterDTO);
+        LocalDate today = LocalDate.now(clock);
 
-        validateDatesAndOverlap(trimester);
-        trimester.setStatus(computeStatus(LocalDate.now(clock), trimester.getStartDate(), trimester.getEndDate()));
+        validateCreationDatesAndOverlap(trimester, today);
+        trimester.setStatus(computeStatus(today, trimester.getStartDate(), trimester.getEndDate()));
 
         trimester.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -244,19 +245,30 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     /**
-     * Validates the date order (E2) and the no-overlap rule (E1) for a trimester being
-     * created, throwing a {@code BadRequestAlertException} subclass on failure. Date order
-     * is checked first so a malformed range fails before any repository query.
+     * Validates the creation rules of UC-014 (use-cases.md:674-677) for a new trimester,
+     * throwing a {@code BadRequestAlertException} subclass on failure. The checks run in
+     * this order: date order, end date not in the past, start date from tomorrow onward,
+     * and no overlap. Date order is checked first so a malformed range fails before any
+     * repository query.
      *
      * @param trimester the trimester to validate.
+     * @param today the reference day.
      * @throws TrimesterDatesOrderException if {@code startDate >= endDate}.
+     * @throws TrimesterEndDateInPastException if {@code endDate < today}.
+     * @throws TrimesterStartDateMustBeFutureException if {@code startDate <= today}.
      * @throws TrimesterDatesOverlapException if the range overlaps an existing trimester.
      */
-    private void validateDatesAndOverlap(Trimester trimester) {
+    private void validateCreationDatesAndOverlap(Trimester trimester, LocalDate today) {
         LocalDate start = trimester.getStartDate();
         LocalDate end = trimester.getEndDate();
         if (!start.isBefore(end)) {
             throw new TrimesterDatesOrderException();
+        }
+        if (end.isBefore(today)) {
+            throw new TrimesterEndDateInPastException();
+        }
+        if (!start.isAfter(today)) {
+            throw new TrimesterStartDateMustBeFutureException();
         }
         if (!trimesterRepository.findAllOverlapping(start, end).isEmpty()) {
             throw new TrimesterDatesOverlapException();

@@ -227,11 +227,13 @@ class TrimesterResourceIT {
 
     @Test
     @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
-    void createTrimesterComputesStatusFromDates() throws Exception {
-        // status is a server-computed field: a null status in the request must be accepted
-        // and replaced by the value derived from today versus the [startDate, endDate] range.
+    void createTrimesterIgnoresClientStatusAndComputesFromDates() throws Exception {
+        // status is a server-computed field: a client-supplied value must be overwritten
+        // by the one derived from today versus the [startDate, endDate] range.
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        TrimesterDTO trimesterDTO = trimesterMapper.toDto(new Trimester().name("Activo Hoy").startDate(today).endDate(today.plusDays(30)));
+        TrimesterDTO trimesterDTO = trimesterMapper.toDto(
+            new Trimester().name("Futuro").startDate(today.plusDays(15)).endDate(today.plusDays(60)).status(true)
+        );
 
         var returnedTrimesterDTO = om.readValue(
             restTrimesterMockMvc
@@ -243,7 +245,7 @@ class TrimesterResourceIT {
             TrimesterDTO.class
         );
 
-        assertThat(returnedTrimesterDTO.getStatus()).isTrue();
+        assertThat(returnedTrimesterDTO.getStatus()).isFalse();
         insertedTrimesters.add(trimesterMapper.toEntity(returnedTrimesterDTO));
     }
 
@@ -275,11 +277,13 @@ class TrimesterResourceIT {
     @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void createTrimesterWithOverlapReturns400() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester existing = new Trimester().name("Existente").startDate(today).endDate(today.plusDays(30)).status(true);
+        Trimester existing = new Trimester().name("Existente").startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(false);
         insertedTrimesters.add(trimesterRepository.save(existing));
 
         // exact overlap: identical [startDate, endDate] range
-        TrimesterDTO exact = trimesterMapper.toDto(new Trimester().name("Exacta").startDate(today).endDate(today.plusDays(30)));
+        TrimesterDTO exact = trimesterMapper.toDto(
+            new Trimester().name("Exacta").startDate(today.plusDays(10)).endDate(today.plusDays(40))
+        );
         restTrimesterMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(exact)))
             .andExpect(status().isBadRequest())
@@ -287,7 +291,7 @@ class TrimesterResourceIT {
 
         // contained overlap: new range fully inside the existing range
         TrimesterDTO contained = trimesterMapper.toDto(
-            new Trimester().name("Contenida").startDate(today.plusDays(5)).endDate(today.plusDays(10))
+            new Trimester().name("Contenida").startDate(today.plusDays(15)).endDate(today.plusDays(20))
         );
         restTrimesterMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(contained)))
@@ -299,13 +303,13 @@ class TrimesterResourceIT {
     @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void createTrimesterAdjacentIsAllowed() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester existing = new Trimester().name("Existente").startDate(today).endDate(today.plusDays(30)).status(true);
+        Trimester existing = new Trimester().name("Existente").startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(false);
         insertedTrimesters.add(trimesterRepository.save(existing));
 
-        // the new range ends the day before the existing range starts: a single-boundary touch,
+        // the new range starts the day after the existing range ends: a single-boundary touch,
         // which is NOT an overlap and must be accepted.
         TrimesterDTO adjacent = trimesterMapper.toDto(
-            new Trimester().name("Adyacente").startDate(today.minusDays(30)).endDate(today.minusDays(1))
+            new Trimester().name("Adyacente").startDate(today.plusDays(41)).endDate(today.plusDays(70))
         );
 
         var returnedTrimesterDTO = om.readValue(
@@ -346,24 +350,16 @@ class TrimesterResourceIT {
 
     @Test
     @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
-    void createTrimesterPastEndIsInactive() throws Exception {
+    void createTrimesterWithPastEndReturns400() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(
             new Trimester().name("Pasado").startDate(today.minusDays(40)).endDate(today.minusDays(10))
         );
 
-        var returnedTrimesterDTO = om.readValue(
-            restTrimesterMockMvc
-                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString(),
-            TrimesterDTO.class
-        );
-
-        assertThat(returnedTrimesterDTO.getStatus()).isFalse();
-        insertedTrimesters.add(trimesterMapper.toEntity(returnedTrimesterDTO));
+        restTrimesterMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-end-date-in-past"));
     }
 
     @Test

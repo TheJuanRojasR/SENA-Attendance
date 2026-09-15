@@ -258,33 +258,29 @@ class TrimesterServiceImplTest {
     }
 
     @Test
-    void saveComputesStatusTrueWhenTodayWithinRange() {
+    void saveWithStartTodayThrowsTrimesterStartDateMustBeFutureException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today).endDate(today.plusDays(30)).status(null);
         TrimesterDTO dto = toDto(t);
-        stubSaveSuccess(t, dto);
+        when(trimesterMapper.toEntity(dto)).thenReturn(t);
 
-        TrimesterDTO result = trimesterService.save(dto);
-
-        assertThat(result.getStatus()).isTrue();
-        assertThat(t.getStatus()).isTrue();
-        verify(trimesterRepository).save(t);
+        assertThatThrownBy(() -> trimesterService.save(dto)).isInstanceOf(TrimesterStartDateMustBeFutureException.class);
+        verify(trimesterRepository, never()).findAllOverlapping(any(), any());
+        verify(trimesterRepository, never()).save(any());
     }
 
     @Test
-    void saveComputesStatusFalseWhenEndIsInPast() {
+    void saveWithEndInPastThrowsTrimesterEndDateInPastException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.minusDays(40)).endDate(today.minusDays(10)).status(null);
         TrimesterDTO dto = toDto(t);
-        stubSaveSuccess(t, dto);
+        when(trimesterMapper.toEntity(dto)).thenReturn(t);
 
-        TrimesterDTO result = trimesterService.save(dto);
-
-        assertThat(result.getStatus()).isFalse();
-        assertThat(t.getStatus()).isFalse();
-        verify(trimesterRepository).save(t);
+        assertThatThrownBy(() -> trimesterService.save(dto)).isInstanceOf(TrimesterEndDateInPastException.class);
+        verify(trimesterRepository, never()).findAllOverlapping(any(), any());
+        verify(trimesterRepository, never()).save(any());
     }
 
     // -----------------------------------------------------------------
@@ -294,6 +290,7 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithEqualDatesThrowsTrimesterDatesOrderException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today).endDate(today).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
@@ -306,6 +303,7 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithReversedDatesThrowsTrimesterDatesOrderException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(10)).endDate(today).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
@@ -322,8 +320,14 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithExactOverlapThrowsTrimesterDatesOverlapException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
-        Trimester existing = new Trimester().id("t-exists").name(NAME).startDate(today).endDate(today.plusDays(30)).status(true);
-        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today).endDate(today.plusDays(30)).status(null);
+        mockClockAt(today);
+        Trimester existing = new Trimester()
+            .id("t-exists")
+            .name(NAME)
+            .startDate(today.plusDays(10))
+            .endDate(today.plusDays(40))
+            .status(false);
+        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
         when(trimesterRepository.findAllOverlapping(t.getStartDate(), t.getEndDate())).thenReturn(List.of(existing));
@@ -335,8 +339,14 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithContainedOverlapThrowsTrimesterDatesOverlapException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
-        Trimester existing = new Trimester().id("t-exists").name(NAME).startDate(today).endDate(today.plusDays(30)).status(true);
-        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(5)).endDate(today.plusDays(10)).status(null);
+        mockClockAt(today);
+        Trimester existing = new Trimester()
+            .id("t-exists")
+            .name(NAME)
+            .startDate(today.plusDays(10))
+            .endDate(today.plusDays(40))
+            .status(false);
+        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(15)).endDate(today.plusDays(20)).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
         when(trimesterRepository.findAllOverlapping(t.getStartDate(), t.getEndDate())).thenReturn(List.of(existing));
@@ -349,7 +359,9 @@ class TrimesterServiceImplTest {
     void saveWithAdjacentDatesIsAllowed() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.minusDays(30)).endDate(today.minusDays(1)).status(null);
+        // Starts the day after a conceptual existing range ends, so the ranges touch at a
+        // single boundary and the overlap query returns empty.
+        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(31)).endDate(today.plusDays(60)).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
         when(trimesterRepository.findAllOverlapping(t.getStartDate(), t.getEndDate())).thenReturn(List.of());
