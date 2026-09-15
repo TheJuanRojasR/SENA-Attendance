@@ -32,6 +32,7 @@ public class AttendanceRepositoryImpl implements AttendanceRepositoryCustom {
     public Page<Attendance> searchAttendanceHistory(
         AttendanceSearchCriteria criteria,
         List<ObjectId> classSectionScope,
+        String studentScope,
         Pageable pageable
     ) {
         List<Criteria> conditions = new ArrayList<>();
@@ -40,6 +41,14 @@ public class AttendanceRepositoryImpl implements AttendanceRepositoryCustom {
                 return Page.empty(pageable);
             }
             conditions.add(Criteria.where(CLASS_SECTION_ID).in(classSectionScope));
+        }
+
+        if (studentScope != null) {
+            Optional<ObjectId> scopedStudentId = toObjectId(studentScope);
+            if (scopedStudentId.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            conditions.add(Criteria.where(STUDENT_ID).is(scopedStudentId.get()));
         }
 
         if (criteria.classSectionId() != null) {

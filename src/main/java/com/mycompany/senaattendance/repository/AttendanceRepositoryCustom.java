@@ -14,13 +14,20 @@ import org.springframework.data.domain.Pageable;
 public interface AttendanceRepositoryCustom {
     /**
      * Searches the attendance history by the optional filters, restricted to the readable class
-     * sections.
+     * sections and to the readable apprentice.
      *
      * @param criteria the optional filters; a {@code null} field means no constraint.
      * @param classSectionScope the ObjectId values of the readable class sections, or {@code null}
      *        to search every record.
+     * @param studentScope the profile id of the only readable apprentice, or {@code null} to
+     *        search every apprentice.
      * @param pageable the pagination information.
      * @return the page of matching records.
      */
-    Page<Attendance> searchAttendanceHistory(AttendanceSearchCriteria criteria, List<ObjectId> classSectionScope, Pageable pageable);
+    Page<Attendance> searchAttendanceHistory(
+        AttendanceSearchCriteria criteria,
+        List<ObjectId> classSectionScope,
+        String studentScope,
+        Pageable pageable
+    );
 }

@@ -178,7 +178,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     /**
      * Reads the attendance history (A1) with the optional filters combined into one query. An
      * administrator reads every record; an instructor reads only the records of the materias
-     * assigned to them, so a filter outside that scope resolves as an empty page.
+     * assigned to them, and an apprentice reads only their own records. A filter outside the
+     * readable scope resolves as an empty page.
      *
      * @param classSectionId the materia to filter by (may be null for every materia).
      * @param date the session date to filter by (may be null for every date).
@@ -196,9 +197,22 @@ public class AttendanceServiceImpl implements AttendanceService {
         Pageable pageable
     ) {
         LOG.debug("Request to get the page of Attendances the current user can read");
-        List<ObjectId> classSectionScope = isCurrentUserAdmin() ? null : currentInstructorClassSectionIds();
+        List<ObjectId> classSectionScope = null;
+        String studentScope = null;
+        if (!isCurrentUserAdmin()) {
+            if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.INSTRUCTOR)) {
+                classSectionScope = currentInstructorClassSectionIds();
+            } else {
+                studentScope = currentUserProfileId();
+                if (studentScope == null) {
+                    return Page.empty(pageable);
+                }
+            }
+        }
         AttendanceSearchCriteria criteria = new AttendanceSearchCriteria(classSectionId, date, studentId, stateAttendance);
-        return attendanceRepository.searchAttendanceHistory(criteria, classSectionScope, pageable).map(attendanceMapper::toDto);
+        return attendanceRepository
+            .searchAttendanceHistory(criteria, classSectionScope, studentScope, pageable)
+            .map(attendanceMapper::toDto);
     }
 
     @Override
@@ -216,7 +230,8 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     /**
      * Resolves whether the current user can read the record: an administrator reads everything,
-     * and an instructor only the records of the materias assigned to them.
+     * an apprentice only their own records, and an instructor only the records of the materias
+     * assigned to them.
      *
      * @param attendance the record to read.
      * @return whether the record is inside the readable scope of the current user.
@@ -226,12 +241,25 @@ public class AttendanceServiceImpl implements AttendanceService {
             return true;
         }
 
+        String currentProfileId = currentUserProfileId();
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.APPRENTICE)) {
+            return isOwnStudentRecord(attendance, currentProfileId);
+        }
+
         ClassSection classSection = attendance.getClassSection();
         if (classSection == null || classSection.getInstructor() == null) {
             return false;
         }
-        String currentProfileId = currentUserProfileId();
         return currentProfileId != null && currentProfileId.equals(classSection.getInstructor().getId());
+    }
+
+    /**
+     * @param attendance the record to check.
+     * @param profileId the profile id of the current user, or {@code null}.
+     * @return whether the record belongs to that apprentice profile.
+     */
+    private static boolean isOwnStudentRecord(Attendance attendance, String profileId) {
+        return attendance.getStudent() != null && profileId != null && profileId.equals(attendance.getStudent().getId());
     }
 
     /**

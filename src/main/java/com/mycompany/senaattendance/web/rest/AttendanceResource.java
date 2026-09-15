@@ -104,8 +104,9 @@ public class AttendanceResource {
      * {@code GET  /attendances} : gets the attendance history the current user can read, with the
      * optional filters of A1 combined. An administrator reads every record; an instructor only the
      * records of the materias assigned to them, so filtering by a materia outside that scope
-     * returns an empty page. {@code studentId} is the apprentice profile id, the same identity the
-     * session registration uses and the response exposes.
+     * returns an empty page. An apprentice reads only their own records (UC011, step 1), which is
+     * what lets them pick the F marks to justify. {@code studentId} is the apprentice profile id,
+     * the same identity the session registration uses and the response exposes.
      *
      * @param pageable the pagination information, 20 records per page by default.
      * @param classSectionId the materia to filter by (optional).
@@ -115,7 +116,15 @@ public class AttendanceResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the page of records.
      */
     @GetMapping("")
-    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    @PreAuthorize(
+        "hasAnyAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\", \"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\", \"" +
+            AuthoritiesConstants.APPRENTICE +
+            "\")"
+    )
     public ResponseEntity<List<AttendanceDTO>> getAllAttendances(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "classSectionId", required = false) String classSectionId,
@@ -132,14 +141,23 @@ public class AttendanceResource {
     /**
      * {@code GET  /attendances/:id} : gets one attendance record when the current user can read
      * it. An administrator reads every record; an instructor only the records of the materias
-     * assigned to them, and a record outside that scope resolves as not found.
+     * assigned to them, and an apprentice only their own records. A record outside the readable
+     * scope resolves as not found.
      *
      * @param id the id of the record to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the record,
      *         or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    @PreAuthorize(
+        "hasAnyAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\", \"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\", \"" +
+            AuthoritiesConstants.APPRENTICE +
+            "\")"
+    )
     public ResponseEntity<AttendanceDTO> getAttendance(@PathVariable("id") String id) {
         LOG.debug("REST request to get Attendance : {}", id);
         return ResponseUtil.wrapOrNotFound(attendanceService.findOneForCurrentUser(id));

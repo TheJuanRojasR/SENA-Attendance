@@ -36,8 +36,9 @@ public interface AttendanceService {
 
     /**
      * Gets a page of the attendance history the current user can read (A1): every record for an
-     * administrator, and only the records of the assigned materias for an instructor. The filters
-     * are optional and combine with each other and with that scope.
+     * administrator, only the records of the assigned materias for an instructor, and only their
+     * own records for an apprentice. The filters are optional and combine with each other and
+     * with that scope.
      *
      * @param classSectionId the materia to filter by (may be null for every materia).
      * @param date the session date to filter by (may be null for every date).
@@ -56,7 +57,8 @@ public interface AttendanceService {
 
     /**
      * Gets one attendance record when the current user can read it: every record for an
-     * administrator, and only the records of the assigned materias for an instructor.
+     * administrator, only the records of the assigned materias for an instructor, and only their
+     * own records for an apprentice.
      *
      * @param id the id of the record.
      * @return the record, or empty when it does not exist or is outside the readable scope.

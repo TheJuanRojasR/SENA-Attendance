@@ -79,6 +79,8 @@ class AttendanceResourceIT {
 
     private static final String INSTRUCTOR_LOGIN = "session_instructor";
     private static final String OTHER_INSTRUCTOR_LOGIN = "other_session_instructor";
+    private static final String FIRST_STUDENT_LOGIN = "session_student_1";
+    private static final String SECOND_STUDENT_LOGIN = "session_student_2";
 
     @Autowired
     private ObjectMapper om;
@@ -231,8 +233,8 @@ class AttendanceResourceIT {
         documentType = persistDocumentType();
         instructor = persistProfile(INSTRUCTOR_LOGIN, "1000000001", AuthoritiesConstants.INSTRUCTOR);
         otherInstructor = persistProfile(OTHER_INSTRUCTOR_LOGIN, "1000000002", AuthoritiesConstants.INSTRUCTOR);
-        firstStudent = persistProfile("session_student_1", "2000000001", AuthoritiesConstants.APPRENTICE);
-        secondStudent = persistProfile("session_student_2", "2000000002", AuthoritiesConstants.APPRENTICE);
+        firstStudent = persistProfile(FIRST_STUDENT_LOGIN, "2000000001", AuthoritiesConstants.APPRENTICE);
+        secondStudent = persistProfile(SECOND_STUDENT_LOGIN, "2000000002", AuthoritiesConstants.APPRENTICE);
         unenrolledStudent = persistProfile("session_student_3", "2000000003", AuthoritiesConstants.APPRENTICE);
 
         LocalDate today = LocalDate.now(clock);
@@ -554,11 +556,71 @@ class AttendanceResourceIT {
         restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isNotFound());
     }
 
+    // -----------------------------------------------------------------
+    // UC011 — The apprentice reads their own attendance
+    // -----------------------------------------------------------------
+
     @Test
-    @WithMockUser(username = "attendance_apprentice", authorities = AuthoritiesConstants.APPRENTICE)
-    void getAttendancesAsApprenticeReturnsForbidden() throws Exception {
-        restAttendanceMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
-        restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    @WithMockUser(username = FIRST_STUDENT_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getAttendancesAsApprenticeReturnsOnlyOwnRecords() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(otherClassSection, secondStudent, sessionDate, StateAttendance.PRESENTE);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].student.id").value(firstStudent.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = FIRST_STUDENT_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getAttendancesAsApprenticeFilteredByFallaReturnsOnlyOwnFailures() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.PRESENTE);
+        persistAttendance(classSection, firstStudent, sessionDate.minusDays(1), StateAttendance.FALLA);
+        persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("stateAttendance", StateAttendance.FALLA.name()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].student.id").value(firstStudent.getId()))
+            .andExpect(jsonPath("$[0].stateAttendance").value(StateAttendance.FALLA.toString()))
+            .andExpect(jsonPath("$[0].date").value(sessionDate.minusDays(1).toString()));
+    }
+
+    @Test
+    @WithMockUser(username = FIRST_STUDENT_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getAttendancesAsApprenticeCannotWidenTheScopeWithAnotherStudentFilter() throws Exception {
+        persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.FALLA);
+        persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL).param("studentId", secondStudent.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "0"))
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = FIRST_STUDENT_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getOwnAttendanceAsApprenticeReadsIt() throws Exception {
+        Attendance attendance = persistAttendance(classSection, firstStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc
+            .perform(get(ENTITY_API_URL_ID, attendance.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(attendance.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = FIRST_STUDENT_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void getAttendanceOfAnotherApprenticeReturnsNotFound() throws Exception {
+        Attendance attendance = persistAttendance(classSection, secondStudent, sessionDate, StateAttendance.FALLA);
+
+        restAttendanceMockMvc.perform(get(ENTITY_API_URL_ID, attendance.getId())).andExpect(status().isNotFound());
     }
 
     @Test
