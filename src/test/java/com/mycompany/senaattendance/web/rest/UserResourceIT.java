@@ -67,6 +67,11 @@ class UserResourceIT {
     private static final String DEFAULT_PHONE = "3001234567";
     private static final String UPDATED_PHONE = "3007654321";
 
+    /**
+     * A role that is neither seeded nor assignable, used to verify the role guard.
+     */
+    private static final String UNKNOWN_ROLE = "ROLE_UNKNOWN";
+
     @Autowired
     private ObjectMapper om;
 
@@ -274,16 +279,16 @@ class UserResourceIT {
     }
 
     @Test
-    void createUserWithCoordinatorRoleReturnsBadRequest() throws Exception {
+    void createUserWithUnknownRoleReturnsBadRequest() throws Exception {
         AdminCreateUserVM userVM = new AdminCreateUserVM();
-        userVM.setEmail("coord.rejected@example.com");
+        userVM.setEmail("unknown.role.rejected@example.com");
         userVM.setPassword("Passw0rd!");
         userVM.setFirstName("John");
         userVM.setFirstLastName("Doe");
-        userVM.setDocumentNumber("COORDREJ01");
+        userVM.setDocumentNumber("UNKNOWNREJ01");
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
-        userVM.setRole(AuthoritiesConstants.COORDINATOR);
+        userVM.setRole(UNKNOWN_ROLE);
 
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
@@ -515,12 +520,12 @@ class UserResourceIT {
     }
 
     @Test
-    void updateUserCoordinatorRoleRejected() throws Exception {
+    void updateUserUnknownRoleRejected() throws Exception {
         User target = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
 
         AdminUpdateUserVM vm = new AdminUpdateUserVM();
         vm.setId(target.getId());
-        vm.setRole(AuthoritiesConstants.COORDINATOR);
+        vm.setRole(UNKNOWN_ROLE);
 
         restUserMockMvc
             .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))

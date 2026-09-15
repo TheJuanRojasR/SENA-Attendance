@@ -644,7 +644,7 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createTimeSlotAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         TimeSlotDTO timeSlotDTO = timeSlotMapper.toDto(timeSlot);
@@ -657,7 +657,7 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateTimeSlotAsNonAdminReturnsForbidden() throws Exception {
         insertedTimeSlot = timeSlotRepository.save(timeSlot);
 
@@ -672,7 +672,7 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateTimeSlotAsNonAdminReturnsForbidden() throws Exception {
         insertedTimeSlot = timeSlotRepository.save(timeSlot);
 
@@ -687,7 +687,7 @@ class TimeSlotResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteTimeSlotAsNonAdminReturnsForbidden() throws Exception {
         insertedTimeSlot = timeSlotRepository.save(timeSlot);
 

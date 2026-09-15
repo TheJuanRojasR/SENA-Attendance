@@ -562,8 +562,8 @@ class AttendanceResourceIT {
     }
 
     @Test
-    @WithMockUser(username = "attendance_coordinator", authorities = AuthoritiesConstants.COORDINATOR)
-    void getAttendancesAsCoordinatorReturnsForbidden() throws Exception {
+    @WithMockUser(username = "attendance_user", authorities = AuthoritiesConstants.USER)
+    void getAttendancesAsPlainUserReturnsForbidden() throws Exception {
         restAttendanceMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
     }
 

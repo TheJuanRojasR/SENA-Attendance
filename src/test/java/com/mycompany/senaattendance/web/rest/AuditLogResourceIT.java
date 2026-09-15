@@ -521,8 +521,8 @@ class AuditLogResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
-    void getAllAuditLogsAsCoordinatorReturnsForbidden() throws Exception {
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllAuditLogsAsApprenticeReturnsForbidden() throws Exception {
         restAuditLogMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
     }
 

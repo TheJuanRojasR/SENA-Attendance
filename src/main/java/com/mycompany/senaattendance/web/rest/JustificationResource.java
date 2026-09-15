@@ -57,15 +57,7 @@ public class JustificationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> createJustification(@Valid @RequestBody JustificationDTO justificationDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save Justification : {}", justificationDTO);
@@ -89,15 +81,7 @@ public class JustificationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> updateJustification(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody JustificationDTO justificationDTO
@@ -132,15 +116,7 @@ public class JustificationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> partialUpdateJustification(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody JustificationDTO justificationDTO
@@ -208,15 +184,7 @@ public class JustificationResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<Void> deleteJustification(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Justification : {}", id);
         justificationService.delete(id);

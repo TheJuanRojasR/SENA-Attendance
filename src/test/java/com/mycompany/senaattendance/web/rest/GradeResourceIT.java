@@ -1509,7 +1509,7 @@ class GradeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void postponeGradeAsNonAdminReturnsForbidden() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
@@ -1565,7 +1565,7 @@ class GradeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void resumeGradeAsNonAdminReturnsForbidden() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         GradeDTO gradeDTO = persistGrade(StateGrade.APLAZADA, today.plusDays(10), today.plusDays(40));
@@ -1619,7 +1619,7 @@ class GradeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void cancelGradeAsNonAdminReturnsForbidden() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         GradeDTO gradeDTO = persistGrade(StateGrade.PENDIENTE, today.plusDays(10), today.plusDays(40));
@@ -1763,7 +1763,7 @@ class GradeResourceIT {
     // -----------------------------------------------------------------
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createGradeAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         GradeDTO gradeDTO = gradeMapper.toDto(grade);
@@ -1776,7 +1776,7 @@ class GradeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateGradeAsNonAdminReturnsForbidden() throws Exception {
         insertedGrade = gradeRepository.save(grade);
 
@@ -1791,7 +1791,7 @@ class GradeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateGradeAsNonAdminReturnsForbidden() throws Exception {
         insertedGrade = gradeRepository.save(grade);
 
@@ -1806,7 +1806,7 @@ class GradeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteGradeAsNonAdminReturnsForbidden() throws Exception {
         insertedGrade = gradeRepository.save(grade);
 

@@ -63,8 +63,7 @@ public class UserService {
     private static final long RESET_KEY_VALIDITY_MINUTES = 30;
 
     /**
-     * Roles that can be assigned to an account. {@code ROLE_COORDINATOR} is deliberately excluded:
-     * the current use cases no longer contemplate it.
+     * Roles that can be assigned to an account: Administrator, Instructor and Apprentice.
      */
     private static final Set<String> ASSIGNABLE_ROLES = Set.of(
         AuthoritiesConstants.ADMIN,

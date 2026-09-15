@@ -983,7 +983,7 @@ class ClassScheduleResourceIT {
     // -----------------------------------------------------------------
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createClassScheduleAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         ClassScheduleDTO classScheduleDTO = classScheduleMapper.toDto(classSchedule);
@@ -996,7 +996,7 @@ class ClassScheduleResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateClassScheduleAsNonAdminReturnsForbidden() throws Exception {
         insertedClassSchedule = classScheduleRepository.save(classSchedule);
 
@@ -1011,7 +1011,7 @@ class ClassScheduleResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateClassScheduleAsNonAdminReturnsForbidden() throws Exception {
         insertedClassSchedule = classScheduleRepository.save(classSchedule);
 
@@ -1026,7 +1026,7 @@ class ClassScheduleResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteClassScheduleAsNonAdminReturnsForbidden() throws Exception {
         insertedClassSchedule = classScheduleRepository.save(classSchedule);
 

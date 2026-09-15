@@ -1304,7 +1304,7 @@ class ClassSectionResourceIT {
     // -----------------------------------------------------------------
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createClassSectionAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         ClassSectionDTO classSectionDTO = classSectionMapper.toDto(classSection);
@@ -1317,7 +1317,7 @@ class ClassSectionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateClassSectionAsNonAdminReturnsForbidden() throws Exception {
         insertedClassSection = classSectionRepository.save(classSection);
 
@@ -1332,7 +1332,7 @@ class ClassSectionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateClassSectionAsNonAdminReturnsForbidden() throws Exception {
         insertedClassSection = classSectionRepository.save(classSection);
 
@@ -1347,7 +1347,7 @@ class ClassSectionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteClassSectionAsNonAdminReturnsForbidden() throws Exception {
         insertedClassSection = classSectionRepository.save(classSection);
 
@@ -1361,7 +1361,7 @@ class ClassSectionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void getMyClassSectionsAsNonAdminReturnsForbidden() throws Exception {
         restClassSectionMockMvc.perform(get(ENTITY_API_URL + "/mine")).andExpect(status().isForbidden());
     }

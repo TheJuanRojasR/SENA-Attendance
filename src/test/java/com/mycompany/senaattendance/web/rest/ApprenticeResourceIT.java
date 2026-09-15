@@ -447,8 +447,8 @@ class ApprenticeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
-    void enrollWithCoordinatorIsForbidden() throws Exception {
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void enrollWithApprenticeIsForbidden() throws Exception {
         restApprenticeMockMvc
             .perform(
                 post(ENTITY_API_URL)
@@ -748,7 +748,7 @@ class ApprenticeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void unlinkWithNonAdminIsForbidden() throws Exception {
         restApprenticeMockMvc
             .perform(

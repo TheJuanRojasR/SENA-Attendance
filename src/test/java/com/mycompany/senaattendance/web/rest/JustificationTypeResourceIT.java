@@ -577,7 +577,7 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         JustificationTypeDTO justificationTypeDTO = justificationTypeMapper.toDto(justificationType);
@@ -590,7 +590,7 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
         insertedJustificationType = justificationTypeRepository.save(justificationType);
 
@@ -605,7 +605,7 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
         insertedJustificationType = justificationTypeRepository.save(justificationType);
 
@@ -620,7 +620,7 @@ class JustificationTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteJustificationTypeAsNonAdminReturnsForbidden() throws Exception {
         insertedJustificationType = justificationTypeRepository.save(justificationType);
 

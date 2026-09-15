@@ -525,7 +525,7 @@ class ModalityResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createModalityAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         ModalityDTO modalityDTO = modalityMapper.toDto(modality);
@@ -538,7 +538,7 @@ class ModalityResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateModalityAsNonAdminReturnsForbidden() throws Exception {
         insertedModality = modalityRepository.save(modality);
 
@@ -553,7 +553,7 @@ class ModalityResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateModalityAsNonAdminReturnsForbidden() throws Exception {
         insertedModality = modalityRepository.save(modality);
 
@@ -568,7 +568,7 @@ class ModalityResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteModalityAsNonAdminReturnsForbidden() throws Exception {
         insertedModality = modalityRepository.save(modality);
 

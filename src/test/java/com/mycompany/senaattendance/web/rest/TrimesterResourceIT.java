@@ -681,7 +681,7 @@ class TrimesterResourceIT {
     }
 
     // -----------------------------------------------------------------
-    // PATCH state-based edit rules (COORDINATOR)
+    // PATCH state-based edit rules
     // -----------------------------------------------------------------
 
     private Trimester saveTrimester(String name, LocalDate start, LocalDate end, StateTrimester status) {
@@ -862,7 +862,7 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createTrimesterAsNonAdminReturnsForbidden() throws Exception {
         TrimesterDTO dto = trimesterMapper.toDto(
             new Trimester().name("Forbidden").startDate(LocalDate.now().plusDays(5)).endDate(LocalDate.now().plusDays(60))
@@ -873,7 +873,7 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateTrimesterAsNonAdminReturnsForbidden() throws Exception {
         TrimesterDTO dto = trimesterMapper.toDto(
             new Trimester().name("Forbidden").startDate(LocalDate.now().plusDays(5)).endDate(LocalDate.now().plusDays(60))
@@ -885,7 +885,7 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateTrimesterAsNonAdminReturnsForbidden() throws Exception {
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId("000000000000000000000001");
@@ -895,7 +895,7 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteTrimesterAsNonAdminReturnsForbidden() throws Exception {
         restTrimesterMockMvc
             .perform(delete(ENTITY_API_URL + "/000000000000000000000001").accept(MediaType.APPLICATION_JSON))
@@ -903,7 +903,7 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void getTrimesterAsNonAdminReturnsForbidden() throws Exception {
         insertedTrimester = trimesterRepository.save(trimester);
 

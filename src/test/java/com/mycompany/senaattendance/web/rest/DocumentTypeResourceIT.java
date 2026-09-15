@@ -729,7 +729,7 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         DocumentTypeDTO documentTypeDTO = documentTypeMapper.toDto(documentType);
@@ -742,7 +742,7 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
         insertedDocumentType = documentTypeRepository.save(documentType);
 
@@ -757,7 +757,7 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
         insertedDocumentType = documentTypeRepository.save(documentType);
 
@@ -772,7 +772,7 @@ class DocumentTypeResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteDocumentTypeAsNonAdminReturnsForbidden() throws Exception {
         insertedDocumentType = documentTypeRepository.save(documentType);
 

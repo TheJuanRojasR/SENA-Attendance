@@ -454,7 +454,7 @@ class ClassExceptionResourceIT {
     // -----------------------------------------------------------------
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createClassExceptionAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         ClassExceptionDTO classExceptionDTO = classExceptionMapper.toDto(classException);
@@ -467,7 +467,7 @@ class ClassExceptionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateClassExceptionAsNonAdminReturnsForbidden() throws Exception {
         insertedClassException = classExceptionRepository.save(classException);
 
@@ -482,7 +482,7 @@ class ClassExceptionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateClassExceptionAsNonAdminReturnsForbidden() throws Exception {
         insertedClassException = classExceptionRepository.save(classException);
 
@@ -497,7 +497,7 @@ class ClassExceptionResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteClassExceptionAsNonAdminReturnsForbidden() throws Exception {
         insertedClassException = classExceptionRepository.save(classException);
 
