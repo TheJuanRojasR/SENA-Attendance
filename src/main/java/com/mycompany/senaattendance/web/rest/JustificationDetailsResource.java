@@ -85,7 +85,11 @@ public class JustificationDetailsResource {
     }
 
     /**
-     * {@code PUT  /justification-details/:id} : Updates an existing justificationDetails.
+     * {@code PUT  /justification-details/:id} : updates an existing justificationDetails with the
+     * apprentice correction contract (UC011, A5). Only the correction fields are copied; the
+     * state, the rejection reason, the response date and the relationships are server-owned and
+     * keep their persisted values, so a payload that tries to decide the part is ignored instead
+     * of applied.
      *
      * @param id the id of the justificationDetailsDTO to save.
      * @param justificationDetailsDTO the justificationDetailsDTO to update.
@@ -119,7 +123,10 @@ public class JustificationDetailsResource {
     }
 
     /**
-     * {@code PATCH  /justification-details/:id} : Partial updates given fields of an existing justificationDetails, field will ignore if it is null
+     * {@code PATCH  /justification-details/:id} : partial updates given fields of an existing
+     * justificationDetails with the same apprentice correction contract as the PUT (UC011, A5):
+     * only the correction fields are copied, the decision fields are server-owned and a rejected
+     * part reopens as pending inside its correction window.
      *
      * @param id the id of the justificationDetailsDTO to save.
      * @param justificationDetailsDTO the justificationDetailsDTO to update.

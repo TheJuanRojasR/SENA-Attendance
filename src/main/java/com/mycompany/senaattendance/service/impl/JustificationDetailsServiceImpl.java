@@ -41,8 +41,9 @@ import org.springframework.stereotype.Service;
  * reads and as {@code notYourJustification} on writes. An administrator keeps full access, and
  * the instructor decision over a part arrives with UC010.
  *
- * <p>The partial update is the A5 correction: it only ever copies the apprentice correction
- * text and file, so a client can never decide a part through this endpoint.
+ * <p>The update and partial update are the A5 correction: they only ever copy the apprentice
+ * correction text and file, so a client can never decide a part through those endpoints. The
+ * remaining fields, including the decision, are server-owned.
  */
 @Service
 public class JustificationDetailsServiceImpl implements JustificationDetailsService {
@@ -98,14 +99,24 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         return justificationDetailsMapper.toDto(justificationDetails);
     }
 
+    /**
+     * Updates a part with the same correction contract as the partial update (UC011, A5): only
+     * the apprentice correction text and file are copied from the payload, while the state, the
+     * rejection reason, the response date and the relationships keep their persisted values.
+     * A payload that carries those server-owned fields still has to satisfy the required fields
+     * of the DTO, but their values are ignored, so a client can never decide a part through this
+     * endpoint.
+     *
+     * @param justificationDetailsDTO the correction payload.
+     * @return the persisted part.
+     * @throws BadRequestAlertException with the key {@code notYourJustification} for a non-admin
+     *         whose part does not exist or belongs to another apprentice, or the correction keys
+     *         of {@link #applyCorrection(JustificationDetails, JustificationDetailsDTO)}.
+     */
     @Override
     public JustificationDetailsDTO update(JustificationDetailsDTO justificationDetailsDTO) {
         LOG.debug("Request to update JustificationDetails : {}", justificationDetailsDTO);
-        validatePersistedOwnership(justificationDetailsDTO.getId());
-        validateJustificationOwnership(idOf(justificationDetailsDTO.getJustification()));
-        JustificationDetails justificationDetails = justificationDetailsMapper.toEntity(justificationDetailsDTO);
-        justificationDetails = justificationDetailsRepository.save(justificationDetails);
-        return justificationDetailsMapper.toDto(justificationDetails);
+        return partialUpdate(justificationDetailsDTO).orElseThrow(JustificationDetailsServiceImpl::idNotFound);
     }
 
     @Override
@@ -339,23 +350,6 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
     }
 
     /**
-     * Rejects a write whose persisted part belongs to another apprentice.
-     *
-     * @param id the id of the part to write.
-     * @throws BadRequestAlertException with the key {@code notYourJustification}.
-     */
-    private void validatePersistedOwnership(String id) {
-        if (isCurrentUserAdmin()) {
-            return;
-        }
-        JustificationDetails justificationDetails = id == null ? null : justificationDetailsRepository.findById(id).orElse(null);
-        if (justificationDetails == null) {
-            throw notYourJustification();
-        }
-        validateOwnership(justificationDetails);
-    }
-
-    /**
      * Rejects a write whose resulting justification is not owned by the current apprentice.
      *
      * @param justificationId the id of the justification that would own the part.
@@ -451,6 +445,13 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      */
     private static BadRequestAlertException notYourJustification() {
         return new BadRequestAlertException("Solo puedes gestionar tus propias justificaciones", ENTITY_NAME, "notYourJustification");
+    }
+
+    /**
+     * @return the error thrown when the part to update does not exist.
+     */
+    private static BadRequestAlertException idNotFound() {
+        return new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
     }
 
     /**

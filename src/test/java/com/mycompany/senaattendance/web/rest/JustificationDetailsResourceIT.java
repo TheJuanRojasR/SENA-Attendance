@@ -436,7 +436,7 @@ class JustificationDetailsResourceIT {
     void updateOwnJustificationDetailsAsApprenticeSucceeds() throws Exception {
         UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
         Justification justification = persistJustification(apprentice);
-        JustificationDetails insertedDetails = persistJustificationDetails(justification);
+        JustificationDetails insertedDetails = persistPendingJustificationDetails(justification);
 
         JustificationDetails payload = justificationDetailsFor(justification);
         payload.setId(insertedDetails.getId());
@@ -522,13 +522,17 @@ class JustificationDetailsResourceIT {
         // Persist the @DBRef targets so they resolve on reload
         classSectionRepository.save(justificationDetails.getClassSection());
         justificationRepository.save(justificationDetails.getJustification());
+        // A correction only starts from a pending part
+        justificationDetails.setStateJustification(StateJustification.PENDIENTE);
+        justificationDetails.setResponseDate(null);
 
         // Initialize the database
         insertedJustificationDetails = justificationDetailsRepository.save(justificationDetails);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
 
-        // Update the justificationDetails
+        // The payload corrects the part and, at the same time, tries to decide it: the state, the
+        // rejection reason and the response date are server-owned.
         JustificationDetails updatedJustificationDetails = justificationDetailsRepository
             .findById(justificationDetails.getId())
             .orElseThrow();
@@ -547,11 +551,20 @@ class JustificationDetailsResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(om.writeValueAsBytes(justificationDetailsDTO))
             )
-            .andExpect(status().isOk());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("PENDIENTE"))
+            .andExpect(jsonPath("$.rejectionReason").value(DEFAULT_REJECTION_REASON))
+            .andExpect(jsonPath("$.correctionText").value(UPDATED_CORRECTION_TEXT));
 
         // Validate the JustificationDetails in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertPersistedJustificationDetailsToMatchAllProperties(updatedJustificationDetails);
+        JustificationDetails reloaded = justificationDetailsRepository.findById(justificationDetails.getId()).orElseThrow();
+        assertThat(reloaded.getStateJustification()).isEqualTo(StateJustification.PENDIENTE);
+        assertThat(reloaded.getRejectionReason()).isEqualTo(DEFAULT_REJECTION_REASON);
+        assertThat(reloaded.getResponseDate()).isNull();
+        assertThat(reloaded.getCorrectionText()).isEqualTo(UPDATED_CORRECTION_TEXT);
+        assertThat(reloaded.getCorrectionFileUrl()).isEqualTo(UPDATED_CORRECTION_FILE_URL);
+        assertThat(reloaded.getCorrectionFileUrlContentType()).isEqualTo(UPDATED_CORRECTION_FILE_URL_CONTENT_TYPE);
     }
 
     @Test
@@ -973,6 +986,17 @@ class JustificationDetailsResourceIT {
 
     private JustificationDetails persistJustificationDetails(Justification justification) {
         return justificationDetailsRepository.save(justificationDetailsFor(justification));
+    }
+
+    /**
+     * Persists a pending part of the given justification, which is the state a correction can
+     * start from.
+     */
+    private JustificationDetails persistPendingJustificationDetails(Justification justification) {
+        JustificationDetails part = justificationDetailsFor(justification);
+        part.setStateJustification(StateJustification.PENDIENTE);
+        part.setResponseDate(null);
+        return justificationDetailsRepository.save(part);
     }
 
     /**

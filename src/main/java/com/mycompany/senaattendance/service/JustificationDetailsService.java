@@ -20,7 +20,10 @@ public interface JustificationDetailsService {
     JustificationDetailsDTO save(JustificationDetailsDTO justificationDetailsDTO);
 
     /**
-     * Updates a justificationDetails.
+     * Updates a justificationDetails with the correction contract of A5: only the apprentice
+     * correction fields are copied, and the state, the rejection reason, the response date and
+     * the relationships keep their persisted values. A payload that carries those server-owned
+     * fields must still satisfy the required shape of the DTO, but their values are ignored.
      *
      * @param justificationDetailsDTO the entity to update.
      * @return the persisted entity.
