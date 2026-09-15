@@ -5,6 +5,9 @@ import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
@@ -21,11 +24,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service Implementation for managing {@link com.mycompany.senaattendance.domain.ClassSection}.
@@ -43,19 +48,28 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
     private final GradeRepository gradeRepository;
+    private final AttendanceRepository attendanceRepository;
+    private final ClassScheduleRepository classScheduleRepository;
+    private final ClassExceptionRepository classExceptionRepository;
 
     public ClassSectionServiceImpl(
         ClassSectionRepository classSectionRepository,
         ClassSectionMapper classSectionMapper,
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
-        GradeRepository gradeRepository
+        GradeRepository gradeRepository,
+        AttendanceRepository attendanceRepository,
+        ClassScheduleRepository classScheduleRepository,
+        ClassExceptionRepository classExceptionRepository
     ) {
         this.classSectionRepository = classSectionRepository;
         this.classSectionMapper = classSectionMapper;
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.gradeRepository = gradeRepository;
+        this.attendanceRepository = attendanceRepository;
+        this.classScheduleRepository = classScheduleRepository;
+        this.classExceptionRepository = classExceptionRepository;
     }
 
     @Override
@@ -135,10 +149,52 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         return classSectionRepository.findOneWithEagerRelationships(id).map(classSectionMapper::toDto);
     }
 
+    /**
+     * Deletes a class section and cascades the deletion to its schedules and exceptions. The
+     * class section cannot be deleted when it already has attendance records, because they are
+     * the audit trail of the subject; in that case it must be deactivated instead. A missing
+     * class section is still a silent no-op.
+     *
+     * @param id the id of the class section to delete.
+     * @throws BadRequestAlertException when the class section has attendance records.
+     */
     @Override
+    @Transactional
     public void delete(String id) {
         LOG.debug("Request to delete ClassSection : {}", id);
+        if (hasAttendance(id)) {
+            throw new BadRequestAlertException(
+                "No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación",
+                ENTITY_NAME,
+                "classSectionInUse"
+            );
+        }
+        classScheduleRepository.deleteAll(classScheduleRepository.findByClassSectionId(id));
+        classExceptionRepository.deleteAll(classExceptionRepository.findByClassSectionId(id));
         classSectionRepository.deleteById(id);
+    }
+
+    /**
+     * Resolves whether the class section already has attendance records. Attendance references
+     * the class section through a DBRef, so the id is queried as an {@link ObjectId}; a value
+     * that cannot be one cannot have attendance and is treated as absent.
+     *
+     * @param classSectionId the class section id.
+     * @return {@code true} when at least one attendance record references the class section.
+     */
+    private boolean hasAttendance(String classSectionId) {
+        if (!isObjectId(classSectionId)) {
+            return false;
+        }
+        return attendanceRepository.countByClassSection_IdIn(List.of(new ObjectId(classSectionId))) > 0;
+    }
+
+    /**
+     * @param id the candidate id.
+     * @return whether the id is a 24-hex string convertible into an {@code ObjectId}.
+     */
+    private static boolean isObjectId(String id) {
+        return id != null && id.length() == 24 && ObjectId.isValid(id);
     }
 
     @Override

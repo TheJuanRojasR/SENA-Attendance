@@ -10,11 +10,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.ClassException;
+import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
@@ -23,6 +31,9 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.mapper.ClassSectionMapper;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -79,6 +90,15 @@ class ClassSectionResourceIT {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private ClassScheduleRepository classScheduleRepository;
+
+    @Autowired
+    private ClassExceptionRepository classExceptionRepository;
+
     @Mock
     private ClassSectionRepository classSectionRepositoryMock;
 
@@ -94,6 +114,12 @@ class ClassSectionResourceIT {
     private ClassSection classSection;
 
     private ClassSection insertedClassSection;
+
+    private Attendance insertedAttendance;
+
+    private ClassSchedule insertedSchedule;
+
+    private ClassException insertedException;
 
     private final List<User> insertedInstructorUsers = new ArrayList<>();
 
@@ -230,6 +256,19 @@ class ClassSectionResourceIT {
         // Remove the extra sections seeded by the uniqueness tests
         extraInsertedClassSections.forEach(classSectionRepository::delete);
         extraInsertedClassSections.clear();
+        // Remove the documents seeded for the delete guard and cascade tests
+        if (insertedAttendance != null) {
+            attendanceRepository.delete(insertedAttendance);
+            insertedAttendance = null;
+        }
+        if (insertedSchedule != null) {
+            classScheduleRepository.delete(insertedSchedule);
+            insertedSchedule = null;
+        }
+        if (insertedException != null) {
+            classExceptionRepository.delete(insertedException);
+            insertedException = null;
+        }
         // Remove the related documents persisted for the PUT tests
         gradeRepository.deleteAll();
         userProfileRepository.deleteAll();
@@ -1114,6 +1153,70 @@ class ClassSectionResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteNonExistingClassSectionIsASilentNoOp() throws Exception {
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restClassSectionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, UUID.randomUUID().toString()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteClassSectionWithAttendanceIsRejected() throws Exception {
+        // Initialize the database
+        insertedClassSection = classSectionRepository.save(classSection);
+        insertedAttendance = attendanceRepository.save(
+            new Attendance()
+                .date(LocalDate.now(ZoneId.systemDefault()))
+                .stateAttendance(StateAttendance.PRESENTE)
+                .classSection(insertedClassSection)
+        );
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        // Deleting a class section with attendance is rejected: it must be deactivated instead
+        restClassSectionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedClassSection.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionInUse"));
+
+        // The class section and its attendance records are kept
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(classSectionRepository.existsById(insertedClassSection.getId())).isTrue();
+        assertThat(attendanceRepository.existsById(insertedAttendance.getId())).isTrue();
+    }
+
+    @Test
+    void deleteClassSectionCascadesSchedulesAndExceptions() throws Exception {
+        // Initialize the database
+        insertedClassSection = classSectionRepository.save(classSection);
+        insertedSchedule = classScheduleRepository.save(
+            new ClassSchedule()
+                .dayOfWeek(DayOfWeek.LUNES)
+                .startTime(LocalTime.of(7, 0))
+                .endTime(LocalTime.of(9, 0))
+                .classSection(insertedClassSection)
+        );
+        insertedException = classExceptionRepository.save(
+            new ClassException().date(LocalDate.now(ZoneId.systemDefault())).reason("Test exception").classSection(insertedClassSection)
+        );
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        // Deleting a class section without attendance removes it with its schedules and exceptions
+        restClassSectionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedClassSection.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
+        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(classSectionRepository.findById(insertedClassSection.getId())).isEmpty();
+        assertThat(classScheduleRepository.findById(insertedSchedule.getId())).isEmpty();
+        assertThat(classExceptionRepository.findById(insertedException.getId())).isEmpty();
     }
 
     protected long getRepositoryCount() {
