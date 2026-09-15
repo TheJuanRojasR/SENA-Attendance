@@ -8,19 +8,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Apprentice;
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
+import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -69,6 +75,12 @@ class ApprenticeResourceIT {
     private DocumentTypeRepository documentTypeRepository;
 
     @Autowired
+    private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -87,10 +99,18 @@ class ApprenticeResourceIT {
 
     private final List<Apprentice> insertedApprentices = new ArrayList<>();
 
+    private final List<ClassSection> insertedClassSections = new ArrayList<>();
+
+    private final List<Attendance> insertedAttendances = new ArrayList<>();
+
     @AfterEach
     void cleanup() {
         // Sweep any enrollment created through the API for the seeded fichas, even when a test
         // failed before tracking it.
+        insertedAttendances.forEach(attendanceRepository::delete);
+        insertedAttendances.clear();
+        insertedClassSections.forEach(classSectionRepository::delete);
+        insertedClassSections.clear();
         insertedGrades.forEach(grade -> apprenticeRepository.deleteAll(apprenticeRepository.findByGradeId(grade.getId())));
         insertedApprentices.forEach(apprenticeRepository::delete);
         insertedApprentices.clear();
@@ -196,6 +216,50 @@ class ApprenticeResourceIT {
         Map<String, Object> payload = new HashMap<>();
         payload.put("documentNumber", documentNumber);
         payload.put("grade", Map.of("id", gradeId));
+        return payload;
+    }
+
+    /**
+     * Persists a class section inside the ficha, the container of the attendance records that
+     * decide whether the unlink deletes or keeps the enrollment.
+     *
+     * @param grade the ficha the class section belongs to.
+     * @return the persisted class section.
+     */
+    private ClassSection persistClassSection(Grade grade) {
+        ClassSection classSection = new ClassSection().subjectName("Materia de prueba").isActive(true).grade(grade);
+        insertedClassSections.add(classSectionRepository.save(classSection));
+        return classSection;
+    }
+
+    /**
+     * Persists an attendance record linking the apprentice to a class section of the ficha.
+     *
+     * @param student the apprentice profile that attended.
+     * @param classSection the class section where the attendance was recorded.
+     * @return the persisted attendance.
+     */
+    private Attendance persistAttendance(UserProfile student, ClassSection classSection) {
+        Attendance attendance = new Attendance()
+            .date(LocalDate.now())
+            .stateAttendance(StateAttendance.PRESENTE)
+            .student(student)
+            .classSection(classSection);
+        insertedAttendances.add(attendanceRepository.save(attendance));
+        return attendance;
+    }
+
+    /**
+     * Builds the unlink request body, with the enrollment id and the withdrawal reason.
+     *
+     * @param apprenticeId the enrollment id.
+     * @param reason the academic state chosen as the withdrawal reason.
+     * @return the request body.
+     */
+    private Map<String, Object> unlinkPayload(String apprenticeId, StateAcademic reason) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", apprenticeId);
+        payload.put("reason", reason.name());
         return payload;
     }
 
@@ -403,5 +467,106 @@ class ApprenticeResourceIT {
     void getNonExistingApprentice() throws Exception {
         // Get the apprentice
         restApprenticeMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void unlinkApprenticeWithoutAttendanceDeletesTheRecord() throws Exception {
+        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true);
+        Grade grade = persistGrade("UC00811", StateGrade.ACTIVA);
+        Apprentice apprentice = persistEnrollment(student, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/unlinked")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(unlinkPayload(apprentice.getId(), StateAcademic.RETIRO_VOLUNTARIO)))
+            )
+            .andExpect(status().isNoContent());
+
+        assertThat(apprenticeRepository.existsById(apprentice.getId())).isFalse();
+    }
+
+    @Test
+    void unlinkApprenticeWithAttendanceKeepsTheRecordWithTheReason() throws Exception {
+        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true);
+        Grade grade = persistGrade("UC00812", StateGrade.ACTIVA);
+        Apprentice apprentice = persistEnrollment(student, grade, StateAcademic.MATRICULADO);
+        persistAttendance(student, persistClassSection(grade));
+
+        restApprenticeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/unlinked")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(unlinkPayload(apprentice.getId(), StateAcademic.APLAZADO)))
+            )
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.id").value(apprentice.getId()))
+            .andExpect(jsonPath("$.stateAcademic").value(StateAcademic.APLAZADO.name()));
+
+        Apprentice persisted = apprenticeRepository.findById(apprentice.getId()).orElseThrow();
+        assertThat(persisted.getStateAcademic()).isEqualTo(StateAcademic.APLAZADO);
+    }
+
+    @Test
+    void unlinkApprenticeWithInvalidReasonIsRejected() throws Exception {
+        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true);
+        Grade grade = persistGrade("UC00813", StateGrade.ACTIVA);
+        Apprentice apprentice = persistEnrollment(student, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/unlinked")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(unlinkPayload(apprentice.getId(), StateAcademic.MATRICULADO)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.invalidunlinkreason"));
+
+        Apprentice persisted = apprenticeRepository.findById(apprentice.getId()).orElseThrow();
+        assertThat(persisted.getStateAcademic()).isEqualTo(StateAcademic.MATRICULADO);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StateGrade.class, names = { "FINALIZADA", "APLAZADA", "CANCELADA" })
+    void unlinkApprenticeInNonOperableGradeIsRejected(StateGrade state) throws Exception {
+        UserProfile student = persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true);
+        Grade grade = persistGrade("UC00814", state);
+        Apprentice apprentice = persistEnrollment(student, grade, StateAcademic.MATRICULADO);
+
+        restApprenticeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/unlinked")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(unlinkPayload(apprentice.getId(), StateAcademic.CANCELADO)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeNotOperable"));
+
+        assertThat(apprenticeRepository.existsById(apprentice.getId())).isTrue();
+    }
+
+    @Test
+    void unlinkNonExistingApprenticeIsRejected() throws Exception {
+        restApprenticeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/unlinked")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(unlinkPayload(UUID.randomUUID().toString(), StateAcademic.CANCELADO)))
+            )
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnotfound"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void unlinkWithNonAdminIsForbidden() throws Exception {
+        restApprenticeMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/unlinked")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(unlinkPayload(UUID.randomUUID().toString(), StateAcademic.CANCELADO)))
+            )
+            .andExpect(status().isForbidden());
     }
 }

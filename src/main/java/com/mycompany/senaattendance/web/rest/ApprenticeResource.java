@@ -4,6 +4,7 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.ApprenticeService;
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
 import com.mycompany.senaattendance.web.rest.vm.EnrollApprenticeVM;
+import com.mycompany.senaattendance.web.rest.vm.UnlinkApprenticeVM;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -70,6 +71,25 @@ public class ApprenticeResource {
         return ResponseEntity.created(new URI("/api/apprentices/" + apprenticeDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, apprenticeDTO.getId()))
             .body(apprenticeDTO);
+    }
+
+    /**
+     * {@code PATCH  /apprentices/unlinked} : unlinks the enrollment from its ficha with the chosen
+     * reason (UC008, A1). Only the administrator can unlink. The id is taken from the request body.
+     *
+     * @param unlinkApprenticeVM the enrollment id and the withdrawal reason.
+     * @return the {@link ResponseEntity} with status {@code 204 (No Content)} when the record was
+     *         deleted, or {@code 200 (OK)} with the updated enrollment when its attendance history
+     *         forced the record to be kept.
+     */
+    @PatchMapping("/unlinked")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ApprenticeDTO> unlinkApprentice(@Valid @RequestBody UnlinkApprenticeVM unlinkApprenticeVM) {
+        LOG.debug("REST request to unlink Apprentice : {} with reason {}", unlinkApprenticeVM.getId(), unlinkApprenticeVM.getReason());
+        return apprenticeService
+            .unlink(unlinkApprenticeVM)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     /**

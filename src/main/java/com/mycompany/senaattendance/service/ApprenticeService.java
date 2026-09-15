@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.service.dto.ApprenticeDTO;
 import com.mycompany.senaattendance.web.rest.vm.EnrollApprenticeVM;
+import com.mycompany.senaattendance.web.rest.vm.UnlinkApprenticeVM;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,16 @@ public interface ApprenticeService {
      * @return the persisted enrollment.
      */
     ApprenticeDTO enroll(EnrollApprenticeVM enrollApprenticeVM);
+
+    /**
+     * Unlinks the enrollment from its ficha with the chosen reason (UC008, A1). When the
+     * apprentice has no attendance in the ficha the record is deleted; when it has attendance the
+     * record is kept and its academic state becomes the reason.
+     *
+     * @param unlinkApprenticeVM the enrollment id and the withdrawal reason.
+     * @return the updated enrollment when the record is kept, or empty when it was deleted.
+     */
+    Optional<ApprenticeDTO> unlink(UnlinkApprenticeVM unlinkApprenticeVM);
 
     /**
      * Get all the apprentices.
