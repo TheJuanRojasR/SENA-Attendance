@@ -57,7 +57,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Implementado    |
 | [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Implementado    |
 | [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Implementado    |
-| [UC009](#uc009--gestionar-listas-de-asistencia)     | Gestionar listas de asistencia     | Parcial         |
+| [UC009](#uc009--gestionar-listas-de-asistencia)     | Gestionar listas de asistencia     | Implementado    |
 | [UC011](#uc011--gestionar-asistencia-aprendiz)      | Gestionar asistencia (Aprendiz)    | Parcial         |
 | [UC010](#uc010--gestionar-justificaciones)          | Gestionar justificaciones          | Parcial         |
 | [UC013](#uc013--gestionar-alertas-de-inasistencia)  | Gestionar alertas de inasistencia  | No implementado |
@@ -910,12 +910,12 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 | PUT    | `/api/class-schedules`       | `ROLE_ADMIN`                     | Reemplaza; `200`. El `id` viaja **solo en el body**.                                                                      |
 | PATCH  | `/api/class-schedules`       | `ROLE_ADMIN`                     | Actualización parcial; `200`. El `id` viaja **solo en el body**.                                                          |
 | DELETE | `/api/class-schedules/{id}`  | `ROLE_ADMIN`                     | Elimina; `204`.                                                                                                           |
-| GET    | `/api/class-exceptions`      | Autenticado                      | Lista paginada de excepciones no lectivas.                                                                                |
-| GET    | `/api/class-exceptions/{id}` | Autenticado                      | Detalle de una excepción.                                                                                                 |
-| POST   | `/api/class-exceptions`      | `ROLE_ADMIN`                     | Crea; `201`.                                                                                                              |
-| PUT    | `/api/class-exceptions`      | `ROLE_ADMIN`                     | Reemplaza; `200`. El `id` viaja **solo en el body**.                                                                      |
-| PATCH  | `/api/class-exceptions`      | `ROLE_ADMIN`                     | Actualización parcial; `200`. El `id` viaja **solo en el body**.                                                          |
-| DELETE | `/api/class-exceptions/{id}` | `ROLE_ADMIN`                     | Elimina; `204`.                                                                                                           |
+| GET    | `/api/class-exceptions`      | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Lista paginada de excepciones no lectivas; el instructor ve solo las de sus materias (A4 de UC009).                       |
+| GET    | `/api/class-exceptions/{id}` | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Detalle; fuera de las materias del instructor responde `404`.                                                             |
+| POST   | `/api/class-exceptions`      | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Crea; `201`. El instructor solo en sus materias y con fecha no pasada.                                                    |
+| PUT    | `/api/class-exceptions`      | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Reemplaza; `200`. El `id` viaja **solo en el body**.                                                                      |
+| PATCH  | `/api/class-exceptions`      | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Actualización parcial; `200`. El `id` viaja **solo en el body**.                                                          |
+| DELETE | `/api/class-exceptions/{id}` | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Elimina; `204`. Una fecha pasada es un precedente y no se elimina.                                                        |
 
 **Request — `POST /api/class-sections`**
 
@@ -966,15 +966,15 @@ El `state` es un **enum persistido** (`StateGrade`) con cinco valores: `PENDIENT
 
 | Campo          | Tipo                  | Obligatorio | Reglas                  |
 | -------------- | --------------------- | ----------- | ----------------------- |
-| `date`         | string (`YYYY-MM-DD`) | Sí          | `@NotNull`.             |
+| `date`         | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; una fecha pasada no se puede crear, ni mover, ni eliminar (`400 error.pastExceptionLocked`, A4 de UC009). |
 | `reason`       | string                | Sí          | `@NotNull`, máximo 200. |
 | `classSection` | objeto                | Sí          | `@NotNull`.             |
 
 **Response:** `201 Created` con el DTO creado (`ClassSectionDTO` con `id`, `subjectName`, `isActive`, `instructor`, `grade`; `ClassScheduleDTO` con `id`, `dayOfWeek`, `startTime`, `endTime`, `trimester`, `classSection`; `ClassExceptionDTO` con `id`, `date`, `reason`, `classSection`). Las listas paginan con `X-Total-Count` y `Link`; los CRUD devuelven los errores `idexists`, `idnull`, `idnotfound` y `error.validation` (ya no existe `error.idinvalid`).
 
-**Errores:** `400 error.gradeNotOperable` ("No se pueden crear ni modificar materias en una ficha en su estado actual", E1); `400 error.classSectionNameAlreadyUsed` ("Ya existe una materia con este nombre en esta ficha", E2); `400 error.scheduleOutOfTimeSlot` ("El horario debe estar dentro de la jornada de la ficha", E3); `400 error.scheduleOverlap` ("El horario se solapa con otro horario de la ficha en ese trimestre", E4); `400 error.scheduleCrossesMidnight` ("La sesión debe iniciar y terminar el mismo día", E5); `400 error.trimesterClosed` ("No se pueden modificar los horarios: el trimestre ya fue cerrado", E6); `400 error.instructorInactive` ("El instructor seleccionado ya no está disponible, selecciona otro", E7); `400 error.classSectionInUse` ("No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación", A3); además de `error.idexists`, `error.idnull`, `error.idnotfound` y de validación; `403`; `404`.
+**Errores:** `400 error.gradeNotOperable` ("No se pueden crear ni modificar materias en una ficha en su estado actual", E1); `400 error.classSectionNameAlreadyUsed` ("Ya existe una materia con este nombre en esta ficha", E2); `400 error.scheduleOutOfTimeSlot` ("El horario debe estar dentro de la jornada de la ficha", E3); `400 error.scheduleOverlap` ("El horario se solapa con otro horario de la ficha en ese trimestre", E4); `400 error.scheduleCrossesMidnight` ("La sesión debe iniciar y terminar el mismo día", E5); `400 error.trimesterClosed` ("No se pueden modificar los horarios: el trimestre ya fue cerrado", E6); `400 error.instructorInactive` ("El instructor seleccionado ya no está disponible, selecciona otro", E7); `400 error.classSectionInUse` ("No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación", A3); `400 error.notYourClassSection` ("Solo el instructor asignado a la materia puede gestionar sus fechas no lectivas", A4 de UC009); `400 error.pastExceptionLocked` ("Una fecha no lectiva pasada solo puede modificar su motivo: el precedente no se elimina", A4 de UC009); además de `error.idexists`, `error.idnull`, `error.idnotfound` y de validación; `403`; `404`.
 
-**Notas / lo que se necesita:** reglas de UC015 implementadas. **Crear y modificar (E1):** solo en fichas `PENDIENTE` o `ACTIVA` (incluye la reactivación A4); una ficha `APLAZADA`, `CANCELADA` o `FINALIZADA` responde `400 error.gradeNotOperable`. **Nombre único (E2):** se recorta y se compara sin distinguir mayúsculas dentro de la ficha; en `PUT`/`PATCH` la materia no colisiona consigo misma. **Instructor (E7):** es opcional; si se envía, debe existir y su cuenta estar activa. **Horarios:** `dayOfWeek` es obligatorio; cada sesión debe iniciar y terminar el mismo día (E5), caer dentro de la jornada de la ficha (E3) y no solaparse con otro horario de la misma ficha en el mismo trimestre y día —de esta materia o de otra—, y los rangos adyacentes no cuentan como solapamiento (E4). **Trimestre cerrado (E6):** no se crean, modifican ni eliminan horarios de un trimestre `CERRADO`; la clasificación se hace **por fechas** con `TrimesterService.classify`, no por el `status` persistido, para que no exista una ventana de gracia tras el cierre. **Eliminar (A3):** si la materia tiene asistencias, `DELETE` responde `400 error.classSectionInUse` y debe **desactivarse** con `PATCH /api/class-sections` (`isActive: false`); si no, se elimina y borra en cascada sus horarios y excepciones. En `PUT` y `PATCH` de `class-sections`, `class-schedules` y `class-exceptions` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta, `400 error.idnull`; si no existe, `400 error.idnotfound`. Las **escrituras** de los tres resources (`POST`, `PUT`, `PATCH`, `DELETE`) quedan restringidas a `ROLE_ADMIN`; `GET /api/class-sections/mine` acepta solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN` (ya no Coordinador); los `GET` genéricos de materias (`/api/class-sections` y `/api/class-sections/{id}`) también quedan solo para `ROLE_ADMIN`, y el instructor consulta las suyas por `/mine`. Los `GET` de `class-schedules` y `class-exceptions` siguen disponibles para cualquier usuario autenticado (deuda transversal en [`docs/backend-debt.md`](./backend-debt.md)). UC015 no cambió el modelo de datos: no agrega migraciones Mongock (el próximo orden libre es 011). **Desviación conocida:** las excepciones no lectivas siguen bajo roles administrativos (`ROLE_ADMIN`), no las marca el instructor en su flujo de asistencia como describe UC009.
+**Notas / lo que se necesita:** reglas de UC015 implementadas. **Crear y modificar (E1):** solo en fichas `PENDIENTE` o `ACTIVA` (incluye la reactivación A4); una ficha `APLAZADA`, `CANCELADA` o `FINALIZADA` responde `400 error.gradeNotOperable`. **Nombre único (E2):** se recorta y se compara sin distinguir mayúsculas dentro de la ficha; en `PUT`/`PATCH` la materia no colisiona consigo misma. **Instructor (E7):** es opcional; si se envía, debe existir y su cuenta estar activa. **Horarios:** `dayOfWeek` es obligatorio; cada sesión debe iniciar y terminar el mismo día (E5), caer dentro de la jornada de la ficha (E3) y no solaparse con otro horario de la misma ficha en el mismo trimestre y día —de esta materia o de otra—, y los rangos adyacentes no cuentan como solapamiento (E4). **Trimestre cerrado (E6):** no se crean, modifican ni eliminan horarios de un trimestre `CERRADO`; la clasificación se hace **por fechas** con `TrimesterService.classify`, no por el `status` persistido, para que no exista una ventana de gracia tras el cierre. **Eliminar (A3):** si la materia tiene asistencias, `DELETE` responde `400 error.classSectionInUse` y debe **desactivarse** con `PATCH /api/class-sections` (`isActive: false`); si no, se elimina y borra en cascada sus horarios y excepciones. En `PUT` y `PATCH` de `class-sections`, `class-schedules` y `class-exceptions` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta, `400 error.idnull`; si no existe, `400 error.idnotfound`. Las **escrituras** de `class-sections` y `class-schedules` (`POST`, `PUT`, `PATCH`, `DELETE`) quedan restringidas a `ROLE_ADMIN`; las de `class-exceptions` aceptan `ROLE_ADMIN` o al **instructor asignado a la materia** (A4 de UC009, ya sin Coordinador); `GET /api/class-sections/mine` acepta solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN` (ya no Coordinador); los `GET` genéricos de materias (`/api/class-sections` y `/api/class-sections/{id}`) también quedan solo para `ROLE_ADMIN`, y el instructor consulta las suyas por `/mine`. Los `GET` de `class-schedules` siguen disponibles para cualquier usuario autenticado (deuda transversal en [`docs/backend-debt.md`](./backend-debt.md)); los `GET` de `class-exceptions` quedan acotados al instructor (solo las excepciones de sus materias). UC015 no cambió el modelo de datos: no agrega migraciones Mongock (el próximo orden libre es 013).
 
 ---
 
@@ -1048,7 +1048,7 @@ El estado académico **no viaja en el request**: el servidor fija `MATRICULADO` 
 
 **Errores:** `400 error.apprenticeInactive` (el aprendiz no existe, su cuenta no está activa o su documento no identifica a un único perfil, E1); `400 error.apprenticeAlreadyEnrolled` (ya existe un registro de ese aprendiz en esa ficha en cualquier estado, E2); `400 error.gradeNotOperable` (la ficha no está `PENDIENTE` ni `ACTIVA`, E3); `400 error.invalidunlinkreason` (el motivo no es `RETIRO_VOLUNTARIO`, `APLAZADO` ni `CANCELADO`); `400 error.idnotfound` (ficha o vínculo inexistente); `400 error.validation` con `fieldErrors` (E4: documento con formato inválido, `id` o `reason` ausentes); `403`; `404`.
 
-**Notas / lo que se necesita:** reglas de UC008 implementadas. **Vincular:** el request identifica al aprendiz por **número de documento** y el servidor resuelve el `UserProfile`; el vínculo nace con `stateAcademic = MATRICULADO` **fijado por el servidor** (el valor que envíe el cliente se ignora). El documento se valida con el mismo formato de UC001 (solo dígitos, 1–30). **E1:** el número de documento no es único por sí solo —la clave única es el par tipo + número—, así que un número compartido por más de un perfil no identifica a un aprendiz y se rechaza con `error.apprenticeInactive`, igual que una cuenta inexistente o desactivada. **E2:** `error.apprenticeAlreadyEnrolled` bloquea el reingreso a la **misma** ficha aunque el registro previo esté desvinculado. **E3:** vincular y desvincular solo operan sobre fichas `PENDIENTE` o `ACTIVA`. **A1 — Desvincular:** el id del vínculo viaja en el body de `PATCH /api/apprentices/unlinked`; sin asistencias en la ficha el registro se **elimina** (`204`) y con asistencias se **conserva** con el `stateAcademic` igual al motivo (`200`), de modo que el historial de asistencia nunca se pierde. **A2 — Consultar:** `GET /api/apprentices` acepta los cuatro filtros opcionales más la paginación estándar y devuelve del aprendiz el documento y el nombre. **Roles:** `POST` y `PATCH /unlinked` son solo `ROLE_ADMIN`; `GET` de lista y detalle quedan para `ROLE_ADMIN` o `ROLE_INSTRUCTOR`. Se retiraron los endpoints genéricos `PUT`, `PATCH` y `DELETE /api/apprentices/{id}`. UC008 no cambió el modelo de datos: no agrega migraciones Mongock (el próximo orden libre es 011). Verificación: `ApprenticeResourceIT` 34/34.
+**Notas / lo que se necesita:** reglas de UC008 implementadas. **Vincular:** el request identifica al aprendiz por **número de documento** y el servidor resuelve el `UserProfile`; el vínculo nace con `stateAcademic = MATRICULADO` **fijado por el servidor** (el valor que envíe el cliente se ignora). El documento se valida con el mismo formato de UC001 (solo dígitos, 1–30). **E1:** el número de documento no es único por sí solo —la clave única es el par tipo + número—, así que un número compartido por más de un perfil no identifica a un aprendiz y se rechaza con `error.apprenticeInactive`, igual que una cuenta inexistente o desactivada. **E2:** `error.apprenticeAlreadyEnrolled` bloquea el reingreso a la **misma** ficha aunque el registro previo esté desvinculado. **E3:** vincular y desvincular solo operan sobre fichas `PENDIENTE` o `ACTIVA`. **A1 — Desvincular:** el id del vínculo viaja en el body de `PATCH /api/apprentices/unlinked`; sin asistencias en la ficha el registro se **elimina** (`204`) y con asistencias se **conserva** con el `stateAcademic` igual al motivo (`200`), de modo que el historial de asistencia nunca se pierde. **A2 — Consultar:** `GET /api/apprentices` acepta los cuatro filtros opcionales más la paginación estándar y devuelve del aprendiz el documento y el nombre. **Roles:** `POST` y `PATCH /unlinked` son solo `ROLE_ADMIN`; `GET` de lista y detalle quedan para `ROLE_ADMIN` o `ROLE_INSTRUCTOR`. Se retiraron los endpoints genéricos `PUT`, `PATCH` y `DELETE /api/apprentices/{id}`. UC008 no cambió el modelo de datos: no agrega migraciones Mongock (el próximo orden libre es 013). Verificación: `ApprenticeResourceIT` 34/34.
 
 ---
 
@@ -1095,73 +1095,128 @@ El estado académico **no viaja en el request**: el servidor fija `MATRICULADO` 
 
 **Errores:** `401` sin sesión; `403` para roles sin permiso (solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN`); un `gradeCode` sin coincidencias o un instructor sin perfil o sin asignaciones recibe `200` con arreglo vacío. No hay claves de error nuevas: los textos de E1 y E3 los aporta el frontend.
 
-**Notas / lo que se necesita:** implementado y verificado (`ClassSectionResourceIT` 65/65). Las fichas se **derivan** de las materias porque la pertenencia del instructor a una ficha nace de sus asignaciones (`docs/use-cases.md:910`); el listado resuelve el perfil autenticado por `UserProfile` y sus materias por instructor, y no valida el estado de la cuenta. La **búsqueda** del flujo alternativo es el parámetro opcional `gradeCode` de `/mine`: coincidencia **parcial** y **sin distinguir mayúsculas** contra el `code` de la ficha, aplicada **solo entre las materias del instructor** (`docs/use-cases.md:916`); sin coincidencias responde `200 []`. El payload es **aditivo**: la ficha anidada expone `state`, `startDate`, `endDate` y `program { id, name }` además de `id` y `code`, y la materia mantiene `subjectName` e `isActive`. El `instructor` anidado sigue exponiendo solo `{ id, documentNumber }`: para "mis materias" el instructor es el propio usuario autenticado, así que no aporta enriquecerlo. **Decisiones:** no se pagina (la spec no lo pide y es una lista personal); no se filtran las materias inactivas ni las fichas no operativas porque E2 pide mostrarlas con su estado (`docs/use-cases.md:921`); y un instructor sin materias asignadas recibe `200 []`, con el mensaje de E3 a cargo del frontend. Los `GET` genéricos de fichas y materias (`/api/grades`, `/api/grades/{id}`, `/api/grades/active`, `/api/class-sections` y `/api/class-sections/{id}`) quedan reservados a `ROLE_ADMIN`, así que el instructor no lista fichas ni materias ajenas por esa vía. Sin migración Mongock (próximo orden libre: 011).
+**Notas / lo que se necesita:** implementado y verificado (`ClassSectionResourceIT` 65/65). Las fichas se **derivan** de las materias porque la pertenencia del instructor a una ficha nace de sus asignaciones (`docs/use-cases.md:910`); el listado resuelve el perfil autenticado por `UserProfile` y sus materias por instructor, y no valida el estado de la cuenta. La **búsqueda** del flujo alternativo es el parámetro opcional `gradeCode` de `/mine`: coincidencia **parcial** y **sin distinguir mayúsculas** contra el `code` de la ficha, aplicada **solo entre las materias del instructor** (`docs/use-cases.md:916`); sin coincidencias responde `200 []`. El payload es **aditivo**: la ficha anidada expone `state`, `startDate`, `endDate` y `program { id, name }` además de `id` y `code`, y la materia mantiene `subjectName` e `isActive`. El `instructor` anidado sigue exponiendo solo `{ id, documentNumber }`: para "mis materias" el instructor es el propio usuario autenticado, así que no aporta enriquecerlo. **Decisiones:** no se pagina (la spec no lo pide y es una lista personal); no se filtran las materias inactivas ni las fichas no operativas porque E2 pide mostrarlas con su estado (`docs/use-cases.md:921`); y un instructor sin materias asignadas recibe `200 []`, con el mensaje de E3 a cargo del frontend. Los `GET` genéricos de fichas y materias (`/api/grades`, `/api/grades/{id}`, `/api/grades/active`, `/api/class-sections` y `/api/class-sections/{id}`) quedan reservados a `ROLE_ADMIN`, así que el instructor no lista fichas ni materias ajenas por esa vía. Sin migración Mongock (próximo orden libre: 013).
 
 ---
 
 ## UC009 — Gestionar listas de asistencia
 
-**Módulo:** Asistencia | **Actor:** Instructor | **Estado:** Parcial
+**Módulo:** Asistencia | **Actor:** Instructor | **Estado:** Implementado
 
-**Feature:** Registro y consulta de asistencia por materia y fecha de sesión. En el código la asistencia es un CRUD plano; no existe aún la sesión con guardado masivo.
+**Feature:** Registro de la asistencia por **sesión** (materia + fecha) con guardado masivo de las marcaciones confirmadas, edición puntual del historial (A2), consulta con filtros acotada a las materias del instructor (A1) y administración de las fechas no lectivas de la materia (A4). El instructor solo marca `PRESENTE` o `FALLA`; `JUSTIFICADA` llega por UC010.
 
 **Endpoints:**
 
-| Método | Ruta                    | Acceso                                               | Descripción                   |
-| ------ | ----------------------- | ---------------------------------------------------- | ----------------------------- |
-| GET    | `/api/attendances`      | Autenticado                                          | Lista paginada de registros.  |
-| GET    | `/api/attendances/{id}` | Autenticado                                          | Detalle.                      |
-| POST   | `/api/attendances`      | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Crea un registro; `201`.      |
-| PUT    | `/api/attendances/{id}` | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Reemplaza; `200`.             |
-| PATCH  | `/api/attendances/{id}` | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Actualización parcial; `200`. |
-| DELETE | `/api/attendances/{id}` | `ROLE_ADMIN`, `ROLE_COORDINATOR` o `ROLE_INSTRUCTOR` | Elimina; `204`.               |
+| Método | Ruta                       | Acceso                           | Descripción                                                                                                                                                        |
+| ------ | -------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PUT    | `/api/attendances/session` | `ROLE_INSTRUCTOR`                | Registra la sesión de una materia en una fecha con las marcaciones confirmadas; `200` con la sesión y sus conteos. Guardar la misma sesión otra vez es idempotente. |
+| PATCH  | `/api/attendances/{id}`    | `ROLE_INSTRUCTOR`                | Edición A2: cambia solo el estado de un registro de sus materias; `200`.                                                                                            |
+| GET    | `/api/attendances`         | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Historial **paginado** (20 por defecto) con filtros opcionales; el instructor ve solo los registros de sus materias.                                                |
+| GET    | `/api/attendances/{id}`    | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Detalle; un registro fuera de las materias del instructor responde `404`.                                                                                           |
 
-**Request — `POST /api/attendances`**
+**Endpoints retirados:** `POST /api/attendances`, `PUT /api/attendances/{id}` y `DELETE /api/attendances/{id}` responden `405`. El UC solo contempla registrar la sesión, editarla (A2) y consultarla: un registro de asistencia no se crea suelto ni se elimina.
+
+**Request — `PUT /api/attendances/session`**
 
 ```json
 {
-  "date": "2026-09-15",
-  "stateAttendance": "PRESENTE",
   "classSection": { "id": "665f1c2a9e13b7a1f2c8d9e90" },
-  "student": { "id": "665f1c2a9e13b7a1f2c8d9ea0" }
+  "date": "2026-09-15",
+  "attendances": [
+    { "studentId": "665f1c2a9e13b7a1f2c8d9ea0", "stateAttendance": "PRESENTE" },
+    { "studentId": "665f1c2a9e13b7a1f2c8d9eb0", "stateAttendance": "FALLA" }
+  ]
 }
 ```
 
-| Campo                     | Tipo                  | Obligatorio | Reglas                                                                                                    |
-| ------------------------- | --------------------- | ----------- | --------------------------------------------------------------------------------------------------------- |
-| `date`                    | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; no se valida contra trimestre, ficha, futuro ni excepciones.                                  |
-| `stateAttendance`         | string                | Sí          | `@NotNull`; enum `StateAttendance`: `PRESENTE`, `FALLA`, `JUSTIFICADA`, `TARDE`. El UC usa `A`, `F`, `J`. |
-| `classSection`            | objeto                | Sí          | `@NotNull`; materia.                                                                                      |
-| `student`                 | objeto                | Sí          | `@NotNull`; aprendiz (`UserProfile`).                                                                     |
-| `modifiedByJustification` | objeto                | No          | Referencia a la justificación que cambió el estado a justificada.                                         |
+| Campo                          | Tipo                  | Obligatorio | Reglas                                                                                                                       |
+| ------------------------------ | --------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `classSection`                 | objeto                | Sí          | `@NotNull`; `{ id }` de una materia existente.                                                                                |
+| `date`                         | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; fecha de la sesión, sujeta a las guardas de fecha (ver notas).                                                    |
+| `attendances`                  | arreglo               | Sí          | `@NotNull`; solo las marcaciones confirmadas. El backend **no** rellena con `PRESENTE` a los aprendices ausentes del payload. |
+| `attendances[].studentId`      | string                | Sí          | `@NotNull`; id del `UserProfile` del aprendiz (no el número de documento).                                                    |
+| `attendances[].stateAttendance` | string                | Sí          | `@NotNull`; enum `StateAttendance`: el instructor solo puede enviar `PRESENTE` o `FALLA`.                                     |
+| `attendances[].id`             | string                | No          | Eco opcional de un registro devuelto antes; el servidor lo **ignora** porque el upsert es por materia, aprendiz y fecha.      |
 
-**Response:** `201 Created`
+**Response — `PUT /api/attendances/session`:** `200 OK`
+
+```json
+{
+  "classSection": { "id": "665f1c2a9e13b7a1f2c8d9e90", "subjectName": "Programación orientada a objetos" },
+  "date": "2026-09-15",
+  "records": [
+    {
+      "id": "665f1c2a9e13b7a1f2c8d9ec0",
+      "date": "2026-09-15",
+      "stateAttendance": "PRESENTE",
+      "classSection": { "id": "665f1c2a9e13b7a1f2c8d9e90", "subjectName": "Programación orientada a objetos" },
+      "student": {
+        "id": "665f1c2a9e13b7a1f2c8d9ea0",
+        "documentNumber": "1029384756",
+        "firstName": "Ana",
+        "firstLastName": "Gómez"
+      },
+      "modifiedByJustification": null
+    }
+  ],
+  "complete": false,
+  "enrolledCount": 25,
+  "recordedCount": 1
+}
+```
+
+`records` contiene los registros persistidos de esa materia y fecha (mismo shape que `AttendanceDTO`); la sesión es **completa** cuando `recordedCount == enrolledCount`, donde `enrolledCount` cuenta los aprendices `MATRICULADO` de la ficha y `recordedCount` los registros de la fecha. Los aprendices ausentes del payload quedan **sin registro** (A5).
+
+**Request — `PATCH /api/attendances/{id}`** (edición A2)
 
 ```json
 {
   "id": "665f1c2a9e13b7a1f2c8d9ec0",
-  "date": "2026-09-15",
-  "stateAttendance": "PRESENTE",
-  "classSection": {
-    "id": "665f1c2a9e13b7a1f2c8d9e90",
-    "subjectName": "Programación orientada a objetos",
-    "isActive": true
-  },
-  "student": {
-    "id": "665f1c2a9e13b7a1f2c8d9ea0",
-    "firstName": "Ana",
-    "firstLastName": "Gómez",
-    "documentNumber": "1029384756",
-    "phoneNumber": "3001234567",
-    "documentType": { "id": "64f1c2a9e13b7a1f2c8d9e01", "name": "Cédula de ciudadanía", "initials": "CC" }
-  },
-  "modifiedByJustification": null
+  "stateAttendance": "FALLA"
 }
 ```
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403`; `404`.
+| Campo              | Tipo   | Obligatorio | Reglas                                                                                    |
+| ------------------ | ------ | ----------- | ------------------------------------------------------------------------------------------ |
+| `id`               | string | Sí          | Debe coincidir con el de la ruta; si falta, `400 error.idnull`, y si no coincide, `error.idinvalid`. |
+| `stateAttendance`  | string | Sí          | Solo `PRESENTE` o `FALLA`; cualquier otro valor (o su ausencia) responde `400 error.invalidAttendanceState`. |
 
-**Notas / lo que se necesita:** faltan las reglas del UC: guardado por sesión con todos los aprendices (E5), default `PRESENTE` (A), estado "sesión incompleta", validación de fecha dentro del trimestre activo y del rango de la ficha (E2/E3), bloqueo por trimestre cerrado (E1), verificación de excepción no lectiva (E4), restricción al instructor asignado y auditoría de cambios con valor anterior/nuevo. Cualquier usuario autenticado puede leer asistencias de cualquier ficha y `DELETE` está permitido: el UC no contempla borrar registros de asistencia. Las excepciones no lectivas se administran con el CRUD genérico de UC015.
+**Response — `PATCH /api/attendances/{id}`:** `200 OK` con el `AttendanceDTO` actualizado; `404` si el registro no existe. Un registro de otra materia responde `400 error.notYourClassSection`.
+
+**Request — `POST /api/class-exceptions`** (A4; contrato completo en UC015)
+
+```json
+{
+  "date": "2026-09-21",
+  "reason": "Festivo",
+  "classSection": { "id": "665f1c2a9e13b7a1f2c8d9e90" }
+}
+```
+
+Un instructor solo gestiona las excepciones de sus materias; una fecha pasada es un precedente que solo admite cambiar el motivo.
+
+**Errores:**
+
+| Código | errorKey (cuerpo `message`)         | Causa                                                                                                        |
+| ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 400    | `error.idnotfound`                  | La materia de la sesión no existe.                                                                            |
+| 400    | `error.classSectionWithoutInstructor` | E6: la materia no tiene instructor asignado.                                                                |
+| 400    | `error.notYourClassSection`         | El instructor autenticado no es el asignado a la materia (sesión, A2 y A4 de excepciones).                    |
+| 400    | `error.futureSessionDate`           | E3: la fecha de la sesión es posterior a hoy.                                                                 |
+| 400    | `error.trimesterClosed`             | E1: el trimestre que contiene la fecha está `CERRADO`.                                                        |
+| 400    | `error.dateOutOfTrimester`          | E2: la fecha no cae en ningún trimestre o cae en uno `FUTURO`.                                                |
+| 400    | `error.dateOutOfGradeRange`         | E2: la fecha está fuera del rango de fechas de la ficha.                                                      |
+| 400    | `error.nonTeachingDate`             | E4: la fecha está marcada como no lectiva para la materia.                                                    |
+| 400    | `error.noActiveApprentices`         | E5: la ficha no tiene aprendices `MATRICULADO`.                                                               |
+| 400    | `error.invalidAttendanceState`      | El estado no es `PRESENTE` ni `FALLA` (incluye el PATCH sin estado).                                          |
+| 400    | `error.studentNotEnrolled`          | Una marcación apunta a un aprendiz que no está matriculado en la ficha.                                       |
+| 400    | `error.idnull` / `error.idinvalid`  | PATCH sin `id` o con un `id` distinto del de la ruta.                                                         |
+| 400    | `error.pastExceptionLocked`         | A4: una fecha no lectiva pasada solo admite cambiar el motivo; no se crea, mueve ni elimina una pasada.        |
+| 400    | `error.validation`                  | Fallo de validación del cuerpo.                                                                               |
+| 403    | —                                   | Rol sin permiso: la sesión y la edición A2 son del instructor; las excepciones aceptan Admin o instructor.    |
+| 404    | —                                   | Registro inexistente o fuera del alcance de lectura del instructor.                                            |
+
+**Notas / lo que se necesita:** implementado y verificado (`AttendanceResourceIT` 43/43, `AuditLogResourceIT` 25/25, `ClassExceptionResourceIT` 37/37 + migraciones 011/012 + 229 unitarias). **Sesión:** `PUT /api/attendances/session` hace upsert por materia, aprendiz y fecha; los aprendices ausentes del payload **quedan sin registro** y la sesión se reporta incompleta (`complete = recordedCount == enrolledCount`), el A5 de la spec. El backend **no** rellena con `PRESENTE` a los no enviados: el cliente presenta la lista en A por defecto y al guardar envía todas las marcaciones confirmadas; guardar la misma sesión dos veces es idempotente y la respuesta siempre es `200` con la sesión persistida. **Guardas de la sesión (en orden):** materia inexistente (`idnotfound`), materia sin instructor (`classSectionWithoutInstructor`, E6), instructor ajeno (`notYourClassSection`), fecha futura (`futureSessionDate`, E3), trimestre cerrado (`trimesterClosed`, E1), fecha fuera del trimestre vigente (`dateOutOfTrimester`, E2), fecha fuera del rango de la ficha (`dateOutOfGradeRange`, E2), fecha no lectiva (`nonTeachingDate`, E4), ficha sin aprendices matriculados (`noActiveApprentices`, E5) y, por cada marcación, estado inválido (`invalidAttendanceState`) o aprendiz no matriculado (`studentNotEnrolled`). Todo se valida antes de escribir, así que una sesión rechazada no persiste nada. **Edición A2:** `PATCH /api/attendances/{id}` es solo del instructor asignado, solo cambia `stateAttendance` a `PRESENTE` o `FALLA` y bloquea el trimestre cerrado; un registro ajeno responde `400 notYourClassSection` y un trimestre cerrado, `400 trimesterClosed`. **Consulta A1:** los `GET` aceptan `ROLE_ADMIN` o `ROLE_INSTRUCTOR`; el instructor solo lee los registros de sus materias (un id ajeno responde `404`) y los filtros opcionales `classSectionId`, `date`, `studentId` (id del `UserProfile`) y `stateAttendance` se combinan entre sí y con ese alcance mediante la paginación estándar (`page`/`size`/`sort`, `X-Total-Count` y `Link`). **Auditoría:** cada cambio real de estado (sesión y PATCH) escribe un `AuditLog` con `previousState`, `newState`, `editDate`, `modifiedBy` y `attendance`; crear un registro no genera log y reescribir el mismo estado tampoco. `AuditLogResource` quedó solo para `ROLE_ADMIN`. **A4 — excepciones no lectivas:** además del Administrador, el instructor asignado gestiona las de sus materias (`/api/class-exceptions`, contrato en UC015); el rol Coordinador ya no participa. Una fecha pasada es un precedente: no se puede crear una pasada, ni cambiar la fecha o la materia de una pasada, ni eliminarla (`pastExceptionLocked`); solo se admite cambiar el motivo. Los `GET` de excepciones quedan acotados al instructor. **Estados y migraciones:** `StateAttendance` es `PRESENTE`, `FALLA` y `JUSTIFICADA`; el instructor nunca marca `JUSTIFICADA` (llega por UC010). `TARDE` se retiró con la migración Mongock **011** (`MigrateAttendanceTardeToPresente`) y la **012** (`MigrateAuditLogTardeToPresente`) reescribe `TARDE`→`PRESENTE` en `previous_state`/`new_state` de `audit_log`, porque los documentos legacy rompían la deserialización. No hay más migraciones de datos: el próximo orden libre es **013**.
 
 ---
 

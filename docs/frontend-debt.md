@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (15 UCs implementadas y 6 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (16 UCs implementadas y 5 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -354,7 +354,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 **Estado del backend:** implementado. El CRUD de materias (`ClassSection`) aplica nombre único por ficha (E2), reglas de horarios contra la jornada de la ficha (E3), no solapamiento (E4) y mismo día (E5), bloqueo de fichas no operables (E1) y de trimestres cerrados por fechas (E6), instructor opcional con cuenta activa (E7) y borrado bloqueado con asistencias más cascada de horarios y excepciones (A3). Ver [`docs/api-contracts.md#uc015--gestionar-materias`](./api-contracts.md#uc015--gestionar-materias).
 
-**Estado del frontend:** pendiente. **Cambios incompatibles:** `PUT` y `PATCH` de `/api/class-sections`, `/api/class-schedules` y `/api/class-exceptions` ya no llevan `/{id}` (el `id` va **solo en el body**); el `instructor` pasó a ser **opcional**; `dayOfWeek` es **obligatorio** en los horarios; todas las escrituras de los tres resources quedan restringidas a `ROLE_ADMIN`; y `GET /api/class-sections/mine` ya no acepta Coordinador (solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN`). El frontend stock de JHipster sigue armando `PUT`/`PATCH` con el `id` en la ruta, envía `dayOfWeek` como opcional y muestra la pantalla a cualquier rol. Además, `GET /api/class-sections` y `GET /api/class-sections/{id}` quedan restringidos a `ROLE_ADMIN` (**cambio incompatible**: la pantalla stock de materias responde `403` a los roles no admin; el Instructor consulta las suyas por `GET /api/class-sections/mine`, UC017).
+**Estado del frontend:** pendiente. **Cambios incompatibles:** `PUT` y `PATCH` de `/api/class-sections`, `/api/class-schedules` y `/api/class-exceptions` ya no llevan `/{id}` (el `id` va **solo en el body**); el `instructor` pasó a ser **opcional**; `dayOfWeek` es **obligatorio** en los horarios; las escrituras de materias y horarios quedan restringidas a `ROLE_ADMIN` y las de excepciones aceptan `ROLE_ADMIN` o al **instructor asignado a la materia** (A4 de UC009); y `GET /api/class-sections/mine` ya no acepta Coordinador (solo `ROLE_INSTRUCTOR` o `ROLE_ADMIN`). El frontend stock de JHipster sigue armando `PUT`/`PATCH` con el `id` en la ruta, envía `dayOfWeek` como opcional y muestra la pantalla a cualquier rol. Además, `GET /api/class-sections` y `GET /api/class-sections/{id}` quedan restringidos a `ROLE_ADMIN` (**cambio incompatible**: la pantalla stock de materias responde `403` a los roles no admin; el Instructor consulta las suyas por `GET /api/class-sections/mine`, UC017).
 
 | #   | Ítem                                                                                                                                                                                                                                                                             | Estado      |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -367,7 +367,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 7   | No ofrecer crear ni editar materias en fichas fuera de `PENDIENTE`/`ACTIVA` (incluida la reactivación A4): el backend responde `400 error.gradeNotOperable` (E1).                                                                                                                 | `Pendiente` |
 | 8   | No permitir crear, editar ni eliminar horarios de un trimestre **cerrado** (el cliente puede calcularlo por fechas); el backend responde `400 error.trimesterClosed` (E6) con la clasificación por fechas, sin ventana de gracia.                                                 | `Pendiente` |
 | 9   | Al eliminar una materia con asistencias, manejar `400 error.classSectionInUse` con el mensaje del UC y ofrecer **desactivarla** con `PATCH /api/class-sections` (`isActive: false`, `id` en el body) en lugar de reintentar. Si no tiene asistencias, el backend borra en cascada sus horarios y excepciones. | `Pendiente` |
-| 10  | Mostrar la **gestión de materias, horarios y excepciones solo a `ROLE_ADMIN`**: el backend restringe las escrituras a ese rol y responde `403` a los demás. Las lecturas genéricas de materias (`GET /api/class-sections` y `GET /api/class-sections/{id}`) también quedan solo para `ROLE_ADMIN` (**cambio incompatible**: la pantalla stock de materias deja de funcionar para roles no admin; el Instructor usa `/api/class-sections/mine`). Los `GET` de horarios y excepciones siguen abiertos a cualquier autenticado (deuda en [`docs/backend-debt.md`](./backend-debt.md)). | `Pendiente` |
+| 10  | Mostrar la **gestión de materias y horarios solo a `ROLE_ADMIN`**: el backend restringe esas escrituras a ese rol y responde `403` a los demás. Las **excepciones no lectivas** también las gestiona el **instructor asignado a la materia** (A4 de UC009), no solo el Admin. Las lecturas genéricas de materias (`GET /api/class-sections` y `GET /api/class-sections/{id}`) también quedan solo para `ROLE_ADMIN` (**cambio incompatible**: la pantalla stock de materias deja de funcionar para roles no admin; el Instructor usa `/api/class-sections/mine`). Los `GET` de horarios siguen abiertos a cualquier autenticado (deuda en [`docs/backend-debt.md`](./backend-debt.md)) y los de excepciones quedan acotados al instructor. | `Pendiente` |
 
 ---
 
@@ -409,13 +409,47 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC009 — Gestionar listas de asistencia
+
+**Estado del backend:** implementado. El registro pasó de un CRUD plano a una **sesión por materia y fecha** (`PUT /api/attendances/session`) con guardado masivo e idempotente y sesión incompleta derivada (A5); la edición A2 es `PATCH /api/attendances/{id}`, el historial se consulta con filtros y los endpoints genéricos de alta/borrado responden `405`. El instructor solo marca `PRESENTE` o `FALLA` (`JUSTIFICADA` llega por UC010) y el backend bloquea fechas futuras, trimestres cerrados o fuera de vigencia, fechas fuera del rango de la ficha, fechas no lectivas, fichas sin matriculados y materias ajenas. Ver [`docs/api-contracts.md#uc009--gestionar-listas-de-asistencia`](./api-contracts.md#uc009--gestionar-listas-de-asistencia).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** `POST /api/attendances`, `PUT /api/attendances/{id}` y `DELETE /api/attendances/{id}` fueron **retirados** y responden `405`; el estado `TARDE` se eliminó del enum y fue migrado a `PRESENTE` (el formulario stock todavía lo ofrece); la sesión **no se rellena sola** con `PRESENTE` (los aprendices no enviados quedan sin registro y la sesión se muestra incompleta); y los `GET` de asistencia quedaron restringidos a `ROLE_ADMIN` o al instructor, que solo ve los registros de sus materias.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                     | Estado      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reemplazar el CRUD genérico por la sesión: enviar `{ classSection: { id }, date, attendances: [{ studentId, stateAttendance }] }` a `PUT /api/attendances/session`. El `studentId` es el **id del `UserProfile`** (no el número de documento) y la respuesta trae `records`, `complete`, `enrolledCount` y `recordedCount`. | `Pendiente` |
+| 2   | Presentar la lista con todos en `PRESENTE` por defecto y enviar al guardar **solo las marcaciones confirmadas**: el backend no rellena los ausentes. Un guardado parcial deja la sesión **incompleta** (A5); usar `complete`/`enrolledCount`/`recordedCount` para avisar y permitir reenviar los faltantes. Guardar de nuevo la misma sesión es idempotente. | `Pendiente` |
+| 3   | Quitar `TARDE` de la UI (enum, etiquetas y filtros): el instructor solo ofrece `PRESENTE` y `FALLA`; `JUSTIFICADA` es de solo lectura en este flujo (llega por UC010). | `Pendiente` |
+| 4   | Editar un registro con `PATCH /api/attendances/{id}` enviando `{ id, stateAttendance }` con `PRESENTE` o `FALLA`; solo aplica a materias propias y con el trimestre activo. | `Pendiente` |
+| 5   | Historial (A1): `GET /api/attendances` paginado (`page`/`size`, `X-Total-Count`/`Link`, 20 por defecto) con filtros opcionales `classSectionId`, `date`, `studentId` y `stateAttendance`; el detalle fuera del alcance del instructor responde `404`. | `Pendiente` |
+| 6   | Ocultar las acciones de crear y eliminar registro: los endpoints retirados responden `405`; la asistencia solo se registra por sesión y no se elimina. | `Pendiente` |
+| 7   | Gestionar las **fechas no lectivas (A4)** con `/api/class-exceptions` (contrato en UC015): el instructor opera solo sobre sus materias y una fecha pasada es un precedente que no se puede crear, mover ni eliminar (solo cambiar el motivo). | `Pendiente` |
+| 8   | Mapear las guardas de la sesión a mensajes de UI (ver claves nuevas abajo) y no ofrecer fechas futuras, no lectivas, de trimestres cerrados o fuera de la ficha/trimestre. | `Pendiente` |
+
+### Claves i18n (`src/main/webapp/i18n/es/`)
+
+| Clave                                | Texto esperado (sugerido)                                                                                     | Dónde se usa                                                              | Estado     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------- |
+| `error.futureSessionDate`            | "No puedes registrar asistencia para fechas futuras."                                                          | Registro de sesión (UC009-E3).                                            | **Falta**  |
+| `error.dateOutOfTrimester`           | "La fecha seleccionada está fuera del trimestre vigente."                                                      | Registro de sesión (UC009-E2).                                            | **Falta**  |
+| `error.dateOutOfGradeRange`          | "La fecha está fuera del rango de fechas de la ficha."                                                         | Registro de sesión (UC009-E2).                                            | **Falta**  |
+| `error.nonTeachingDate`              | "Esta fecha está marcada como no lectiva, no se puede registrar asistencia."                                   | Registro de sesión (UC009-E4).                                            | **Falta**  |
+| `error.noActiveApprentices`          | "No hay aprendices activos en esta ficha."                                                                     | Registro de sesión (UC009-E5).                                            | **Falta**  |
+| `error.invalidAttendanceState`       | "La asistencia solo se puede registrar o editar como Presente o Falla."                                        | Registro de sesión y edición A2 (UC009).                                  | **Falta**  |
+| `error.studentNotEnrolled`           | "El aprendiz no está matriculado en esta ficha."                                                               | Registro de sesión (UC009).                                               | **Falta**  |
+| `error.classSectionWithoutInstructor` | "Esta materia no tiene instructor asignado. Contacta al Administrador."                                        | Registro de sesión (UC009-E6).                                            | **Falta**  |
+| `error.pastExceptionLocked`          | "Una fecha no lectiva pasada solo puede modificar su motivo: el precedente no se elimina."                     | Fechas no lectivas (UC009-A4).                                            | **Falta**  |
+| `error.notYourClassSection`          | "Solo el instructor asignado a la materia puede gestionar este registro."                                      | Sesión, edición y fechas no lectivas (UC009); **compartida con UC015**.   | **Falta**  |
+| `error.trimesterClosed`              | "No se puede modificar: el trimestre ya fue cerrado." (neutralizar el texto actual, que solo habla de horarios). | Asistencia (UC009-E1) y horarios (UC015-E6); **clave compartida**.        | **Falta**  |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
 
 | UC    | Nombre                          | Contrato                                              |
 | ----- | ------------------------------- | ----------------------------------------------------- |
-| UC009 | Gestionar listas de asistencia  | [`docs/api-contracts.md`](./api-contracts.md) — UC009 |
 | UC010 | Gestionar justificaciones       | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
 | UC011 | Gestionar asistencia (Aprendiz) | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
 | UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
@@ -483,11 +517,21 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.scheduleOutOfTimeSlot`  | "El horario debe estar dentro de la jornada de la ficha."                                          | Alta/edición de horario (UC015-E3).                    |
 | `error.scheduleOverlap`        | "El horario se solapa con otro horario de la ficha en ese trimestre."                              | Alta/edición de horario (UC015-E4).                    |
 | `error.gradeNotOperable`       | "La ficha no permite esta operación en su estado actual."                                            | Vinculación/desvinculación de aprendiz (UC008-E3) y alta/edición de materia (UC015-E1); **clave compartida**, el texto debe servir para ambos formularios. |
-| `error.trimesterClosed`        | "No se pueden modificar los horarios: el trimestre ya fue cerrado."                                | Alta/edición/eliminación de horario (UC015-E6).        |
+| `error.trimesterClosed`        | "No se puede modificar: el trimestre ya fue cerrado."                                              | Asistencia (UC009-E1) y horarios (UC015-E6); **clave compartida**, el texto debe servir para ambos contextos. |
 | `error.classSectionInUse`      | "No es posible eliminar la materia: tiene registros de asistencia. Puedes desactivarla para retirarla de operación." | Eliminación de materia (UC015-A3).                     |
 | `error.apprenticeInactive`     | "Aprendiz no existe o no está activo."                                                              | Vinculación de aprendiz (UC008-E1).                    |
 | `error.apprenticeAlreadyEnrolled` | "Este aprendiz ya tiene un registro en esta ficha."                                              | Vinculación de aprendiz (UC008-E2).                    |
 | `error.invalidunlinkreason`    | "El motivo de desvinculación no es válido."                                                         | Desvinculación de aprendiz (UC008-A1).                 |
+| `error.notYourClassSection`    | "Solo el instructor asignado a la materia puede gestionar este registro."                           | Sesión, edición y fechas no lectivas (UC009); **compartida con UC015**. |
+| `error.classSectionWithoutInstructor` | "Esta materia no tiene instructor asignado. Contacta al Administrador."                      | Registro de sesión (UC009-E6).                         |
+| `error.futureSessionDate`      | "No puedes registrar asistencia para fechas futuras."                                               | Registro de sesión (UC009-E3).                         |
+| `error.dateOutOfTrimester`     | "La fecha seleccionada está fuera del trimestre vigente."                                           | Registro de sesión (UC009-E2).                         |
+| `error.dateOutOfGradeRange`    | "La fecha está fuera del rango de fechas de la ficha."                                              | Registro de sesión (UC009-E2).                         |
+| `error.nonTeachingDate`        | "Esta fecha está marcada como no lectiva, no se puede registrar asistencia."                        | Registro de sesión (UC009-E4).                         |
+| `error.noActiveApprentices`    | "No hay aprendices activos en esta ficha."                                                          | Registro de sesión (UC009-E5).                         |
+| `error.invalidAttendanceState` | "La asistencia solo se puede registrar o editar como Presente o Falla."                             | Registro de sesión y edición A2 (UC009).               |
+| `error.studentNotEnrolled`     | "El aprendiz no está matriculado en esta ficha."                                                    | Registro de sesión (UC009).                            |
+| `error.pastExceptionLocked`    | "Una fecha no lectiva pasada solo puede modificar su motivo: el precedente no se elimina."          | Fechas no lectivas (UC009-A4).                         |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
