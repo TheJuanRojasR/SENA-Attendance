@@ -1,11 +1,17 @@
 package com.mycompany.senaattendance.service.impl;
 
+import com.mycompany.senaattendance.domain.ClassException;
+import com.mycompany.senaattendance.domain.ClassSchedule;
+import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
@@ -29,6 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -67,6 +74,12 @@ public class GradeServiceImpl implements GradeService {
 
     private final ApprenticeRepository apprenticeRepository;
 
+    private final AttendanceRepository attendanceRepository;
+
+    private final ClassScheduleRepository classScheduleRepository;
+
+    private final ClassExceptionRepository classExceptionRepository;
+
     private final Clock clock;
 
     public GradeServiceImpl(
@@ -77,6 +90,9 @@ public class GradeServiceImpl implements GradeService {
         TimeSlotRepository timeSlotRepository,
         ClassSectionRepository classSectionRepository,
         ApprenticeRepository apprenticeRepository,
+        AttendanceRepository attendanceRepository,
+        ClassScheduleRepository classScheduleRepository,
+        ClassExceptionRepository classExceptionRepository,
         Clock clock
     ) {
         this.gradeRepository = gradeRepository;
@@ -86,6 +102,9 @@ public class GradeServiceImpl implements GradeService {
         this.timeSlotRepository = timeSlotRepository;
         this.classSectionRepository = classSectionRepository;
         this.apprenticeRepository = apprenticeRepository;
+        this.attendanceRepository = attendanceRepository;
+        this.classScheduleRepository = classScheduleRepository;
+        this.classExceptionRepository = classExceptionRepository;
         this.clock = clock;
     }
 
@@ -199,10 +218,68 @@ public class GradeServiceImpl implements GradeService {
         return gradeRepository.findOneWithEagerRelationships(id).map(gradeMapper::toDto);
     }
 
+    /**
+     * Deletes a ficha only when it has neither apprentices nor attendance records; a ficha in
+     * use must be cancelled instead. When the guard passes, the ficha disappears with all of
+     * its information: its class sections are deleted together with their schedules and
+     * exceptions. A missing ficha is still a silent no-op.
+     */
     @Override
+    @Transactional
     public void delete(String id) {
         LOG.debug("Request to delete Grade : {}", id);
+        List<ClassSection> classSections = classSectionRepository.findByGradeId(id);
+        if (!apprenticeRepository.findByGradeId(id).isEmpty() || hasAttendance(classSections)) {
+            throw new BadRequestAlertException(
+                "No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha",
+                ENTITY_NAME,
+                "gradeInUse"
+            );
+        }
+        cascadeDeleteClassSections(classSections);
         gradeRepository.deleteById(id);
+    }
+
+    /**
+     * Deletes the ficha's class sections along with their schedules and exceptions.
+     *
+     * @param classSections the ficha's class sections.
+     */
+    private void cascadeDeleteClassSections(List<ClassSection> classSections) {
+        classSections.forEach(classSection -> {
+            classScheduleRepository.deleteAll(classScheduleRepository.findByClassSectionId(classSection.getId()));
+            classExceptionRepository.deleteAll(classExceptionRepository.findByClassSectionId(classSection.getId()));
+        });
+        if (!classSections.isEmpty()) {
+            classSectionRepository.deleteAll(classSections);
+        }
+    }
+
+    /**
+     * Resolves the multi-hop path from a ficha to its attendance records: the ficha's class
+     * sections are mapped to {@link ObjectId} and counted, the same way
+     * {@code TrimesterServiceImpl.hasAttendance} does for a trimester.
+     *
+     * @param classSections the ficha's class sections.
+     * @return {@code true} when at least one attendance record exists in the class sections.
+     */
+    private boolean hasAttendance(List<ClassSection> classSections) {
+        List<ObjectId> classSectionIds = classSections
+            .stream()
+            .map(ClassSection::getId)
+            .filter(GradeServiceImpl::isObjectId)
+            .map(ObjectId::new)
+            .distinct()
+            .toList();
+        return !classSectionIds.isEmpty() && attendanceRepository.countByClassSection_IdIn(classSectionIds) > 0;
+    }
+
+    /**
+     * @param id the candidate id string.
+     * @return whether the string is a valid 24-hex {@code ObjectId} string.
+     */
+    private static boolean isObjectId(String id) {
+        return id != null && ObjectId.isValid(id);
     }
 
     // --------------------------- New methods ---------------------------

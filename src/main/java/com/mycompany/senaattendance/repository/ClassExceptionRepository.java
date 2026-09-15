@@ -22,4 +22,15 @@ public interface ClassExceptionRepository extends MongoRepository<ClassException
 
     @Query("{'id': ?0}")
     Optional<ClassException> findOneWithEagerRelationships(String id);
+
+    /**
+     * Finds the exceptions that reference the given class section. Used to cascade the
+     * deletion of a ficha onto the exceptions of its class sections.
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @return the exceptions whose {@code classSection} reference matches {@code classSectionId}.
+     */
+    // ------- SEARCH CLASS EXCEPTIONS BY CLASS SECTION ID -------
+    @Query("{ 'classSection._id': ?0 }")
+    List<ClassException> findByClassSectionId(String classSectionId);
 }

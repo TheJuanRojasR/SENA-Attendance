@@ -11,14 +11,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Apprentice;
+import com.mycompany.senaattendance.domain.Attendance;
+import com.mycompany.senaattendance.domain.ClassException;
+import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Modality;
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
+import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
@@ -32,6 +40,7 @@ import com.mycompany.senaattendance.service.dto.ProgramDTO;
 import com.mycompany.senaattendance.service.dto.TimeSlotDTO;
 import com.mycompany.senaattendance.service.mapper.GradeMapper;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -101,6 +110,15 @@ class GradeResourceIT {
     @Autowired
     private ApprenticeRepository apprenticeRepository;
 
+    @Autowired
+    private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private ClassScheduleRepository classScheduleRepository;
+
+    @Autowired
+    private ClassExceptionRepository classExceptionRepository;
+
     @Mock
     private GradeService gradeServiceMock;
 
@@ -114,6 +132,12 @@ class GradeResourceIT {
     private ClassSection insertedClassSection;
 
     private Apprentice insertedApprentice;
+
+    private Attendance insertedAttendance;
+
+    private ClassSchedule insertedSchedule;
+
+    private ClassException insertedException;
 
     /**
      * Create an entity for this test.
@@ -177,6 +201,18 @@ class GradeResourceIT {
 
     @AfterEach
     void cleanup() {
+        if (insertedAttendance != null) {
+            attendanceRepository.delete(insertedAttendance);
+            insertedAttendance = null;
+        }
+        if (insertedSchedule != null) {
+            classScheduleRepository.delete(insertedSchedule);
+            insertedSchedule = null;
+        }
+        if (insertedException != null) {
+            classExceptionRepository.delete(insertedException);
+            insertedException = null;
+        }
         if (insertedClassSection != null) {
             classSectionRepository.delete(insertedClassSection);
             insertedClassSection = null;
@@ -1743,6 +1779,94 @@ class GradeResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    void deleteNonExistingGradeIsASilentNoOp() throws Exception {
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restGradeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, UUID.randomUUID().toString()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    // -----------------------------------------------------------------
+    // Delete guard and cascade
+    // -----------------------------------------------------------------
+
+    @Test
+    void deleteGradeWithApprenticesReturnsBadRequest() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+        persistApprentice(insertedGrade);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restGradeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, grade.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(gradeRepository.existsById(grade.getId())).isTrue();
+    }
+
+    @Test
+    void deleteGradeWithAttendanceReturnsBadRequest() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+        ClassSection classSection = persistClassSection(insertedGrade);
+        insertedAttendance = attendanceRepository.save(
+            new Attendance()
+                .date(LocalDate.now(ZoneId.systemDefault()))
+                .stateAttendance(StateAttendance.PRESENTE)
+                .classSection(classSection)
+        );
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restGradeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, grade.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.gradeInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(gradeRepository.existsById(grade.getId())).isTrue();
+        assertThat(attendanceRepository.existsById(insertedAttendance.getId())).isTrue();
+    }
+
+    @Test
+    void deleteGradeCascadesClassSectionsSchedulesAndExceptions() throws Exception {
+        insertedGrade = gradeRepository.save(grade);
+        ClassSection classSection = persistClassSection(insertedGrade);
+        insertedSchedule = classScheduleRepository.save(
+            new ClassSchedule()
+                .dayOfWeek(DayOfWeek.LUNES)
+                .startTime(LocalTime.of(7, 0))
+                .endTime(LocalTime.of(9, 0))
+                .classSection(classSection)
+        );
+        insertedException = classExceptionRepository.save(
+            new ClassException().date(LocalDate.now(ZoneId.systemDefault())).reason("Test exception").classSection(classSection)
+        );
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+        long classSectionsBeforeDelete = classSectionRepository.count();
+        long schedulesBeforeDelete = classScheduleRepository.count();
+        long exceptionsBeforeDelete = classExceptionRepository.count();
+
+        restGradeMockMvc
+            .perform(delete(ENTITY_API_URL_ID, grade.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
+        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(gradeRepository.existsById(grade.getId())).isFalse();
+        assertThat(classSectionRepository.count()).isEqualTo(classSectionsBeforeDelete - 1);
+        assertThat(classScheduleRepository.count()).isEqualTo(schedulesBeforeDelete - 1);
+        assertThat(classExceptionRepository.count()).isEqualTo(exceptionsBeforeDelete - 1);
+        assertThat(classSectionRepository.findById(classSection.getId())).isEmpty();
+        assertThat(classScheduleRepository.findById(insertedSchedule.getId())).isEmpty();
+        assertThat(classExceptionRepository.findById(insertedException.getId())).isEmpty();
     }
 
     protected long getRepositoryCount() {

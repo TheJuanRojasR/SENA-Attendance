@@ -3,13 +3,18 @@ package com.mycompany.senaattendance.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.mycompany.senaattendance.domain.Apprentice;
+import com.mycompany.senaattendance.domain.ClassException;
+import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Modality;
@@ -17,6 +22,9 @@ import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
+import com.mycompany.senaattendance.repository.AttendanceRepository;
+import com.mycompany.senaattendance.repository.ClassExceptionRepository;
+import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
@@ -36,6 +44,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -57,6 +66,8 @@ class GradeServiceImplTest {
 
     private static final String UPDATED_CODE = "9876543210";
 
+    private static final String CLASS_SECTION_ID = "65f1a2b3c4d5e6f7a8b9c0d1";
+
     @Mock
     private GradeRepository gradeRepository;
 
@@ -77,6 +88,15 @@ class GradeServiceImplTest {
 
     @Mock
     private ApprenticeRepository apprenticeRepository;
+
+    @Mock
+    private AttendanceRepository attendanceRepository;
+
+    @Mock
+    private ClassScheduleRepository classScheduleRepository;
+
+    @Mock
+    private ClassExceptionRepository classExceptionRepository;
 
     @Mock
     private Clock clock;
@@ -1032,6 +1052,75 @@ class GradeServiceImplTest {
             .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("idnotfound"));
 
         verify(gradeRepository, never()).save(any(Grade.class));
+    }
+
+    // -----------------------------------------------------------------
+    // delete() in-use guard and cascade
+    // -----------------------------------------------------------------
+
+    @Test
+    void deleteRejectsFichaWithApprentices() {
+        when(classSectionRepository.findByGradeId("g-1")).thenReturn(List.of());
+        when(apprenticeRepository.findByGradeId("g-1")).thenReturn(List.of(new Apprentice()));
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.delete("g-1"))
+            .satisfies(ex -> {
+                assertThat(ex.getErrorKey()).isEqualTo("gradeInUse");
+                assertThat(ex.getProblemDetailWithCause().getTitle()).isEqualTo(
+                    "No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha"
+                );
+            });
+
+        verify(gradeRepository, never()).deleteById(anyString());
+        verify(classSectionRepository, never()).deleteAll(anyList());
+        verifyNoInteractions(attendanceRepository);
+    }
+
+    @Test
+    void deleteRejectsFichaWithAttendance() {
+        when(classSectionRepository.findByGradeId("g-1")).thenReturn(List.of(new ClassSection().id(CLASS_SECTION_ID)));
+        when(apprenticeRepository.findByGradeId("g-1")).thenReturn(List.of());
+        when(attendanceRepository.countByClassSection_IdIn(List.of(new ObjectId(CLASS_SECTION_ID)))).thenReturn(1L);
+
+        assertThatExceptionOfType(BadRequestAlertException.class)
+            .isThrownBy(() -> gradeService.delete("g-1"))
+            .satisfies(ex -> assertThat(ex.getErrorKey()).isEqualTo("gradeInUse"));
+
+        // The ficha-to-attendance hop maps the class section id to ObjectId, as the trimester guard does.
+        verify(attendanceRepository).countByClassSection_IdIn(List.of(new ObjectId(CLASS_SECTION_ID)));
+        verify(gradeRepository, never()).deleteById(anyString());
+    }
+
+    @Test
+    void deleteWithoutAssociationsCascadesClassSectionsSchedulesAndExceptions() {
+        ClassSection classSection = new ClassSection().id(CLASS_SECTION_ID);
+        ClassSchedule schedule = new ClassSchedule().id("schedule-1");
+        ClassException exception = new ClassException().id("exception-1");
+        when(classSectionRepository.findByGradeId("g-1")).thenReturn(List.of(classSection));
+        when(apprenticeRepository.findByGradeId("g-1")).thenReturn(List.of());
+        when(attendanceRepository.countByClassSection_IdIn(List.of(new ObjectId(CLASS_SECTION_ID)))).thenReturn(0L);
+        when(classScheduleRepository.findByClassSectionId(CLASS_SECTION_ID)).thenReturn(List.of(schedule));
+        when(classExceptionRepository.findByClassSectionId(CLASS_SECTION_ID)).thenReturn(List.of(exception));
+
+        gradeService.delete("g-1");
+
+        verify(classScheduleRepository).deleteAll(List.of(schedule));
+        verify(classExceptionRepository).deleteAll(List.of(exception));
+        verify(classSectionRepository).deleteAll(List.of(classSection));
+        verify(gradeRepository).deleteById("g-1");
+    }
+
+    @Test
+    void deleteOfMissingFichaIsASilentNoOp() {
+        when(classSectionRepository.findByGradeId("missing")).thenReturn(List.of());
+        when(apprenticeRepository.findByGradeId("missing")).thenReturn(List.of());
+
+        gradeService.delete("missing");
+
+        verify(gradeRepository).deleteById("missing");
+        verify(classSectionRepository, never()).deleteAll(anyList());
+        verifyNoInteractions(attendanceRepository, classScheduleRepository, classExceptionRepository);
     }
 
     /**

@@ -34,4 +34,15 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
     // ------- SEARCH CLASS SECTION BY TRIMESTER ID -------
     @Query("{ 'trimester._id': ?0 }")
     List<ClassSchedule> findByTrimesterId(String trimesterId);
+
+    /**
+     * Finds the schedules that reference the given class section. Used to cascade the
+     * deletion of a ficha onto the schedules of its class sections.
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @return the schedules whose {@code classSection} reference matches {@code classSectionId}.
+     */
+    // ------- SEARCH CLASS SCHEDULES BY CLASS SECTION ID -------
+    @Query("{ 'classSection._id': ?0 }")
+    List<ClassSchedule> findByClassSectionId(String classSectionId);
 }
