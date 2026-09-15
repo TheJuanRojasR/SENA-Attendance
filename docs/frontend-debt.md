@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (17 UCs implementadas y 4 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (18 UCs implementadas y 3 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -462,7 +462,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 8   | Cancelación (A4): `PATCH /api/justifications/cancelled` con `{ id }` en el body (no usar el `DELETE` retirado); las partes pasan a `CANCELADA` y el cupo se libera. Pedir confirmación por ser definitiva.                                                                                                                                     | `Pendiente` |
 | 9   | Subsanación (A5): `PATCH /api/justification-details/{id}` enviando **solo** `correctionText` y/o `correctionFileUrl` + `correctionFileUrlContentType`; la parte `RECHAZADA` vuelve a `PENDIENTE` dentro de los **2 días hábiles** desde el rechazo. Fuera de plazo responde `400 error.correctionExpired` (E5) y solo queda crear una justificación nueva. | `Pendiente` |
 | 10  | Mostrar `CANCELADA` en el enum `StateJustification` y sus etiquetas; el backend ya la devuelve en las partes canceladas.                                                                                                                                                                                                                       | `Pendiente` |
-| 11  | No ofrecer a `ROLE_INSTRUCTOR` la bandeja de decisión de justificaciones: hoy responde `403` en `/api/justifications` y `/api/justification-details`; la decisión llega con UC010.                                                                                                                                                             | `Pendiente` |
+| 11  | No ofrecer al instructor los recursos genéricos de justificaciones (`/api/justifications` y `/api/justification-details` le responden `403`): su bandeja y su decisión son las de UC010 (ver la sección UC010).                                                                                                                       | `Pendiente` |
 
 ### Claves i18n (`src/main/webapp/i18n/es/`)
 
@@ -481,13 +481,36 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC010 — Gestionar justificaciones
+
+**Estado del backend:** implementado. El instructor consulta y decide las partes pendientes de sus materias: `GET /api/justification-details/pending` devuelve solo las materias asignadas (el Administrador ve todas) y `PATCH /api/justification-details/{id}/decision` aplica la decisión (`ACEPTADA` o `RECHAZADA`). Ver [`docs/api-contracts.md#uc010--gestionar-justificaciones`](./api-contracts.md#uc010--gestionar-justificaciones).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** los endpoints de decisión son nuevos; la parte suma `requestDate`, `outOfTimeReason` y `lateDecision`; y el instructor **no** debe usar `/api/justifications` ni los endpoints genéricos de `/api/justification-details` (responden `403`).
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                                                                                                | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Bandeja (A1): consumir `GET /api/justification-details/pending` paginado (20 por defecto, `X-Total-Count`/`Link`, `sort=id,desc`) con los filtros `stateJustification` (por defecto `PENDIENTE`), `classSectionId` y `createdFrom`/`createdTo` sobre la fecha de solicitud; mostrar aprendiz (`justification.student`), período (`startDate`–`endDate`), materia (`classSection.subjectName`), `onTime` y `requestDate`. | `Pendiente` |
+| 2   | Decisión (paso 5): enviar `PATCH /api/justification-details/{id}/decision` con `{ stateJustification, rejectionReason?, outOfTimeReason? }`. El rechazo exige motivo (E1) y la aprobación de una justificación fuera de tiempo exige el motivo adicional (A2); no enviar `responseDate` ni `lateDecision`, que son del servidor.                                                                           | `Pendiente` |
+| 3   | Mostrar `lateDecision` como marca de decisión demorada en el histórico; la marca no bloquea nada.                                                                                                                                                                                                                                                                                                    | `Pendiente` |
+| 4   | Habilitar la bandeja y la decisión solo a `ROLE_INSTRUCTOR` (o `ROLE_ADMIN`); el resto de roles recibe `403`.                                                                                                                                                                                                                                                                                        | `Pendiente` |
+| 5   | Mapear las claves de error de la decisión (ver abajo) y refrescar la bandeja tras decidir.                                                                                                                                                                                                                                                                                                          | `Pendiente` |
+
+### Claves i18n (`src/main/webapp/i18n/es/`)
+
+| Clave                           | Texto esperado (sugerido)                                      | Dónde se usa                                  | Estado    |
+| ------------------------------- | -------------------------------------------------------------- | --------------------------------------------- | --------- |
+| `error.rejectionReasonRequired` | "El motivo de rechazo es obligatorio."                         | Rechazo sin motivo (UC010-E1).                | **Falta** |
+| `error.outOfTimeReasonRequired` | "Debes registrar el motivo de la aprobación fuera de tiempo."  | Aprobación fuera de tiempo (UC010-A2).        | **Falta** |
+| `error.invalidDecisionState`    | "La decisión solo puede ser Aceptada o Rechazada."             | Estado de decisión inválido (UC010).          | **Falta** |
+
+---
+
 ## Próximas UCs
 
-Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
+Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. La siguiente UC tiene backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
 
 | UC    | Nombre                          | Contrato                                              |
 | ----- | ------------------------------- | ----------------------------------------------------- |
-| UC010 | Gestionar justificaciones       | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
 | UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
 
 UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementadas** en el backend y no se listan aquí hasta que su contrato exista.
@@ -576,6 +599,9 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.noFailuresFound`        | "No hay fallas para justificar."                                                                    | Rango sin fallas cubiertas (UC011-E4).                 |
 | `error.notMatriculado`         | "Solo puedes justificar fallas de fichas en las que estás matriculado."                             | Ficha no matriculada (UC011-E8).                       |
 | `error.invalidEvidence`        | "Formato o tamaño de archivo no válido."                                                            | Soporte inválido (UC011-E1).                           |
+| `error.rejectionReasonRequired` | "El motivo de rechazo es obligatorio."                                                             | Rechazo sin motivo (UC010-E1).                         |
+| `error.outOfTimeReasonRequired` | "Debes registrar el motivo de la aprobación fuera de tiempo."                                      | Aprobación de una justificación fuera de tiempo (UC010-A2). |
+| `error.invalidDecisionState`   | "La decisión solo puede ser Aceptada o Rechazada."                                                  | Estado de decisión inválido (UC010).                   |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.

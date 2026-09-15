@@ -59,7 +59,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC017](#uc017--consultar-mis-fichas-y-materias)    | Consultar mis fichas y materias    | Implementado    |
 | [UC009](#uc009--gestionar-listas-de-asistencia)     | Gestionar listas de asistencia     | Implementado    |
 | [UC011](#uc011--gestionar-asistencia-aprendiz)      | Gestionar asistencia (Aprendiz)    | Implementado    |
-| [UC010](#uc010--gestionar-justificaciones)          | Gestionar justificaciones          | Parcial         |
+| [UC010](#uc010--gestionar-justificaciones)          | Gestionar justificaciones          | Implementado    |
 | [UC013](#uc013--gestionar-alertas-de-inasistencia)  | Gestionar alertas de inasistencia  | No implementado |
 | [UC018](#uc018--gestionar-notificaciones)           | Gestionar notificaciones           | No implementado |
 | [UC023](#uc023--consultar-dashboard)                | Consultar dashboard                | Parcial         |
@@ -1243,7 +1243,7 @@ Un instructor solo gestiona las excepciones de sus materias; una fecha pasada es
 
 **Endpoints retirados:** `DELETE /api/justifications/{id}` responde `405`. La cancelación del flujo (A4) se hace con `PATCH /api/justifications/cancelled` y el `id` en el body.
 
-**Alcance por rol:** el Instructor todavía no accede a estos recursos (responde `403`): la decisión por materia es de UC010. El Administrador conserva acceso total y el aprendiz solo opera sobre sus propias justificaciones y partes, tanto en lectura como en escritura (ver notas).
+**Alcance por rol:** el Instructor no opera estos recursos genéricos (responde `403`): su flujo de decisión vive en UC010 (`GET /api/justification-details/pending` y `PATCH /api/justification-details/{id}/decision`). El Administrador conserva acceso total y el aprendiz solo opera sobre sus propias justificaciones y partes, tanto en lectura como en escritura (ver notas).
 
 **Request — `POST /api/justifications`**
 
@@ -1338,30 +1338,45 @@ La respuesta incluye `onTime` y las partes (`detailses`) con el estado de cada d
 | `error.notMatriculado`             | Alguna materia pertenece a una ficha donde el aprendiz no está `MATRICULADO` (E8).                                            |
 | `error.quotaExceeded`              | Las fechas del envío superan el cupo del tipo (E6); el texto con los días restantes viaja en `title`/`detail` y la clave en `message`. |
 | `error.correctionExpired`          | La subsanación de una parte rechazada llegó fuera de los 2 días hábiles (E5).                                                 |
-| `403`                              | El Instructor (decisión pendiente de UC010) o cualquier rol fuera de Administrador/Aprendiz.                                  |
+| `403`                              | El Instructor en el CRUD genérico (su flujo de decisión vive en UC010) o cualquier rol fuera de Administrador/Aprendiz.       |
 | `404`                              | Justificación o parte inexistente o fuera del alcance de lectura del aprendiz.                                                |
 
-**Notas / lo que se necesita:** UC011 implementado y verificado (`JustificationResourceIT` 53/53, `JustificationDetailsResourceIT` 32/32 + unitarias).
+**Notas / lo que se necesita:** UC011 implementado y verificado (`JustificationResourceIT` 53/53, `JustificationDetailsResourceIT` 50/50 + unitarias).
 
-- **Identidad y seguridad:** las operaciones se acotan en el servicio al aprendiz autenticado; una justificación o parte ajena responde `404` en lectura y `error.notYourJustification` en escritura, y el `student` del payload debe ser el propio. Las partes exigen `ROLE_ADMIN` o `ROLE_APPRENTICE` con validación de propiedad. El **Instructor queda fuera** de estos recursos hasta UC010, que habilita la decisión por materia.
+- **Identidad y seguridad:** las operaciones se acotan en el servicio al aprendiz autenticado; una justificación o parte ajena responde `404` en lectura y `error.notYourJustification` en escritura, y el `student` del payload debe ser el propio. Las partes exigen `ROLE_ADMIN` o `ROLE_APPRENTICE` con validación de propiedad. El **Instructor queda fuera del CRUD genérico**: su flujo de decisión vive en UC010 (bandeja y decisión por materia).
 - **Historial de asistencia (paso 1):** `GET /api/attendances` acepta `ROLE_APPRENTICE` y acota la lectura a sus propios registros; con los filtros `classSectionId`, `date` y `stateAttendance=FALLA` el aprendiz obtiene las fallas que puede justificar (contrato completo en UC009).
 - **Plazo (marca `onTime`):** la fecha límite se cuenta desde el **día hábil siguiente a la última falla cubierta** (ese día cuenta como día 1) sumando `studentJustificationDays` de la configuración global (UC019). Los días hábiles son **lunes a viernes**: el proyecto no tiene calendario de festivos. La marca **no bloquea** el envío; solo lo clasifica en tiempo (`true`) o fuera de tiempo (`false`), y se recalcula en cada edición pendiente.
 - **Cupo (E6):** `limitPerTrimester` del tipo es el máximo de **días con falla (fechas distintas)** justificables por trimestre. Cuentan las justificaciones del mismo tipo y aprendiz con partes en `PENDIENTE` o `ACEPTADA`; las partes `RECHAZADA` y `CANCELADA` liberan sus fechas, y una fecha ya cubierta no vuelve a contar. El cupo se calcula cruzando el rango de cada justificación con las fallas reales del aprendiz en las materias de sus partes (no hay campo de fechas); al excederse responde `error.quotaExceeded` e informa los días restantes.
 - **Ciclo de vida:** editar (`PUT`/`PATCH`) solo mientras todas las partes estén `PENDIENTE`; en caso contrario responde `error.alreadyProcessed` (E3) y recalcula plazo y cupo. Cancelar (A4) con `PATCH /api/justifications/cancelled` (el `id` en el body): las partes pasan a `CANCELADA` y liberan cupo; `DELETE` está retirado (`405`). Subsanar (A5) una parte `RECHAZADA` con `PATCH /api/justification-details/{id}` dentro de **2 días hábiles** desde `responseDate`: la parte vuelve a `PENDIENTE` con `responseDate` nula y conserva el motivo de rechazo como traza; fuera del plazo responde `error.correctionExpired` (E5).
-- **Notificaciones:** cada cambio de estado (creación → `PENDIENTE`, cancelación → `CANCELADA`) invoca una sola vez el puerto `JustificationNotificationPort`; su única implementación es un **no-op documentado** porque la entrega pertenece a UC018 (notificaciones). La decisión del instructor deberá notificar `ACEPTADA`/`RECHAZADA` cuando llegue UC010.
+- **Notificaciones:** cada cambio de estado (creación → `PENDIENTE`, cancelación → `CANCELADA`) invoca una sola vez el puerto `JustificationNotificationPort`; su única implementación es un **no-op documentado** porque la entrega pertenece a UC018 (notificaciones). La decisión del instructor (UC010) ya notifica `ACEPTADA`/`RECHAZADA` una vez por parte decidida, con el mismo puerto.
 - **Modelo:** `StateJustification` incorpora `CANCELADA`. El campo `onTime` es **aditivo** y no requiere migración Mongock; el próximo orden libre es **014**.
 
 ---
 
 ## UC010 — Gestionar justificaciones
 
-**Módulo:** Justificaciones | **Actor:** Instructor | **Estado:** Parcial
+**Módulo:** Justificaciones | **Actor:** Instructor | **Estado:** Implementado
 
-**Feature:** Revisión y decisión de las justificaciones recibidas, con una decisión independiente por materia. En el backend existe el modelo de decisión, pero no el flujo del instructor.
+**Feature:** Revisión y decisión de las justificaciones recibidas, con una decisión independiente por materia. El instructor consulta las partes pendientes de las materias que dicta y decide cada una (aprobar o rechazar); al aprobar, las fallas (`FALLA`) del aprendiz en esa materia dentro del período pasan a `JUSTIFICADA` con auditoría. La marca de plazo de la justificación (`onTime`) se conserva: la decisión nunca la recalcula. Una decisión que llega después del plazo de respuesta del instructor queda marcada como demorada en la parte.
 
-**Endpoints:** no hay endpoint de decisión para el instructor. `JustificationResource` solo permite `ROLE_ADMIN` o `ROLE_APPRENTICE`, de modo que un instructor autenticado recibe `403` al intentar responder. `JustificationDetailsResource` ya exige `ROLE_ADMIN` o `ROLE_APPRENTICE` con validación de propiedad (UC011), y la subsanación del aprendiz reabre una parte rechazada, pero el instructor sigue sin endpoint de decisión.
+**Endpoints:**
 
-**Propuesta** (no implementada): `PATCH /api/justification-details/{id}/decision` — registra la decisión del instructor asignado a la materia. Cuerpo sugerido:
+| Método | Ruta                                         | Acceso                           | Descripción                                                                                                                       |
+| ------ | -------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/justification-details/pending`         | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Bandeja de partes; por defecto solo `PENDIENTE` y el instructor ve únicamente las materias asignadas (el Administrador ve todas). |
+| PATCH  | `/api/justification-details/{id}/decision`   | `ROLE_ADMIN` o `ROLE_INSTRUCTOR` | Decide una parte `PENDIENTE` (`ACEPTADA` o `RECHAZADA`). Solo el instructor asignado a la materia al momento de decidir (E4).     |
+
+**Bandeja — `GET /api/justification-details/pending`:** paginada (20 por defecto, `sort=id,desc`: la solicitud más reciente primero, `X-Total-Count` y `Link`). Los filtros opcionales se combinan con AND:
+
+| Parámetro                    | Tipo         | Reglas                                                                                                       |
+| ---------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `stateJustification`         | string       | Estado a incluir; sin él se listan solo las `PENDIENTE` y con otro estado se consulta el histórico.           |
+| `classSectionId`             | string       | Materia a filtrar.                                                                                           |
+| `createdFrom` / `createdTo`  | `YYYY-MM-DD` | Rango sobre la **fecha de solicitud** de la cabecera; ambos extremos son inclusive (`createdTo` cubre el día completo). |
+
+Cada parte de la respuesta expone `stateJustification`, `rejectionReason`, `correctionText`, `responseDate`, `requestDate`, `outOfTimeReason`, `lateDecision`, la materia (`classSection.id`, `classSection.subjectName`) y la cabecera recortada (`justification` con `description`, `startDate`, `endDate`, `onTime` y `student`).
+
+**Request — `PATCH /api/justification-details/{id}/decision`:**
 
 ```json
 {
@@ -1371,9 +1386,75 @@ La respuesta incluye `onTime` y las partes (`detailses`) con el estado de cada d
 }
 ```
 
-También se requiere un listado de pendientes por instructor (`GET /api/justification-details/pending`) y la conversión automática de las fallas `FALLA` a `JUSTIFICADA` dentro del período aprobado.
+| Campo                | Tipo   | Obligatorio                                                       | Reglas                                                                                            |
+| -------------------- | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `stateJustification` | string | Sí                                                                | `@NotNull`; solo `ACEPTADA` o `RECHAZADA` (`error.invalidDecisionState`).                         |
+| `rejectionReason`    | string | Sí al rechazar                                                    | Máximo 300; sin él responde `error.rejectionReasonRequired` (E1).                                 |
+| `outOfTimeReason`    | string | Sí al aprobar una justificación fuera de tiempo (`onTime=false`)  | Máximo 300; sin él responde `error.outOfTimeReasonRequired` (A2). Solo lo escribe la decisión.    |
 
-**Notas / lo que se necesita:** no se valida que quien decide sea el instructor de la materia (E4), no se exige motivo al rechazar (E1), no se impide decidir una parte ya no pendiente (E2), no se registra decisión demorada ni se resuelven alertas al aprobar. El hook de notificación por cambio de estado del aprendiz ya existe (UC011), pero su entrega pertenece a UC018.
+**Response — `PATCH /api/justification-details/{id}/decision`:** `200 OK` con la parte decidida:
+
+```json
+{
+  "id": "665f1c2a9e13b7a1f2c8d9ef0",
+  "stateJustification": "RECHAZADA",
+  "rejectionReason": "Soporte no legible",
+  "outOfTimeReason": null,
+  "lateDecision": false,
+  "responseDate": "2026-09-15T16:04:05Z",
+  "requestDate": "2026-09-14T13:20:00Z",
+  "classSection": { "id": "665f1c2a9e13b7a1f2c8d9e90", "subjectName": "Programación orientada a objetos" },
+  "justification": {
+    "id": "665f1c2a9e13b7a1f2c8d9ee0",
+    "description": "Incapacidad médica",
+    "startDate": "2026-09-10",
+    "endDate": "2026-09-12",
+    "onTime": true,
+    "student": { "id": "665f1c2a9e13b7a1f2c8d9ea0", "documentNumber": "1029384756" }
+  }
+}
+```
+
+**Reglas de decisión:**
+
+- **E1 — Rechazo con motivo:** una `RECHAZADA` exige `rejectionReason`; el motivo queda registrado en la parte.
+- **E2 — Solo partes pendientes:** una parte ya decidida (`ACEPTADA`, `RECHAZADA` o `CANCELADA`) responde `error.alreadyProcessed`; la subsanación de UC011 reabre una parte rechazada como `PENDIENTE` y la decisión reinicia.
+- **E4 — Instructor asignado:** solo decide el instructor de la materia de la parte en el momento de la decisión; cualquier otro instructor recibe `error.notYourClassSection`. El Administrador decide cualquier parte.
+- **Aprobación fuera de tiempo (A2):** si la justificación quedó marcada `onTime=false` al enviarse, la aprobación exige `outOfTimeReason`; el motivo viaja en la respuesta y queda en la parte.
+- **`onTime` inmutable:** la decisión nunca recalcula la marca de plazo; una misma justificación puede aprobarse en una materia y rechazarse en otra.
+- **Sin bloqueo por trimestre:** un trimestre cerrado no impide decidir una parte pendiente y la conversión F→J se aplica igual, aunque el aprendiz esté desvinculado de la ficha.
+- **Plazo de respuesta del instructor (UC019):** la fecha límite es la **fecha de solicitud** de la cabecera más `instructorResponseDays` días hábiles (lunes a viernes); decidir el mismo día límite todavía no es tarde. Una decisión posterior guarda `lateDecision=true` como marca de auditoría. No hay escalado ni decisión automática.
+- **Notificación:** cada decisión invoca una sola vez `JustificationNotificationPort` con la cabecera y el estado resultante; la entrega real pertenece a UC018.
+
+**Efectos de la aprobación:** convierte a `JUSTIFICADA` cada `FALLA` del aprendiz en la materia de la parte dentro del período justificado, enlaza cada registro con `modifiedByJustification` y escribe un `AuditLog` por cambio real (`previousState`, `newState`, `editDate`, `modifiedBy`, `attendance`). El rechazo solo registra el motivo y la fecha de respuesta.
+
+**Campos nuevos de `JustificationDetails` (UC010):**
+
+| Campo             | JSON              | Reglas                                                                                                     |
+| ----------------- | ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| `requestDate`     | `requestDate`     | Fecha de solicitud de la cabecera (`createdDate`); la expone el servidor y el cliente no la envía.          |
+| `outOfTimeReason` | `outOfTimeReason` | Motivo de la aprobación fuera de tiempo (A2); solo lo escribe la decisión.                                  |
+| `lateDecision`    | `lateDecision`    | Marca de decisión demorada; el servidor la calcula al decidir y la limpia cuando UC011 reabre la parte.     |
+
+**Errores:** todos los fallos de negocio son `400 Bad Request` con la clave en `$.message`:
+
+| errorKey (cuerpo `message`)     | Causa                                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `error.invalidDecisionState`    | La decisión no es `ACEPTADA` ni `RECHAZADA`.                                                   |
+| `error.rejectionReasonRequired` | Rechazo sin motivo (E1).                                                                       |
+| `error.outOfTimeReasonRequired` | Aprobación de una justificación `onTime=false` sin el motivo adicional (A2).                    |
+| `error.alreadyProcessed`        | La parte ya no está `PENDIENTE` (E2); clave compartida con UC011.                              |
+| `error.notYourClassSection`     | Quien decide no es el instructor asignado a la materia (E4); clave compartida con UC009/UC015. |
+| `error.validation`              | Campos obligatorios ausentes o inválidos del VM.                                               |
+| `404`                           | La parte no existe.                                                                            |
+
+**Notas / lo que se necesita:**
+
+- Implementado y verificado (`JustificationDetailsResourceIT` 50/50 y `JustificationResourceIT` 53/53).
+- **Diferido a UC018:** la entrega de las notificaciones; el puerto ya se invoca en creación (`PENDIENTE`), cancelación (`CANCELADA`) y decisión (`ACEPTADA`/`RECHAZADA`).
+- **Diferido a UC013:** la resolución automática de alertas al aprobar una justificación; hoy la aprobación solo convierte las fallas.
+- `instructorResponseDays` ya tiene consumidor: el plazo de respuesta del instructor y la marca `lateDecision`.
+- El instructor no opera el CRUD genérico de justificaciones (`/api/justifications` y los endpoints genéricos de `/api/justification-details` le responden `403`): su flujo son la bandeja y la decisión de esta sección.
 
 ---
 
