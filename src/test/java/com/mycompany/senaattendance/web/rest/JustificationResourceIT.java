@@ -30,6 +30,7 @@ import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.domain.enumeration.Status;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
@@ -256,13 +257,15 @@ class JustificationResourceIT {
 
     @Test
     void createJustification() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
         long databaseSizeBeforeCreate = getRepositoryCount();
-        // Create the Justification
-        JustificationDTO justificationDTO = justificationMapper.toDto(justification);
+
+        // Create the Justification over the real fixture the creation rules need
         var returnedJustificationDTO = om.readValue(
-            restJustificationMockMvc
-                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationDTO)))
+            postJustification(justificationPayload(failure, failure, rulesClassSection.getId()))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.onTime").value(true))
                 .andReturn()
                 .getResponse()
                 .getContentAsString(),
@@ -472,15 +475,14 @@ class JustificationResourceIT {
     }
 
     @Test
-    @WithMockUser(username = APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
     void createJustificationAsApprenticeForOwnProfileIsCreated() throws Exception {
-        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
-        JustificationDTO justificationDTO = justificationMapper.toDto(justificationFor(apprentice, persistJustificationType()));
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
 
-        restJustificationMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(justificationDTO)))
+        postJustification(justificationPayload(failure, failure, rulesClassSection.getId()))
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.student.id").value(apprentice.getId()));
+            .andExpect(jsonPath("$.student.id").value(rulesApprentice.getId()));
 
         assertThat(getRepositoryCount()).isEqualTo(1);
     }
@@ -931,6 +933,176 @@ class JustificationResourceIT {
 
         // Repeating an already covered date does not consume the quota twice.
         postJustification(justificationPayload(firstFailure, firstFailure, rulesClassSection.getId())).andExpect(status().isCreated());
+    }
+
+    // -----------------------------------------------------------------
+    // UC011 — Creation guards (use-cases.md:1016-1020, E1-E4/E7/E8)
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithAnInactiveTypeReturnsBadRequest() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+        rulesJustificationType.setStatus(Status.INACTIVO);
+        justificationTypeRepository.save(rulesJustificationType);
+
+        postJustification(justificationPayload(failure, failure, rulesClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.justificationTypeInactive"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithReversedDatesReturnsBadRequest() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+
+        postJustification(justificationPayload(failure, failure.minusDays(2), rulesClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.datesorder"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithoutFailuresReturnsBadRequest() throws Exception {
+        LocalDate day = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3);
+
+        postJustification(justificationPayload(day, day, rulesClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.noFailuresFound"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationInAClosedTrimesterReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        persistRulesFixture(5, 3, today.minusDays(1));
+        LocalDate closedFailure = today.minusDays(70);
+        trimesterRepository.save(
+            new Trimester()
+                .name("Trimestre cerrado")
+                .startDate(today.minusDays(90))
+                .endDate(today.minusDays(61))
+                .status(StateTrimester.CERRADO)
+        );
+        persistAttendance(rulesClassSection, rulesApprentice, closedFailure, StateAttendance.FALLA);
+
+        postJustification(justificationPayload(closedFailure, closedFailure, rulesClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimesterClosed"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationForAFichaWithoutEnrollmentReturnsBadRequest() throws Exception {
+        LocalDate today = LocalDate.now(clock);
+        persistRulesFixture(5, 3, today.minusDays(1));
+
+        Grade otherGrade = persistGrade("JUS-002", today.minusDays(30), today.plusDays(30));
+        ClassSection otherClassSection = persistClassSection("Materia sin matrícula", otherGrade);
+        LocalDate otherFailure = today.minusDays(2);
+        persistAttendance(otherClassSection, rulesApprentice, otherFailure, StateAttendance.FALLA);
+
+        postJustification(justificationPayload(otherFailure, otherFailure, otherClassSection.getId()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.notMatriculado"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithUnsupportedEvidenceReturnsBadRequest() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+
+        Map<String, Object> payload = justificationPayload(
+            rulesJustificationType.getId(),
+            rulesApprentice.getId(),
+            failure,
+            failure,
+            "text/plain",
+            DEFAULT_EVIDENCE,
+            List.of(rulesClassSection.getId())
+        );
+
+        postJustification(payload).andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("error.invalidEvidence"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithOversizedEvidenceReturnsBadRequest() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+
+        Map<String, Object> payload = justificationPayload(
+            rulesJustificationType.getId(),
+            rulesApprentice.getId(),
+            failure,
+            failure,
+            PDF_CONTENT_TYPE,
+            new byte[5 * 1024 * 1024 + 1],
+            List.of(rulesClassSection.getId())
+        );
+
+        postJustification(payload).andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("error.invalidEvidence"));
+
+        assertThat(getRepositoryCount()).isZero();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithAPendingPartPerMateriaCreatesIt() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+
+        postJustification(justificationPayload(failure, failure, rulesClassSection.getId()))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.onTime").value(true))
+            .andExpect(jsonPath("$.detailses", hasSize(1)))
+            .andExpect(jsonPath("$.detailses[0].stateJustification").value("PENDIENTE"))
+            .andExpect(jsonPath("$.detailses[0].classSection.id").value(rulesClassSection.getId()));
+
+        Justification persisted = justificationRepository.findAll().get(0);
+        assertThat(persisted.getDetailses()).hasSize(1);
+        assertThat(persisted.getOnTime()).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = RULES_APPRENTICE_LOGIN, authorities = AuthoritiesConstants.APPRENTICE)
+    void createJustificationWithSeveralMateriasCreatesOnePartEach() throws Exception {
+        LocalDate failure = LocalDate.now(clock).minusDays(1);
+        persistRulesFixture(5, 3, failure);
+        ClassSection secondClassSection = persistClassSection("Segunda materia de justificaciones", rulesClassSection.getGrade());
+        persistAttendance(secondClassSection, rulesApprentice, failure, StateAttendance.FALLA);
+
+        Map<String, Object> payload = justificationPayload(
+            rulesJustificationType.getId(),
+            rulesApprentice.getId(),
+            failure,
+            failure,
+            PDF_CONTENT_TYPE,
+            DEFAULT_EVIDENCE,
+            List.of(rulesClassSection.getId(), secondClassSection.getId())
+        );
+
+        postJustification(payload)
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.detailses", hasSize(2)));
+
+        assertThat(justificationDetailsRepository.count()).isEqualTo(2);
     }
 
     /**

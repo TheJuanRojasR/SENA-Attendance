@@ -3,24 +3,32 @@ package com.mycompany.senaattendance.service.impl;
 import com.mycompany.senaattendance.domain.Attendance;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.GlobalConfiguration;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.JustificationType;
+import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.domain.enumeration.Status;
+import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationService;
+import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
@@ -33,6 +41,7 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -64,6 +73,10 @@ public class JustificationServiceImpl implements JustificationService {
 
     private static final String ENTITY_NAME = "justification";
 
+    private static final String PDF_CONTENT_TYPE = "application/pdf";
+
+    private static final long MAX_EVIDENCE_BYTES = 5L * 1024 * 1024;
+
     private final JustificationRepository justificationRepository;
 
     private final JustificationMapper justificationMapper;
@@ -80,6 +93,12 @@ public class JustificationServiceImpl implements JustificationService {
 
     private final ClassSectionRepository classSectionRepository;
 
+    private final ApprenticeRepository apprenticeRepository;
+
+    private final TrimesterRepository trimesterRepository;
+
+    private final TrimesterService trimesterService;
+
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
     private final Clock clock;
@@ -93,6 +112,9 @@ public class JustificationServiceImpl implements JustificationService {
         JustificationTypeRepository justificationTypeRepository,
         AttendanceRepository attendanceRepository,
         ClassSectionRepository classSectionRepository,
+        ApprenticeRepository apprenticeRepository,
+        TrimesterRepository trimesterRepository,
+        TrimesterService trimesterService,
         GlobalConfigurationRepository globalConfigurationRepository,
         Clock clock
     ) {
@@ -104,6 +126,9 @@ public class JustificationServiceImpl implements JustificationService {
         this.justificationTypeRepository = justificationTypeRepository;
         this.attendanceRepository = attendanceRepository;
         this.classSectionRepository = classSectionRepository;
+        this.apprenticeRepository = apprenticeRepository;
+        this.trimesterRepository = trimesterRepository;
+        this.trimesterService = trimesterService;
         this.globalConfigurationRepository = globalConfigurationRepository;
         this.clock = clock;
     }
@@ -248,17 +273,124 @@ public class JustificationServiceImpl implements JustificationService {
     }
 
     /**
-     * Runs the creation rules shared by create and edit and returns the deadline mark: the
-     * covered failure dates are derived from the real attendance, the per-type quota is enforced
-     * and the mark is computed from the last covered failure.
+     * Runs the creation rules shared by create and edit and returns the deadline mark. The checks
+     * run in an order where each failure reports its own key: inactive type, reversed dates,
+     * without failures, closed trimester, apprentice not enrolled, invalid support, quota and,
+     * finally, the deadline mark derived from the last covered failure.
      *
      * @param request the values of the create or edit operation.
      * @return whether the submission is within the configured deadline.
+     * @throws BadRequestAlertException with the key of the first rule the request violates.
      */
     private Boolean applyCreationRules(JustificationRequest request) {
+        JustificationType justificationType = resolveActiveJustificationType(request.justificationTypeId());
+        validateDatesOrder(request.startDate(), request.endDate());
         Set<LocalDate> failureDates = findFailureDates(request);
-        validateQuota(request, failureDates);
+        if (failureDates.isEmpty()) {
+            throw new BadRequestAlertException("No hay fallas para justificar", ENTITY_NAME, "noFailuresFound");
+        }
+        validateNoClosedTrimester(failureDates);
+        validateEnrolledInEveryFicha(request.studentId(), request.classSections());
+        validateEvidence(request.evidenceContentType(), request.evidence());
+        validateQuota(justificationType, request, failureDates);
         return computeOnTime(failureDates);
+    }
+
+    /**
+     * Resolves the requested type and rejects it when it is missing or inactive (E: UC011 only
+     * accepts types of the active catalog, UC016).
+     *
+     * @param justificationTypeId the requested type id.
+     * @return the persisted active type.
+     * @throws BadRequestAlertException with the key {@code justificationTypeInactive}.
+     */
+    private JustificationType resolveActiveJustificationType(String justificationTypeId) {
+        JustificationType justificationType = findJustificationType(justificationTypeId);
+        if (justificationType == null || justificationType.getStatus() != Status.ACTIVO) {
+            throw new BadRequestAlertException("El tipo de justificación no está activo", ENTITY_NAME, "justificationTypeInactive");
+        }
+        return justificationType;
+    }
+
+    /**
+     * Rejects a range whose start falls after its end. The same day is a valid range: a single
+     * failure day is justifiable.
+     *
+     * @param startDate the first day of the range.
+     * @param endDate the last day of the range.
+     * @throws BadRequestAlertException with the key {@code datesorder}.
+     */
+    private static void validateDatesOrder(LocalDate startDate, LocalDate endDate) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new BadRequestAlertException("La fecha de inicio debe ser anterior o igual a la fecha de fin", ENTITY_NAME, "datesorder");
+        }
+    }
+
+    /**
+     * Rejects a justification whose failures fall in a closed trimester (E7). The trimester state
+     * is classified by dates through {@link TrimesterService}, the single source of truth, so the
+     * up-to-24-hour window of the daily sync job never leaks into this rule.
+     *
+     * @param failureDates the dates the justification covers.
+     * @throws BadRequestAlertException with the key {@code trimesterClosed}.
+     */
+    private void validateNoClosedTrimester(Set<LocalDate> failureDates) {
+        for (LocalDate failureDate : failureDates) {
+            for (Trimester trimester : trimesterRepository.findAllContaining(failureDate)) {
+                if (trimesterService.classify(trimester) == StateTrimester.CERRADO) {
+                    throw new BadRequestAlertException(
+                        "No puedes justificar fallas de un trimestre cerrado",
+                        ENTITY_NAME,
+                        "trimesterClosed"
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Rejects a justification whose materias belong to a ficha where the apprentice is not
+     * Matriculado (E8).
+     *
+     * @param studentId the apprentice profile id.
+     * @param classSections the affected materias.
+     * @throws BadRequestAlertException with the key {@code notMatriculado}.
+     */
+    private void validateEnrolledInEveryFicha(String studentId, List<ClassSection> classSections) {
+        for (ClassSection classSection : classSections) {
+            Grade grade = classSection.getGrade();
+            if (
+                studentId == null ||
+                grade == null ||
+                grade.getId() == null ||
+                !apprenticeRepository.existsByStudentIdAndGradeIdAndStateAcademic(studentId, grade.getId(), StateAcademic.MATRICULADO)
+            ) {
+                throw new BadRequestAlertException(
+                    "Solo puedes justificar fallas de fichas en las que estás matriculado",
+                    ENTITY_NAME,
+                    "notMatriculado"
+                );
+            }
+        }
+    }
+
+    /**
+     * Rejects a support that is neither a PDF nor an image, or that exceeds the 5 MB allowed by
+     * UC011 (E1). A missing support is left to the required-fields validation (E2).
+     *
+     * @param evidenceContentType the MIME type declared by the client.
+     * @param evidence the support bytes, possibly {@code null}.
+     * @throws BadRequestAlertException with the key {@code invalidEvidence}.
+     */
+    private static void validateEvidence(String evidenceContentType, byte[] evidence) {
+        if (evidenceContentType == null) {
+            return;
+        }
+        String contentType = evidenceContentType.toLowerCase(Locale.ROOT);
+        boolean supported = PDF_CONTENT_TYPE.equals(contentType) || contentType.startsWith("image/");
+        if (!supported || (evidence != null && evidence.length > MAX_EVIDENCE_BYTES)) {
+            throw new BadRequestAlertException("Formato o tamaño de archivo no válido", ENTITY_NAME, "invalidEvidence");
+        }
     }
 
     /**
@@ -284,13 +416,13 @@ public class JustificationServiceImpl implements JustificationService {
      * parts are pending or accepted; rejected and cancelled parts release their dates, and a date
      * already covered is never counted twice.
      *
+     * @param justificationType the resolved, active type of the submission.
      * @param request the values of the create or edit operation.
      * @param requestedDates the distinct failure dates the submission covers.
      * @throws BadRequestAlertException with the key {@code quotaExceeded} and the remaining days.
      */
-    private void validateQuota(JustificationRequest request, Set<LocalDate> requestedDates) {
-        JustificationType justificationType = findJustificationType(request.justificationTypeId());
-        if (justificationType == null || justificationType.getLimitPerTrimester() == null) {
+    private void validateQuota(JustificationType justificationType, JustificationRequest request, Set<LocalDate> requestedDates) {
+        if (justificationType.getLimitPerTrimester() == null) {
             return;
         }
         int limit = justificationType.getLimitPerTrimester();

@@ -43,6 +43,19 @@ public interface ApprenticeRepository extends MongoRepository<Apprentice, String
     boolean existsByStudentIdAndGradeId(String studentId, String gradeId);
 
     /**
+     * Returns whether the apprentice is matriculado in the ficha (UC011, E8). The references are
+     * matched through {@code _id} because both are {@code @DBRef} fields of entities with String
+     * ids.
+     *
+     * @param studentId the apprentice profile id.
+     * @param gradeId the ficha id.
+     * @param stateAcademic the academic state the enrollment must be in.
+     * @return {@code true} when a record links that apprentice to that ficha in that state.
+     */
+    @Query(value = "{'student._id': ?0, 'grade._id': ?1, 'state_academic': ?2}", exists = true)
+    boolean existsByStudentIdAndGradeIdAndStateAcademic(String studentId, String gradeId, StateAcademic stateAcademic);
+
+    /**
      * Finds the apprentices that match the given ficha and academic state (UC008, A2). Each
      * filter is ignored when its argument is {@code null}.
      *
