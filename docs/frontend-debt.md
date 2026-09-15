@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (16 UCs implementadas y 5 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (17 UCs implementadas y 4 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -413,7 +413,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 **Estado del backend:** implementado. El registro pasó de un CRUD plano a una **sesión por materia y fecha** (`PUT /api/attendances/session`) con guardado masivo e idempotente y sesión incompleta derivada (A5); la edición A2 es `PATCH /api/attendances/{id}`, el historial se consulta con filtros y los endpoints genéricos de alta/borrado responden `405`. El instructor solo marca `PRESENTE` o `FALLA` (`JUSTIFICADA` llega por UC010) y el backend bloquea fechas futuras, trimestres cerrados o fuera de vigencia, fechas fuera del rango de la ficha, fechas no lectivas, fichas sin matriculados y materias ajenas. Ver [`docs/api-contracts.md#uc009--gestionar-listas-de-asistencia`](./api-contracts.md#uc009--gestionar-listas-de-asistencia).
 
-**Estado del frontend:** pendiente. **Cambios incompatibles:** `POST /api/attendances`, `PUT /api/attendances/{id}` y `DELETE /api/attendances/{id}` fueron **retirados** y responden `405`; el estado `TARDE` se eliminó del enum y fue migrado a `PRESENTE` (el formulario stock todavía lo ofrece); la sesión **no se rellena sola** con `PRESENTE` (los aprendices no enviados quedan sin registro y la sesión se muestra incompleta); y los `GET` de asistencia quedaron restringidos a `ROLE_ADMIN` o al instructor, que solo ve los registros de sus materias.
+**Estado del frontend:** pendiente. **Cambios incompatibles:** `POST /api/attendances`, `PUT /api/attendances/{id}` y `DELETE /api/attendances/{id}` fueron **retirados** y responden `405`; el estado `TARDE` se eliminó del enum y fue migrado a `PRESENTE` (el formulario stock todavía lo ofrece); la sesión **no se rellena sola** con `PRESENTE` (los aprendices no enviados quedan sin registro y la sesión se muestra incompleta); y los `GET` de asistencia quedaron restringidos a `ROLE_ADMIN`, al instructor (que solo ve los registros de sus materias) o al aprendiz (que solo ve los suyos, UC011).
 
 | #   | Ítem                                                                                                                                                                                                                                                                                                     | Estado      |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
@@ -444,6 +444,43 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC011 — Gestionar asistencia (Aprendiz)
+
+**Estado del backend:** implementado. El aprendiz ya puede **leer sus propias asistencias** (`GET /api/attendances` acepta `ROLE_APPRENTICE` y acota la respuesta a sus registros; con `stateAttendance=FALLA` obtiene las fallas a justificar) y gestionar sus justificaciones de extremo a extremo: alta con una parte `PENDIENTE` por materia, marca de plazo calculada por el servidor (`onTime`), cupo por tipo, edición y cancelación mientras siga pendiente, y subsanación de las partes rechazadas. Ver [`docs/api-contracts.md#uc011--gestionar-asistencia-aprendiz`](./api-contracts.md#uc011--gestionar-asistencia-aprendiz).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** `DELETE /api/justifications/{id}` fue **retirado** (responde `405`; la cancelación es `PATCH /api/justifications/cancelled` con el `id` en el body); el request de `POST`/`PUT`/`PATCH` ahora lleva `detailses: [{ classSection: { id } }]`; la respuesta incorpora el mark `onTime` calculado por el servidor; `StateJustification` suma `CANCELADA`; y las lecturas y escrituras quedan **acotadas al aprendiz autenticado** (una justificación o parte ajena responde `404` en lectura y `400 error.notYourJustification` en escritura). El frontend stock sigue usando el CRUD genérico (incluido el `DELETE` retirado), no envía `detailses` y no muestra `onTime` ni `CANCELADA`.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                                          | Estado      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Historial de asistencia (paso 1): consumir `GET /api/attendances` como aprendiz (paginado, 20 por defecto) y filtrar por `classSectionId`, `date` y `stateAttendance=FALLA` para que el aprendiz seleccione las fallas a justificar. El backend acota la lectura a sus propios registros; `studentId` es el id del `UserProfile`.               | `Pendiente` |
+| 2   | Alta: enviar `{ description, startDate, endDate, evidence?, evidenceContentType, detailses: [{ classSection: { id } }], justificationType: { id }, student: { id } }`. El servidor crea una parte `PENDIENTE` por materia; no enviar `onTime`.                                                                                                    | `Pendiente` |
+| 3   | Mostrar la marca `onTime` de la respuesta como "en tiempo"/"fuera de tiempo" **sin bloquear** el envío: la fecha límite son los días hábiles configurados contados desde el día hábil siguiente a la última falla cubierta (lunes a viernes, sin calendario de festivos).                                                                      | `Pendiente` |
+| 4   | Manejar el cupo agotado: `400 error.quotaExceeded` (E6), mostrando los días restantes que viajan en `title`/`detail`; el consumo se calcula por **días con falla (fechas distintas)** del mismo tipo y aprendiz en `PENDIENTE`/`ACEPTADA`, y las `RECHAZADA`/`CANCELADA` liberan cupo.                                                          | `Pendiente` |
+| 5   | Manejar las guardas de creación: `400 error.justificationTypeInactive` (tipo inactivo), `400 error.noFailuresFound` (E4), `400 error.notMatriculado` (E8), `400 error.invalidEvidence` (E1: PDF/imagen ≤5 MB) y `400 error.datesorder` (inicio posterior al fin, clave compartida).                                                            | `Pendiente` |
+| 6   | Manejar `400 error.trimesterClosed` (E7, clave compartida): no ofrecer fallas de trimestres cerrados.                                                                                                                                                                                                                                        | `Pendiente` |
+| 7   | Edición: `PUT`/`PATCH /api/justifications/{id}` solo mientras todas las partes estén `PENDIENTE`; si alguna ya tiene decisión, el backend responde `400 error.alreadyProcessed` (E3) y recalcula plazo y cupo al guardar. No ofrecer edición sobre justificaciones decididas.                                                                  | `Pendiente` |
+| 8   | Cancelación (A4): `PATCH /api/justifications/cancelled` con `{ id }` en el body (no usar el `DELETE` retirado); las partes pasan a `CANCELADA` y el cupo se libera. Pedir confirmación por ser definitiva.                                                                                                                                     | `Pendiente` |
+| 9   | Subsanación (A5): `PATCH /api/justification-details/{id}` enviando **solo** `correctionText` y/o `correctionFileUrl` + `correctionFileUrlContentType`; la parte `RECHAZADA` vuelve a `PENDIENTE` dentro de los **2 días hábiles** desde el rechazo. Fuera de plazo responde `400 error.correctionExpired` (E5) y solo queda crear una justificación nueva. | `Pendiente` |
+| 10  | Mostrar `CANCELADA` en el enum `StateJustification` y sus etiquetas; el backend ya la devuelve en las partes canceladas.                                                                                                                                                                                                                       | `Pendiente` |
+| 11  | No ofrecer a `ROLE_INSTRUCTOR` la bandeja de decisión de justificaciones: hoy responde `403` en `/api/justifications` y `/api/justification-details`; la decisión llega con UC010.                                                                                                                                                             | `Pendiente` |
+
+### Claves i18n (`src/main/webapp/i18n/es/`)
+
+| Clave                             | Texto esperado (sugerido)                                                                                          | Dónde se usa                                                                             | Estado    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------- |
+| `error.notYourJustification`      | "Solo puedes gestionar tus propias justificaciones."                                                               | Lectura/escritura de justificaciones y partes ajenas (UC011).                            | **Falta** |
+| `error.alreadyProcessed`          | "Esta justificación ya fue procesada y no puede modificarse."                                                      | Edición/cancelación con decisión y subsanación de parte procesada (UC011-E3).            | **Falta** |
+| `error.correctionExpired`         | "El plazo para subsanar esta justificación ha vencido."                                                            | Subsanación fuera de plazo (UC011-E5).                                                   | **Falta** |
+| `error.quotaExceeded`             | "Ya alcanzaste el límite de días para este tipo de justificación en el trimestre. Te quedan [N] días disponibles." | Cupo agotado (UC011-E6); el detalle con los días viaja en la respuesta del backend.       | **Falta** |
+| `error.justificationTypeInactive` | "El tipo de justificación no está activo."                                                                         | Alta de justificación con tipo inactivo o inexistente (UC011/UC016).                     | **Falta** |
+| `error.noFailuresFound`           | "No hay fallas para justificar."                                                                                   | El rango no cubre fallas reales (UC011-E4).                                              | **Falta** |
+| `error.notMatriculado`            | "Solo puedes justificar fallas de fichas en las que estás matriculado."                                            | Ficha no matriculada (UC011-E8).                                                         | **Falta** |
+| `error.invalidEvidence`           | "Formato o tamaño de archivo no válido."                                                                           | Soporte que no es PDF/imagen o supera 5 MB (UC011-E1).                                   | **Falta** |
+| `error.datesorder`                | "La fecha de fin no puede ser anterior a la fecha de inicio."                                                      | Rango invertido en justificaciones (UC011); **compartida** con UC007/UC014.              | **Falta** |
+| `error.trimesterClosed`           | "No se puede modificar: el trimestre ya fue cerrado." (neutralizar el texto actual, que solo habla de horarios).   | Justificaciones (UC011-E7), asistencia (UC009-E1) y horarios (UC015-E6); **compartida**. | **Falta** |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. Las siguientes UCs ya tienen backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -451,7 +488,6 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | UC    | Nombre                          | Contrato                                              |
 | ----- | ------------------------------- | ----------------------------------------------------- |
 | UC010 | Gestionar justificaciones       | [`docs/api-contracts.md`](./api-contracts.md) — UC010 |
-| UC011 | Gestionar asistencia (Aprendiz) | [`docs/api-contracts.md`](./api-contracts.md) — UC011 |
 | UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
 
 UC013 (alertas de inasistencia) y UC018 (notificaciones) están **no implementadas** en el backend y no se listan aquí hasta que su contrato exista.
@@ -501,7 +537,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `trimesterStateActive`         | "Activo"                                                                                            | Etiqueta del estado del trimestre (UC014).             |
 | `trimesterStateClosed`         | "Cerrado"                                                                                           | Etiqueta del estado del trimestre (UC014).             |
 | `error.gradeCodeAlreadyUsed`   | "El código de ficha ya está en uso."                                                                 | Alta/edición de ficha (UC007-E1).                      |
-| `error.datesorder`             | "La fecha de fin no puede ser anterior a la fecha de inicio."                                        | Fichas (UC007) y trimestres (UC014); clave compartida, el texto debe servir para ambos formularios. |
+| `error.datesorder`             | "La fecha de fin no puede ser anterior a la fecha de inicio."                                        | Fichas (UC007), trimestres (UC014) y justificaciones (UC011); clave compartida, el texto debe servir para los tres formularios. |
 | `error.startdateinpast`        | "La fecha de inicio no puede ser anterior a hoy."                                                    | Alta/edición de ficha (UC007).                         |
 | `error.programInactive`        | "No se pueden crear fichas para un programa inactivo."                                              | Alta/edición de ficha (UC007-E3).                      |
 | `error.modalityInactive`       | "No se pueden crear fichas para una modalidad inactiva."                                            | Alta/edición de ficha (UC007-E3).                      |
@@ -517,7 +553,7 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.scheduleOutOfTimeSlot`  | "El horario debe estar dentro de la jornada de la ficha."                                          | Alta/edición de horario (UC015-E3).                    |
 | `error.scheduleOverlap`        | "El horario se solapa con otro horario de la ficha en ese trimestre."                              | Alta/edición de horario (UC015-E4).                    |
 | `error.gradeNotOperable`       | "La ficha no permite esta operación en su estado actual."                                            | Vinculación/desvinculación de aprendiz (UC008-E3) y alta/edición de materia (UC015-E1); **clave compartida**, el texto debe servir para ambos formularios. |
-| `error.trimesterClosed`        | "No se puede modificar: el trimestre ya fue cerrado."                                              | Asistencia (UC009-E1) y horarios (UC015-E6); **clave compartida**, el texto debe servir para ambos contextos. |
+| `error.trimesterClosed`        | "No se puede modificar: el trimestre ya fue cerrado."                                              | Justificaciones (UC011-E7), asistencia (UC009-E1) y horarios (UC015-E6); **clave compartida**, el texto debe servir para los tres contextos. |
 | `error.classSectionInUse`      | "No es posible eliminar la materia: tiene registros de asistencia. Puedes desactivarla para retirarla de operación." | Eliminación de materia (UC015-A3).                     |
 | `error.apprenticeInactive`     | "Aprendiz no existe o no está activo."                                                              | Vinculación de aprendiz (UC008-E1).                    |
 | `error.apprenticeAlreadyEnrolled` | "Este aprendiz ya tiene un registro en esta ficha."                                              | Vinculación de aprendiz (UC008-E2).                    |
@@ -532,6 +568,14 @@ Tabla consolidada de textos a crear o corregir en `src/main/webapp/i18n/es/`. Lo
 | `error.invalidAttendanceState` | "La asistencia solo se puede registrar o editar como Presente o Falla."                             | Registro de sesión y edición A2 (UC009).               |
 | `error.studentNotEnrolled`     | "El aprendiz no está matriculado en esta ficha."                                                    | Registro de sesión (UC009).                            |
 | `error.pastExceptionLocked`    | "Una fecha no lectiva pasada solo puede modificar su motivo: el precedente no se elimina."          | Fechas no lectivas (UC009-A4).                         |
+| `error.notYourJustification`   | "Solo puedes gestionar tus propias justificaciones."                                                | Justificaciones y partes ajenas (UC011).               |
+| `error.alreadyProcessed`       | "Esta justificación ya fue procesada y no puede modificarse."                                       | Edición/cancelación con decisión y subsanación de parte procesada (UC011-E3). |
+| `error.correctionExpired`      | "El plazo para subsanar esta justificación ha vencido."                                             | Subsanación fuera de plazo (UC011-E5).                 |
+| `error.quotaExceeded`          | "Ya alcanzaste el límite de días para este tipo de justificación en el trimestre. Te quedan [N] días disponibles." | Cupo agotado (UC011-E6).                               |
+| `error.justificationTypeInactive` | "El tipo de justificación no está activo."                                                      | Alta con tipo inactivo o inexistente (UC011/UC016).    |
+| `error.noFailuresFound`        | "No hay fallas para justificar."                                                                    | Rango sin fallas cubiertas (UC011-E4).                 |
+| `error.notMatriculado`         | "Solo puedes justificar fallas de fichas en las que estás matriculado."                             | Ficha no matriculada (UC011-E8).                       |
+| `error.invalidEvidence`        | "Formato o tamaño de archivo no válido."                                                            | Soporte inválido (UC011-E1).                           |
 | `register.messages.success`    | "Registro exitoso. Ya puedes iniciar sesión." (quitar la mención a confirmación por correo).        | Toast de éxito del registro.                          |
 
 Los textos de campos nuevos del formulario de registro (tipo de documento, número de documento, primer nombre, segundo nombre, primer apellido, segundo apellido, teléfono) son decisión del frontend: definir sus claves i18n junto con el formulario de UC001.
