@@ -11,7 +11,7 @@ public class TrimesterAttendanceStartDateException extends BadRequestAlertExcept
     public TrimesterAttendanceStartDateException() {
         super(
             ErrorConstants.TRIMESTER_ATTENDANCE_START_DATE_TYPE,
-            "No se puede modificar la fecha de inicio porque el trimestre tiene registros de asistencia",
+            "No se puede modificar la fecha de inicio de un trimestre que ya tiene asistencia registrada",
             "trimester",
             "attendancestartdate"
         );

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
@@ -83,7 +84,7 @@ class TrimesterServiceImplTest {
             .name(NAME)
             .startDate(LocalDate.of(2025, 1, 1))
             .endDate(LocalDate.of(2025, 12, 31))
-            .status(true);
+            .status(StateTrimester.ACTIVO);
         pageable = PageRequest.of(0, 10);
     }
 
@@ -118,14 +119,14 @@ class TrimesterServiceImplTest {
 
     @Test
     void searchYearTermWithStatusDelegatesToStartDateYearAndStatus() {
-        when(trimesterRepository.searchByStartDateYearAndStatus(2025, true, pageable)).thenReturn(pageOf(trimester));
+        when(trimesterRepository.searchByStartDateYearAndStatus(2025, StateTrimester.ACTIVO, pageable)).thenReturn(pageOf(trimester));
         when(trimesterMapper.toDto(trimester)).thenReturn(toDto(trimester));
 
-        Page<TrimesterDTO> result = trimesterService.search("2025", true, pageable);
+        Page<TrimesterDTO> result = trimesterService.search("2025", StateTrimester.ACTIVO, pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getStatus()).isTrue();
-        verify(trimesterRepository).searchByStartDateYearAndStatus(2025, true, pageable);
+        assertThat(result.getContent().get(0).getStatus()).isEqualTo(StateTrimester.ACTIVO);
+        verify(trimesterRepository).searchByStartDateYearAndStatus(2025, StateTrimester.ACTIVO, pageable);
         verify(trimesterRepository, never()).searchByNameAndStatus(
             org.mockito.ArgumentMatchers.any(),
             org.mockito.ArgumentMatchers.any(),
@@ -149,47 +150,47 @@ class TrimesterServiceImplTest {
 
     @Test
     void searchNameTermWithStatusDelegatesToNameAndStatus() {
-        when(trimesterRepository.searchByNameAndStatus(NAME, false, pageable)).thenReturn(pageOf(trimester));
+        when(trimesterRepository.searchByNameAndStatus(NAME, StateTrimester.CERRADO, pageable)).thenReturn(pageOf(trimester));
         when(trimesterMapper.toDto(trimester)).thenReturn(toDto(trimester));
 
-        Page<TrimesterDTO> result = trimesterService.search(NAME, false, pageable);
+        Page<TrimesterDTO> result = trimesterService.search(NAME, StateTrimester.CERRADO, pageable);
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getName()).isEqualTo(NAME);
-        verify(trimesterRepository).searchByNameAndStatus(NAME, false, pageable);
+        verify(trimesterRepository).searchByNameAndStatus(NAME, StateTrimester.CERRADO, pageable);
         verify(trimesterRepository, never()).findByStatus(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void searchBlankTermWithTrueStatusDelegatesToFindByStatus() {
-        when(trimesterRepository.findByStatus(true, pageable)).thenReturn(pageOf(trimester));
+    void searchBlankTermWithActiveStatusDelegatesToFindByStatus() {
+        when(trimesterRepository.findByStatus(StateTrimester.ACTIVO, pageable)).thenReturn(pageOf(trimester));
         when(trimesterMapper.toDto(trimester)).thenReturn(toDto(trimester));
 
-        Page<TrimesterDTO> result = trimesterService.search("", true, pageable);
+        Page<TrimesterDTO> result = trimesterService.search("", StateTrimester.ACTIVO, pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getStatus()).isTrue();
-        verify(trimesterRepository).findByStatus(true, pageable);
+        assertThat(result.getContent().get(0).getStatus()).isEqualTo(StateTrimester.ACTIVO);
+        verify(trimesterRepository).findByStatus(StateTrimester.ACTIVO, pageable);
         verify(trimesterRepository, never()).searchByName(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         verify(trimesterRepository, never()).findAll(pageable);
     }
 
     @Test
-    void searchBlankTermWithFalseStatusDelegatesToFindByStatus() {
+    void searchBlankTermWithClosedStatusDelegatesToFindByStatus() {
         Trimester inactive = new Trimester()
             .id("t-2")
             .name(NAME2)
             .startDate(LocalDate.of(2025, 1, 1))
             .endDate(LocalDate.of(2025, 12, 31))
-            .status(false);
-        when(trimesterRepository.findByStatus(false, pageable)).thenReturn(pageOf(inactive));
+            .status(StateTrimester.CERRADO);
+        when(trimesterRepository.findByStatus(StateTrimester.CERRADO, pageable)).thenReturn(pageOf(inactive));
         when(trimesterMapper.toDto(inactive)).thenReturn(toDto(inactive));
 
-        Page<TrimesterDTO> result = trimesterService.search("", false, pageable);
+        Page<TrimesterDTO> result = trimesterService.search("", StateTrimester.CERRADO, pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getStatus()).isFalse();
-        verify(trimesterRepository).findByStatus(false, pageable);
+        assertThat(result.getContent().get(0).getStatus()).isEqualTo(StateTrimester.CERRADO);
+        verify(trimesterRepository).findByStatus(StateTrimester.CERRADO, pageable);
         verify(trimesterRepository, never()).searchByName(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         verify(trimesterRepository, never()).findAll(pageable);
     }
@@ -243,7 +244,7 @@ class TrimesterServiceImplTest {
     }
 
     @Test
-    void saveComputesStatusFalseWhenStartIsInFuture() {
+    void saveComputesFutureStateWhenStartIsInFuture() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(null);
@@ -252,39 +253,35 @@ class TrimesterServiceImplTest {
 
         TrimesterDTO result = trimesterService.save(dto);
 
-        assertThat(result.getStatus()).isFalse();
-        assertThat(t.getStatus()).isFalse();
+        assertThat(result.getStatus()).isEqualTo(StateTrimester.FUTURO);
+        assertThat(t.getStatus()).isEqualTo(StateTrimester.FUTURO);
         verify(trimesterRepository).save(t);
     }
 
     @Test
-    void saveComputesStatusTrueWhenTodayWithinRange() {
+    void saveWithStartTodayThrowsTrimesterStartDateMustBeFutureException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today).endDate(today.plusDays(30)).status(null);
         TrimesterDTO dto = toDto(t);
-        stubSaveSuccess(t, dto);
+        when(trimesterMapper.toEntity(dto)).thenReturn(t);
 
-        TrimesterDTO result = trimesterService.save(dto);
-
-        assertThat(result.getStatus()).isTrue();
-        assertThat(t.getStatus()).isTrue();
-        verify(trimesterRepository).save(t);
+        assertThatThrownBy(() -> trimesterService.save(dto)).isInstanceOf(TrimesterStartDateMustBeFutureException.class);
+        verify(trimesterRepository, never()).findAllOverlapping(any(), any());
+        verify(trimesterRepository, never()).save(any());
     }
 
     @Test
-    void saveComputesStatusFalseWhenEndIsInPast() {
+    void saveWithEndInPastThrowsTrimesterEndDateInPastException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.minusDays(40)).endDate(today.minusDays(10)).status(null);
         TrimesterDTO dto = toDto(t);
-        stubSaveSuccess(t, dto);
+        when(trimesterMapper.toEntity(dto)).thenReturn(t);
 
-        TrimesterDTO result = trimesterService.save(dto);
-
-        assertThat(result.getStatus()).isFalse();
-        assertThat(t.getStatus()).isFalse();
-        verify(trimesterRepository).save(t);
+        assertThatThrownBy(() -> trimesterService.save(dto)).isInstanceOf(TrimesterEndDateInPastException.class);
+        verify(trimesterRepository, never()).findAllOverlapping(any(), any());
+        verify(trimesterRepository, never()).save(any());
     }
 
     // -----------------------------------------------------------------
@@ -294,6 +291,7 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithEqualDatesThrowsTrimesterDatesOrderException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today).endDate(today).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
@@ -306,6 +304,7 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithReversedDatesThrowsTrimesterDatesOrderException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
         Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(10)).endDate(today).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
@@ -322,8 +321,14 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithExactOverlapThrowsTrimesterDatesOverlapException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
-        Trimester existing = new Trimester().id("t-exists").name(NAME).startDate(today).endDate(today.plusDays(30)).status(true);
-        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today).endDate(today.plusDays(30)).status(null);
+        mockClockAt(today);
+        Trimester existing = new Trimester()
+            .id("t-exists")
+            .name(NAME)
+            .startDate(today.plusDays(10))
+            .endDate(today.plusDays(40))
+            .status(StateTrimester.CERRADO);
+        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
         when(trimesterRepository.findAllOverlapping(t.getStartDate(), t.getEndDate())).thenReturn(List.of(existing));
@@ -335,8 +340,14 @@ class TrimesterServiceImplTest {
     @Test
     void saveWithContainedOverlapThrowsTrimesterDatesOverlapException() {
         LocalDate today = LocalDate.of(2026, 3, 10);
-        Trimester existing = new Trimester().id("t-exists").name(NAME).startDate(today).endDate(today.plusDays(30)).status(true);
-        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(5)).endDate(today.plusDays(10)).status(null);
+        mockClockAt(today);
+        Trimester existing = new Trimester()
+            .id("t-exists")
+            .name(NAME)
+            .startDate(today.plusDays(10))
+            .endDate(today.plusDays(40))
+            .status(StateTrimester.CERRADO);
+        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(15)).endDate(today.plusDays(20)).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
         when(trimesterRepository.findAllOverlapping(t.getStartDate(), t.getEndDate())).thenReturn(List.of(existing));
@@ -349,7 +360,9 @@ class TrimesterServiceImplTest {
     void saveWithAdjacentDatesIsAllowed() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.minusDays(30)).endDate(today.minusDays(1)).status(null);
+        // Starts the day after a conceptual existing range ends, so the ranges touch at a
+        // single boundary and the overlap query returns empty.
+        Trimester t = new Trimester().id("t-new").name(NAME).startDate(today.plusDays(31)).endDate(today.plusDays(60)).status(null);
         TrimesterDTO dto = toDto(t);
         when(trimesterMapper.toEntity(dto)).thenReturn(t);
         when(trimesterRepository.findAllOverlapping(t.getStartDate(), t.getEndDate())).thenReturn(List.of());
@@ -370,13 +383,13 @@ class TrimesterServiceImplTest {
     void syncStatusesActivatesTrimesterOnStartDate() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today).endDate(today.plusDays(30)).status(false);
+        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today).endDate(today.plusDays(30)).status(StateTrimester.FUTURO);
         when(trimesterRepository.findAll()).thenReturn(List.of(t));
         when(trimesterRepository.save(t)).thenReturn(t);
 
         trimesterService.syncStatuses();
 
-        assertThat(t.getStatus()).isTrue();
+        assertThat(t.getStatus()).isEqualTo(StateTrimester.ACTIVO);
         verify(trimesterRepository).save(t);
     }
 
@@ -384,13 +397,18 @@ class TrimesterServiceImplTest {
     void syncStatusesClosesTrimesterAfterEndDate() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today.minusDays(40)).endDate(today.minusDays(10)).status(true);
+        Trimester t = new Trimester()
+            .id("t-1")
+            .name(NAME)
+            .startDate(today.minusDays(40))
+            .endDate(today.minusDays(10))
+            .status(StateTrimester.ACTIVO);
         when(trimesterRepository.findAll()).thenReturn(List.of(t));
         when(trimesterRepository.save(t)).thenReturn(t);
 
         trimesterService.syncStatuses();
 
-        assertThat(t.getStatus()).isFalse();
+        assertThat(t.getStatus()).isEqualTo(StateTrimester.CERRADO);
         verify(trimesterRepository).save(t);
     }
 
@@ -398,27 +416,47 @@ class TrimesterServiceImplTest {
     void syncStatusesDoesNotWriteWhenStatusUnchanged() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        Trimester active = new Trimester().id("t-1").name(NAME).startDate(today.minusDays(1)).endDate(today.plusDays(30)).status(true);
-        Trimester inactive = new Trimester().id("t-2").name(NAME2).startDate(today.minusDays(40)).endDate(today.minusDays(1)).status(false);
+        Trimester active = new Trimester()
+            .id("t-1")
+            .name(NAME)
+            .startDate(today.minusDays(1))
+            .endDate(today.plusDays(30))
+            .status(StateTrimester.ACTIVO);
+        Trimester inactive = new Trimester()
+            .id("t-2")
+            .name(NAME2)
+            .startDate(today.minusDays(40))
+            .endDate(today.minusDays(1))
+            .status(StateTrimester.CERRADO);
         when(trimesterRepository.findAll()).thenReturn(List.of(active, inactive));
 
         trimesterService.syncStatuses();
 
-        assertThat(active.getStatus()).isTrue();
-        assertThat(inactive.getStatus()).isFalse();
+        assertThat(active.getStatus()).isEqualTo(StateTrimester.ACTIVO);
+        assertThat(inactive.getStatus()).isEqualTo(StateTrimester.CERRADO);
         verify(trimesterRepository, never()).save(any());
     }
 
     private Trimester activeTrimester(LocalDate today) {
-        return new Trimester().id("t-1").name(NAME).startDate(today.minusDays(10)).endDate(today.plusDays(10)).status(true);
+        return new Trimester()
+            .id("t-1")
+            .name(NAME)
+            .startDate(today.minusDays(10))
+            .endDate(today.plusDays(10))
+            .status(StateTrimester.ACTIVO);
     }
 
     private Trimester futureTrimester(LocalDate today) {
-        return new Trimester().id("t-1").name(NAME).startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(false);
+        return new Trimester().id("t-1").name(NAME).startDate(today.plusDays(10)).endDate(today.plusDays(40)).status(StateTrimester.FUTURO);
     }
 
     private Trimester closedTrimester(LocalDate today) {
-        return new Trimester().id("t-1").name(NAME).startDate(today.minusDays(40)).endDate(today.minusDays(10)).status(false);
+        return new Trimester()
+            .id("t-1")
+            .name(NAME)
+            .startDate(today.minusDays(40))
+            .endDate(today.minusDays(10))
+            .status(StateTrimester.CERRADO);
     }
 
     private void stubFindById(Trimester t) {
@@ -665,9 +703,14 @@ class TrimesterServiceImplTest {
     void partialUpdateDateChangeRecomputesStatusIgnoringClientStatus() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        // Persisted status is stale (false) while the range already includes today; a date
+        // Persisted status is stale (CERRADO) while the range already includes today; a date
         // change must recompute it from the new dates and ignore the client-supplied value.
-        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today.minusDays(5)).endDate(today.plusDays(10)).status(false);
+        Trimester t = new Trimester()
+            .id("t-1")
+            .name(NAME)
+            .startDate(today.minusDays(5))
+            .endDate(today.plusDays(10))
+            .status(StateTrimester.CERRADO);
         stubFindById(t);
         stubMapperMerge();
         stubSaveAndMap(t);
@@ -676,12 +719,12 @@ class TrimesterServiceImplTest {
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(t.getId());
         dto.setEndDate(today.plusDays(30));
-        dto.setStatus(false);
+        dto.setStatus(StateTrimester.CERRADO);
 
         TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
 
-        assertThat(result.getStatus()).isTrue();
-        assertThat(t.getStatus()).isTrue();
+        assertThat(result.getStatus()).isEqualTo(StateTrimester.ACTIVO);
+        assertThat(t.getStatus()).isEqualTo(StateTrimester.ACTIVO);
         verify(trimesterRepository).save(t);
     }
 
@@ -689,7 +732,12 @@ class TrimesterServiceImplTest {
     void partialUpdateNameOnlyPreservesStatus() {
         LocalDate today = LocalDate.of(2026, 3, 10);
         mockClockAt(today);
-        Trimester t = new Trimester().id("t-1").name(NAME).startDate(today.minusDays(5)).endDate(today.plusDays(10)).status(false);
+        Trimester t = new Trimester()
+            .id("t-1")
+            .name(NAME)
+            .startDate(today.minusDays(5))
+            .endDate(today.plusDays(10))
+            .status(StateTrimester.CERRADO);
         stubFindById(t);
         stubMapperMerge();
         stubSaveAndMap(t);
@@ -701,8 +749,8 @@ class TrimesterServiceImplTest {
 
         TrimesterDTO result = trimesterService.partialUpdate(dto).orElseThrow();
 
-        assertThat(result.getStatus()).isFalse();
-        assertThat(t.getStatus()).isFalse();
+        assertThat(result.getStatus()).isEqualTo(StateTrimester.CERRADO);
+        assertThat(t.getStatus()).isEqualTo(StateTrimester.CERRADO);
         verify(trimesterRepository).save(t);
     }
 
@@ -729,7 +777,12 @@ class TrimesterServiceImplTest {
         Trimester future = futureTrimester(today);
         stubFindById(future);
         stubMapperMerge();
-        Trimester other = new Trimester().id("t-2").name(NAME2).startDate(today.plusDays(20)).endDate(today.plusDays(50)).status(false);
+        Trimester other = new Trimester()
+            .id("t-2")
+            .name(NAME2)
+            .startDate(today.plusDays(20))
+            .endDate(today.plusDays(50))
+            .status(StateTrimester.FUTURO);
         when(trimesterRepository.findAllOverlappingExcluding(any(), any(), eq(future.getId()))).thenReturn(List.of(other));
 
         TrimesterDTO dto = new TrimesterDTO();

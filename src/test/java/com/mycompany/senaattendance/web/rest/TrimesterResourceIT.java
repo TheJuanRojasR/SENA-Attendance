@@ -14,6 +14,7 @@ import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
@@ -57,8 +58,8 @@ class TrimesterResourceIT {
     private static final LocalDate DEFAULT_END_DATE = DEFAULT_START_DATE.plusDays(90);
     private static final LocalDate UPDATED_END_DATE = UPDATED_START_DATE.plusDays(90);
 
-    private static final Boolean DEFAULT_STATUS = Boolean.TRUE;
-    private static final Boolean UPDATED_STATUS = Boolean.FALSE;
+    private static final StateTrimester DEFAULT_STATUS = StateTrimester.FUTURO;
+    private static final StateTrimester UPDATED_STATUS = StateTrimester.FUTURO;
 
     private static final String ENTITY_API_URL = "/api/trimesters";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -226,12 +227,14 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
-    void createTrimesterComputesStatusFromDates() throws Exception {
-        // status is a server-computed field: a null status in the request must be accepted
-        // and replaced by the value derived from today versus the [startDate, endDate] range.
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+    void createTrimesterIgnoresClientStatusAndComputesFromDates() throws Exception {
+        // status is a server-computed field: a client-supplied value must be overwritten
+        // by the one derived from today versus the [startDate, endDate] range.
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        TrimesterDTO trimesterDTO = trimesterMapper.toDto(new Trimester().name("Activo Hoy").startDate(today).endDate(today.plusDays(30)));
+        TrimesterDTO trimesterDTO = trimesterMapper.toDto(
+            new Trimester().name("Futuro").startDate(today.plusDays(15)).endDate(today.plusDays(60)).status(StateTrimester.CERRADO)
+        );
 
         var returnedTrimesterDTO = om.readValue(
             restTrimesterMockMvc
@@ -243,12 +246,12 @@ class TrimesterResourceIT {
             TrimesterDTO.class
         );
 
-        assertThat(returnedTrimesterDTO.getStatus()).isTrue();
+        assertThat(returnedTrimesterDTO.getStatus()).isEqualTo(StateTrimester.FUTURO);
         insertedTrimesters.add(trimesterMapper.toEntity(returnedTrimesterDTO));
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void createTrimesterWithEqualDatesReturns400() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(new Trimester().name("Iguales").startDate(today).endDate(today));
@@ -260,7 +263,7 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void createTrimesterWithReversedDatesReturns400() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(new Trimester().name("Invertidas").startDate(today.plusDays(10)).endDate(today));
@@ -272,14 +275,20 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void createTrimesterWithOverlapReturns400() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester existing = new Trimester().name("Existente").startDate(today).endDate(today.plusDays(30)).status(true);
+        Trimester existing = new Trimester()
+            .name("Existente")
+            .startDate(today.plusDays(10))
+            .endDate(today.plusDays(40))
+            .status(StateTrimester.FUTURO);
         insertedTrimesters.add(trimesterRepository.save(existing));
 
         // exact overlap: identical [startDate, endDate] range
-        TrimesterDTO exact = trimesterMapper.toDto(new Trimester().name("Exacta").startDate(today).endDate(today.plusDays(30)));
+        TrimesterDTO exact = trimesterMapper.toDto(
+            new Trimester().name("Exacta").startDate(today.plusDays(10)).endDate(today.plusDays(40))
+        );
         restTrimesterMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(exact)))
             .andExpect(status().isBadRequest())
@@ -287,7 +296,7 @@ class TrimesterResourceIT {
 
         // contained overlap: new range fully inside the existing range
         TrimesterDTO contained = trimesterMapper.toDto(
-            new Trimester().name("Contenida").startDate(today.plusDays(5)).endDate(today.plusDays(10))
+            new Trimester().name("Contenida").startDate(today.plusDays(15)).endDate(today.plusDays(20))
         );
         restTrimesterMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(contained)))
@@ -296,16 +305,20 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void createTrimesterAdjacentIsAllowed() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester existing = new Trimester().name("Existente").startDate(today).endDate(today.plusDays(30)).status(true);
+        Trimester existing = new Trimester()
+            .name("Existente")
+            .startDate(today.plusDays(10))
+            .endDate(today.plusDays(40))
+            .status(StateTrimester.FUTURO);
         insertedTrimesters.add(trimesterRepository.save(existing));
 
-        // the new range ends the day before the existing range starts: a single-boundary touch,
+        // the new range starts the day after the existing range ends: a single-boundary touch,
         // which is NOT an overlap and must be accepted.
         TrimesterDTO adjacent = trimesterMapper.toDto(
-            new Trimester().name("Adyacente").startDate(today.minusDays(30)).endDate(today.minusDays(1))
+            new Trimester().name("Adyacente").startDate(today.plusDays(41)).endDate(today.plusDays(70))
         );
 
         var returnedTrimesterDTO = om.readValue(
@@ -323,8 +336,8 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
-    void createTrimesterFutureStartIsInactive() throws Exception {
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+    void createTrimesterFutureStartIsFutureState() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(
             new Trimester().name("Futuro").startDate(today.plusDays(10)).endDate(today.plusDays(40))
@@ -340,30 +353,22 @@ class TrimesterResourceIT {
             TrimesterDTO.class
         );
 
-        assertThat(returnedTrimesterDTO.getStatus()).isFalse();
+        assertThat(returnedTrimesterDTO.getStatus()).isEqualTo(StateTrimester.FUTURO);
         insertedTrimesters.add(trimesterMapper.toEntity(returnedTrimesterDTO));
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
-    void createTrimesterPastEndIsInactive() throws Exception {
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+    void createTrimesterWithPastEndReturns400() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(
             new Trimester().name("Pasado").startDate(today.minusDays(40)).endDate(today.minusDays(10))
         );
 
-        var returnedTrimesterDTO = om.readValue(
-            restTrimesterMockMvc
-                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString(),
-            TrimesterDTO.class
-        );
-
-        assertThat(returnedTrimesterDTO.getStatus()).isFalse();
-        insertedTrimesters.add(trimesterMapper.toEntity(returnedTrimesterDTO));
+        restTrimesterMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-end-date-in-past"));
     }
 
     @Test
@@ -381,13 +386,17 @@ class TrimesterResourceIT {
             .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)))
             .andExpect(jsonPath("$.[*].startDate").value(hasItem(DEFAULT_START_DATE.toString())))
             .andExpect(jsonPath("$.[*].endDate").value(hasItem(DEFAULT_END_DATE.toString())))
-            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS)));
+            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.name())));
     }
 
     @Test
     void searchTrimestersByYear() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre 2025", LocalDate.of(2025, 1, 1), true)));
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre 2026", LocalDate.of(2026, 1, 1), false)));
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Primer Trimestre 2025", LocalDate.of(2025, 1, 1), StateTrimester.CERRADO))
+        );
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Segundo Trimestre 2026", LocalDate.of(2026, 1, 1), StateTrimester.ACTIVO))
+        );
 
         restTrimesterMockMvc
             .perform(get(ENTITY_API_URL + "/search").param("search", "2025"))
@@ -399,8 +408,12 @@ class TrimesterResourceIT {
 
     @Test
     void searchTrimestersByName() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), StateTrimester.CERRADO))
+        );
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), StateTrimester.CERRADO))
+        );
 
         restTrimesterMockMvc
             .perform(get(ENTITY_API_URL + "/search").param("search", "Primer"))
@@ -412,50 +425,56 @@ class TrimesterResourceIT {
 
     @Test
     void searchTrimestersByStatus() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), StateTrimester.ACTIVO)));
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), StateTrimester.CERRADO))
+        );
 
         restTrimesterMockMvc
-            .perform(get(ENTITY_API_URL + "/search").param("status", "true"))
+            .perform(get(ENTITY_API_URL + "/search").param("status", "ACTIVO"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(header().string("X-Total-Count", "1"))
-            .andExpect(jsonPath("$.[*].status").value(hasItem(true)));
+            .andExpect(jsonPath("$.[*].status").value(hasItem("ACTIVO")));
     }
 
     @Test
-    void searchTrimestersByStatusFalse() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+    void searchTrimestersByStatusClosed() throws Exception {
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), StateTrimester.ACTIVO)));
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), StateTrimester.CERRADO))
+        );
 
         restTrimesterMockMvc
-            .perform(get(ENTITY_API_URL + "/search").param("status", "false"))
+            .perform(get(ENTITY_API_URL + "/search").param("status", "CERRADO"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(header().string("X-Total-Count", "1"))
-            .andExpect(jsonPath("$.[*].status").value(hasItem(false)));
+            .andExpect(jsonPath("$.[*].status").value(hasItem("CERRADO")));
     }
 
     @Test
     void searchTrimestersCombined() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre Inactivo", LocalDate.of(2025, 6, 1), false)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), StateTrimester.ACTIVO)));
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Primer Trimestre Cerrado", LocalDate.of(2025, 6, 1), StateTrimester.CERRADO))
+        );
 
         restTrimesterMockMvc
             .perform(
                 get(ENTITY_API_URL + "/search")
                     .param("search", "Primer")
-                    .param("status", "true")
+                    .param("status", "ACTIVO")
             )
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(header().string("X-Total-Count", "1"))
-            .andExpect(jsonPath("$.[*].status").value(hasItem(true)));
+            .andExpect(jsonPath("$.[*].status").value(hasItem("ACTIVO")));
     }
 
     @Test
     void searchTrimestersNoResults() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), StateTrimester.ACTIVO)));
 
         restTrimesterMockMvc
             .perform(get(ENTITY_API_URL + "/search").param("search", "noexiste"))
@@ -467,8 +486,10 @@ class TrimesterResourceIT {
 
     @Test
     void searchTrimestersCaseInsensitive() throws Exception {
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), true)));
-        insertedTrimesters.add(trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), false)));
+        insertedTrimesters.add(trimesterRepository.save(newTrimester("Primer Trimestre", LocalDate.of(2025, 1, 1), StateTrimester.ACTIVO)));
+        insertedTrimesters.add(
+            trimesterRepository.save(newTrimester("Segundo Trimestre", LocalDate.of(2025, 6, 1), StateTrimester.CERRADO))
+        );
 
         // Stored name is capitalized; the search term is lowercase. The repository
         // regex uses $options: 'i' so the match must be case-insensitive.
@@ -492,7 +513,7 @@ class TrimesterResourceIT {
             .andExpect(jsonPath("$").isEmpty());
     }
 
-    private Trimester newTrimester(String name, LocalDate startDate, Boolean status) {
+    private Trimester newTrimester(String name, LocalDate startDate, StateTrimester status) {
         return new Trimester().name(name).startDate(startDate).endDate(startDate.plusYears(1)).status(status);
     }
 
@@ -510,7 +531,7 @@ class TrimesterResourceIT {
             .andExpect(jsonPath("$.name").value(DEFAULT_NAME))
             .andExpect(jsonPath("$.startDate").value(DEFAULT_START_DATE.toString()))
             .andExpect(jsonPath("$.endDate").value(DEFAULT_END_DATE.toString()))
-            .andExpect(jsonPath("$.status").value(DEFAULT_STATUS));
+            .andExpect(jsonPath("$.status").value(DEFAULT_STATUS.name()));
     }
 
     @Test
@@ -532,11 +553,7 @@ class TrimesterResourceIT {
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(updatedTrimester);
 
         restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, trimesterDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
             .andExpect(status().isOk());
 
         // Validate the Trimester in the database
@@ -554,11 +571,7 @@ class TrimesterResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, trimesterDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Trimester in the database
@@ -566,38 +579,16 @@ class TrimesterResourceIT {
     }
 
     @Test
-    void putWithIdMismatchTrimester() throws Exception {
+    void putTrimesterWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        trimester.setId(UUID.randomUUID().toString());
+        trimester.setId(null);
 
-        // Create the Trimester
         TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restTrimesterMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(trimesterDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Trimester in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamTrimester() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        trimester.setId(UUID.randomUUID().toString());
-
-        // Create the Trimester
-        TrimesterDTO trimesterDTO = trimesterMapper.toDto(trimester);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restTrimesterMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(trimesterDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the Trimester in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -693,17 +684,17 @@ class TrimesterResourceIT {
     // PATCH state-based edit rules (COORDINATOR)
     // -----------------------------------------------------------------
 
-    private Trimester saveTrimester(String name, LocalDate start, LocalDate end, Boolean status) {
+    private Trimester saveTrimester(String name, LocalDate start, LocalDate end, StateTrimester status) {
         Trimester t = new Trimester().name(name).startDate(start).endDate(end).status(status);
         insertedTrimesters.add(trimesterRepository.save(t));
         return t;
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchClosedTrimesterRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester closed = saveTrimester("Cerrado", today.minusDays(40), today.minusDays(10), false);
+        Trimester closed = saveTrimester("Cerrado", today.minusDays(40), today.minusDays(10), StateTrimester.CERRADO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(closed.getId());
@@ -716,10 +707,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchActiveTrimesterStartDateChangeRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester active = saveTrimester("Activo", today.minusDays(10), today.plusDays(10), true);
+        Trimester active = saveTrimester("Activo", today.minusDays(10), today.plusDays(10), StateTrimester.ACTIVO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(active.getId());
@@ -732,10 +723,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchActiveTrimesterEndDateInPastRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester active = saveTrimester("Activo", today.minusDays(10), today.plusDays(10), true);
+        Trimester active = saveTrimester("Activo", today.minusDays(10), today.plusDays(10), StateTrimester.ACTIVO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(active.getId());
@@ -748,10 +739,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchFutureTrimesterNonFutureStartDateRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), false);
+        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), StateTrimester.FUTURO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(future.getId());
@@ -764,10 +755,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchReversedDatesRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), false);
+        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), StateTrimester.FUTURO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(future.getId());
@@ -780,11 +771,11 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchOverlapWithOtherTrimesterRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester a = saveTrimester("A", today.plusDays(10), today.plusDays(40), false);
-        saveTrimester("B", today.plusDays(20), today.plusDays(50), false);
+        Trimester a = saveTrimester("A", today.plusDays(10), today.plusDays(40), StateTrimester.FUTURO);
+        saveTrimester("B", today.plusDays(20), today.plusDays(50), StateTrimester.FUTURO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(a.getId());
@@ -797,10 +788,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchSelfOverlapAllowed() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester a = saveTrimester("A", today.plusDays(10), today.plusDays(40), false);
+        Trimester a = saveTrimester("A", today.plusDays(10), today.plusDays(40), StateTrimester.FUTURO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(a.getId());
@@ -819,11 +810,11 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchAdjacentDatesAllowed() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester a = saveTrimester("A", today.minusDays(5), today.plusDays(5), true);
-        saveTrimester("B", today.plusDays(30), today.plusDays(60), false);
+        Trimester a = saveTrimester("A", today.minusDays(5), today.plusDays(5), StateTrimester.ACTIVO);
+        saveTrimester("B", today.plusDays(30), today.plusDays(60), StateTrimester.FUTURO);
 
         TrimesterDTO dto = new TrimesterDTO();
         dto.setId(a.getId());
@@ -842,10 +833,10 @@ class TrimesterResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
     void patchStartDateChangeWithAttendanceRejected() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), false);
+        Trimester future = saveTrimester("Futuro", today.plusDays(10), today.plusDays(40), StateTrimester.FUTURO);
 
         ClassSection section = new ClassSection().subjectName("Matemáticas").isActive(true);
         insertedClassSections.add(classSectionRepository.save(section));
@@ -868,6 +859,55 @@ class TrimesterResourceIT {
             .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.type").value("https://www.jhipster.tech/problem/trimester-attendance-start-date"));
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createTrimesterAsNonAdminReturnsForbidden() throws Exception {
+        TrimesterDTO dto = trimesterMapper.toDto(
+            new Trimester().name("Forbidden").startDate(LocalDate.now().plusDays(5)).endDate(LocalDate.now().plusDays(60))
+        );
+        restTrimesterMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(dto)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateTrimesterAsNonAdminReturnsForbidden() throws Exception {
+        TrimesterDTO dto = trimesterMapper.toDto(
+            new Trimester().name("Forbidden").startDate(LocalDate.now().plusDays(5)).endDate(LocalDate.now().plusDays(60))
+        );
+        dto.setId("000000000000000000000001");
+        restTrimesterMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(dto)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateTrimesterAsNonAdminReturnsForbidden() throws Exception {
+        TrimesterDTO dto = new TrimesterDTO();
+        dto.setId("000000000000000000000001");
+        restTrimesterMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(dto)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteTrimesterAsNonAdminReturnsForbidden() throws Exception {
+        restTrimesterMockMvc
+            .perform(delete(ENTITY_API_URL + "/000000000000000000000001").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void getTrimesterAsNonAdminReturnsForbidden() throws Exception {
+        insertedTrimester = trimesterRepository.save(trimester);
+
+        restTrimesterMockMvc.perform(get(ENTITY_API_URL_ID, trimester.getId())).andExpect(status().isForbidden());
     }
 
     protected long getRepositoryCount() {

@@ -3,6 +3,7 @@ package com.mycompany.senaattendance.service.impl;
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
@@ -10,6 +11,7 @@ import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.TrimesterDTO;
 import com.mycompany.senaattendance.service.mapper.TrimesterMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import com.mycompany.senaattendance.web.rest.errors.TrimesterAttendanceStartDateException;
 import com.mycompany.senaattendance.web.rest.errors.TrimesterDatesOrderException;
 import com.mycompany.senaattendance.web.rest.errors.TrimesterDatesOverlapException;
@@ -69,9 +71,10 @@ public class TrimesterServiceImpl implements TrimesterService {
     public TrimesterDTO save(TrimesterDTO trimesterDTO) {
         LOG.debug("Request to save Trimester : {}", trimesterDTO);
         Trimester trimester = trimesterMapper.toEntity(trimesterDTO);
+        LocalDate today = LocalDate.now(clock);
 
-        validateDatesAndOverlap(trimester);
-        trimester.setStatus(computeStatus(LocalDate.now(clock), trimester.getStartDate(), trimester.getEndDate()));
+        validateCreationDatesAndOverlap(trimester, today);
+        trimester.setStatus(classifyState(today, trimester.getStartDate(), trimester.getEndDate()));
 
         trimester.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -87,10 +90,12 @@ public class TrimesterServiceImpl implements TrimesterService {
     public TrimesterDTO update(TrimesterDTO trimesterDTO) {
         LOG.debug("Request to update Trimester : {}", trimesterDTO);
         Trimester trimester = trimesterMapper.toEntity(trimesterDTO);
+        LocalDate today = LocalDate.now(clock);
 
         Optional<Trimester> optionalTrimester = trimesterRepository.findById(trimester.getId());
         if (optionalTrimester.isPresent()) {
             Trimester existingTrimester = optionalTrimester.get();
+            validateEditOfExistingTrimester(existingTrimester, trimester.getStartDate(), trimester.getEndDate(), today);
             trimester.setCreatedBy(existingTrimester.getCreatedBy());
             trimester.setCreatedDate(existingTrimester.getCreatedDate());
         } else {
@@ -100,6 +105,9 @@ public class TrimesterServiceImpl implements TrimesterService {
                 trimester.setCreatedBy(currentUserLogin.get());
             }
         }
+
+        validateDatesAndOverlapExcludingSelf(trimester);
+        trimester.setStatus(classifyState(today, trimester.getStartDate(), trimester.getEndDate()));
 
         trimester = trimesterRepository.save(trimester);
         return trimesterMapper.toDto(trimester);
@@ -120,32 +128,14 @@ public class TrimesterServiceImpl implements TrimesterService {
                     return existingTrimester;
                 }
                 LocalDate today = LocalDate.now(clock);
-                TrimesterState state = classifyState(today, existingTrimester.getStartDate(), existingTrimester.getEndDate());
-                if (state == TrimesterState.CLOSED) {
-                    throw new TrimesterNotEditableException();
-                }
                 boolean startChanged =
                     trimesterDTO.getStartDate() != null && !trimesterDTO.getStartDate().equals(existingTrimester.getStartDate());
                 boolean endChanged = trimesterDTO.getEndDate() != null && !trimesterDTO.getEndDate().equals(existingTrimester.getEndDate());
-                if (state == TrimesterState.ACTIVE) {
-                    if (startChanged) {
-                        throw new TrimesterStartDateLockedException();
-                    }
-                    if (endChanged && trimesterDTO.getEndDate().isBefore(today)) {
-                        throw new TrimesterEndDateInPastException();
-                    }
-                } else if (state == TrimesterState.FUTURE) {
-                    if (startChanged && !trimesterDTO.getStartDate().isAfter(today)) {
-                        throw new TrimesterStartDateMustBeFutureException();
-                    }
-                }
-                if (startChanged && hasAttendance(existingTrimester.getId())) {
-                    throw new TrimesterAttendanceStartDateException();
-                }
+                validateEditOfExistingTrimester(existingTrimester, trimesterDTO.getStartDate(), trimesterDTO.getEndDate(), today);
                 trimesterMapper.partialUpdate(existingTrimester, trimesterDTO);
                 validateDatesAndOverlapExcludingSelf(existingTrimester);
                 if (startChanged || endChanged) {
-                    existingTrimester.setStatus(computeStatus(today, existingTrimester.getStartDate(), existingTrimester.getEndDate()));
+                    existingTrimester.setStatus(classifyState(today, existingTrimester.getStartDate(), existingTrimester.getEndDate()));
                 }
                 return existingTrimester;
             })
@@ -160,7 +150,7 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     @Override
-    public Page<TrimesterDTO> search(String searchTerm, Boolean status, Pageable pageable) {
+    public Page<TrimesterDTO> search(String searchTerm, StateTrimester status, Pageable pageable) {
         LOG.debug("Request to search Trimesters with term: {}, status: {}", searchTerm, status);
 
         boolean hasTerm = searchTerm != null && !searchTerm.isBlank();
@@ -193,36 +183,80 @@ public class TrimesterServiceImpl implements TrimesterService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete Trimester : {}", id);
+        if (!classScheduleRepository.findByTrimesterId(id).isEmpty() || hasAttendance(id)) {
+            throw new BadRequestAlertException(
+                "No es posible eliminar el trimestre: tiene horarios o asistencias registradas",
+                ENTITY_NAME,
+                "trimesterInUse"
+            );
+        }
         trimesterRepository.deleteById(id);
     }
 
     /**
-     * Computes whether a trimester is active on {@code today}, defined as today falling
-     * within the inclusive {@code [start, end]} range.
+     * Applies the state-dependent edit rules of a trimester that already exists, shared by
+     * {@code PUT} and {@code PATCH}:
+     * <ul>
+     *     <li>a CERRADO trimester cannot be edited at all;</li>
+     *     <li>an ACTIVO trimester has a frozen start date and an end date not before today;</li>
+     *     <li>a FUTURO trimester requires a still-future start date;</li>
+     *     <li>changing the start date is blocked once attendance exists.</li>
+     * </ul>
      *
+     * @param existing the persisted trimester.
+     * @param newStart the requested start date, or {@code null} when not provided.
+     * @param newEnd the requested end date, or {@code null} when not provided.
      * @param today the reference day.
-     * @param start the trimester start date (inclusive).
-     * @param end the trimester end date (inclusive).
-     * @return {@code true} when {@code start <= today <= end}.
      */
-    private boolean computeStatus(LocalDate today, LocalDate start, LocalDate end) {
-        return !today.isBefore(start) && !today.isAfter(end);
+    private void validateEditOfExistingTrimester(Trimester existing, LocalDate newStart, LocalDate newEnd, LocalDate today) {
+        StateTrimester state = classifyState(today, existing.getStartDate(), existing.getEndDate());
+        if (state == StateTrimester.CERRADO) {
+            throw new TrimesterNotEditableException();
+        }
+        boolean startChanged = newStart != null && !newStart.equals(existing.getStartDate());
+        boolean endChanged = newEnd != null && !newEnd.equals(existing.getEndDate());
+        if (state == StateTrimester.ACTIVO) {
+            if (startChanged) {
+                throw new TrimesterStartDateLockedException();
+            }
+            if (endChanged && newEnd.isBefore(today)) {
+                throw new TrimesterEndDateInPastException();
+            }
+        } else if (state == StateTrimester.FUTURO) {
+            if (startChanged && !newStart.isAfter(today)) {
+                throw new TrimesterStartDateMustBeFutureException();
+            }
+        }
+        if (startChanged && hasAttendance(existing.getId())) {
+            throw new TrimesterAttendanceStartDateException();
+        }
     }
 
     /**
-     * Validates the date order (E2) and the no-overlap rule (E1) for a trimester being
-     * created, throwing a {@code BadRequestAlertException} subclass on failure. Date order
-     * is checked first so a malformed range fails before any repository query.
+     * Validates the creation rules of UC-014 (use-cases.md:674-677) for a new trimester,
+     * throwing a {@code BadRequestAlertException} subclass on failure. The checks run in
+     * this order: date order, end date not in the past, start date from tomorrow onward,
+     * and no overlap. Date order is checked first so a malformed range fails before any
+     * repository query.
      *
      * @param trimester the trimester to validate.
+     * @param today the reference day.
      * @throws TrimesterDatesOrderException if {@code startDate >= endDate}.
+     * @throws TrimesterEndDateInPastException if {@code endDate < today}.
+     * @throws TrimesterStartDateMustBeFutureException if {@code startDate <= today}.
      * @throws TrimesterDatesOverlapException if the range overlaps an existing trimester.
      */
-    private void validateDatesAndOverlap(Trimester trimester) {
+    private void validateCreationDatesAndOverlap(Trimester trimester, LocalDate today) {
         LocalDate start = trimester.getStartDate();
         LocalDate end = trimester.getEndDate();
         if (!start.isBefore(end)) {
             throw new TrimesterDatesOrderException();
+        }
+        if (end.isBefore(today)) {
+            throw new TrimesterEndDateInPastException();
+        }
+        if (!start.isAfter(today)) {
+            throw new TrimesterStartDateMustBeFutureException();
         }
         if (!trimesterRepository.findAllOverlapping(start, end).isEmpty()) {
             throw new TrimesterDatesOverlapException();
@@ -241,7 +275,7 @@ public class TrimesterServiceImpl implements TrimesterService {
     public void syncStatuses() {
         LocalDate today = LocalDate.now(clock);
         trimesterRepository.findAll().forEach(trimester -> {
-            boolean computed = computeStatus(today, trimester.getStartDate(), trimester.getEndDate());
+            StateTrimester computed = classifyState(today, trimester.getStartDate(), trimester.getEndDate());
             if (trimester.getStatus() == null || trimester.getStatus() != computed) {
                 trimester.setStatus(computed);
                 trimesterRepository.save(trimester);
@@ -250,32 +284,22 @@ public class TrimesterServiceImpl implements TrimesterService {
     }
 
     /**
-     * Lifecycle state of a trimester relative to {@code today}, classified from its date range.
-     * Mirrors {@link #computeStatus} so the inclusive active bounds stay consistent.
-     */
-    private enum TrimesterState {
-        CLOSED,
-        ACTIVE,
-        FUTURE,
-    }
-
-    /**
-     * Classifies a trimester as {@code CLOSED} ({@code end < today}), {@code ACTIVE}
-     * ({@code today ∈ [start, end]}) or {@code FUTURE} ({@code start > today}).
+     * Classifies a trimester as {@code CERRADO} ({@code end < today}), {@code ACTIVO}
+     * ({@code today ∈ [start, end]}) or {@code FUTURO} ({@code start > today}).
      *
      * @param today the reference day.
      * @param start the trimester start date (inclusive).
      * @param end the trimester end date (inclusive).
-     * @return the lifecycle state.
+     * @return the academic state.
      */
-    private TrimesterState classifyState(LocalDate today, LocalDate start, LocalDate end) {
+    private StateTrimester classifyState(LocalDate today, LocalDate start, LocalDate end) {
         if (end.isBefore(today)) {
-            return TrimesterState.CLOSED;
+            return StateTrimester.CERRADO;
         }
         if (start.isAfter(today)) {
-            return TrimesterState.FUTURE;
+            return StateTrimester.FUTURO;
         }
-        return TrimesterState.ACTIVE;
+        return StateTrimester.ACTIVO;
     }
 
     /**

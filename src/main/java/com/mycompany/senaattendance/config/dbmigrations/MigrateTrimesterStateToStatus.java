@@ -13,7 +13,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
  * Migrates the {@code trimester} collection from a string {@code state} field ({@code ACTIVO}/{@code INACTIVO})
  * to a boolean {@code status} field ({@code true} for active, {@code false} for inactive), dropping the old field.
  *
- * <p>The shared {@code State} enum is still used by {@code JustificationType}; this change only affects
+ * <p>The shared {@code Status} enum is still used by {@code JustificationType}; this change only affects
  * documents in the {@code trimester} collection.
  */
 @ChangeUnit(id = "trimester-state-to-status", order = "003")

@@ -1,6 +1,6 @@
 package com.mycompany.senaattendance.domain;
 
-import com.mycompany.senaattendance.domain.enumeration.State;
+import com.mycompany.senaattendance.domain.enumeration.Status;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -26,12 +26,14 @@ public class JustificationType extends AbstractAuditingEntity implements Seriali
     @Field("name")
     private String name;
 
+    @NotNull
+    @Min(1)
     @Field("limit_per_trimester")
     private Integer limitPerTrimester;
 
     @NotNull
-    @Field("state")
-    private State state;
+    @Field("status")
+    private Status status;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -74,17 +76,17 @@ public class JustificationType extends AbstractAuditingEntity implements Seriali
         this.limitPerTrimester = limitPerTrimester;
     }
 
-    public State getState() {
-        return this.state;
+    public Status getStatus() {
+        return this.status;
     }
 
-    public JustificationType state(State state) {
-        this.setState(state);
+    public JustificationType status(Status status) {
+        this.setStatus(status);
         return this;
     }
 
-    public void setState(State state) {
-        this.state = state;
+    public void setStatus(Status status) {
+        this.status = status;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
@@ -113,7 +115,7 @@ public class JustificationType extends AbstractAuditingEntity implements Seriali
             "id=" + getId() +
             ", name='" + getName() + "'" +
             ", limitPerTrimester=" + getLimitPerTrimester() +
-            ", state='" + getState() + "'" +
+            ", status='" + getStatus() + "'" +
             "}";
     }
 }

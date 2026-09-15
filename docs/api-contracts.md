@@ -49,10 +49,10 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC020](#uc020--gestionar-jornadas)                 | Gestionar jornadas                 | Implementado    |
 | [UC021](#uc021--gestionar-modalidades)              | Gestionar modalidades              | Implementado    |
 | [UC022](#uc022--gestionar-tipos-de-documento)       | Gestionar tipos de documento       | Implementado    |
-| [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Parcial         |
-| [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Parcial         |
-| [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Parcial         |
-| [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Parcial         |
+| [UC016](#uc016--gestionar-tipos-de-justificación)   | Gestionar tipos de justificación   | Implementado    |
+| [UC006](#uc006--gestionar-perfiles)                 | Gestionar perfiles                 | Implementado    |
+| [UC012](#uc012--gestionar-programas-de-aprendizaje) | Gestionar programas de aprendizaje | Implementado    |
+| [UC014](#uc014--gestionar-trimestres-académicos)    | Gestionar trimestres académicos    | Implementado    |
 | [UC007](#uc007--gestionar-fichas)                   | Gestionar fichas                   | Parcial         |
 | [UC015](#uc015--gestionar-materias)                 | Gestionar materias                 | Parcial         |
 | [UC008](#uc008--gestionar-aprendices)               | Gestionar aprendices               | Parcial         |
@@ -513,7 +513,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 ## UC016 — Gestionar tipos de justificación
 
-**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Configuración y catálogos | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD del catálogo de motivos de justificación. Cada tipo define el límite de días justificables por trimestre.
 
@@ -521,12 +521,13 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 | Método | Ruta                            | Acceso                            | Descripción                   |
 | ------ | ------------------------------- | --------------------------------- | ----------------------------- |
-| GET    | `/api/justification-types`      | Autenticado                       | Lista completa (sin paginar). |
-| GET    | `/api/justification-types/{id}` | Autenticado                       | Detalle.                      |
-| POST   | `/api/justification-types`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.   |
-| PUT    | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.             |
-| PATCH  | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`. |
-| DELETE | `/api/justification-types/{id}` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.               |
+| GET    | `/api/justification-types`        | Autenticado                       | Lista completa (sin paginar). |
+| GET    | `/api/justification-types/active` | Autenticado                       | Lista de tipos activos; la usa el formulario del aprendiz (UC011). |
+| GET    | `/api/justification-types/{id}`   | Autenticado                       | Detalle.                      |
+| POST   | `/api/justification-types`        | `ROLE_ADMIN` | Crea; `201` con el recurso.   |
+| PUT    | `/api/justification-types`        | `ROLE_ADMIN` | Reemplaza; el `id` viaja en el body; `200`. |
+| PATCH  | `/api/justification-types`        | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el body; `200`. |
+| DELETE | `/api/justification-types/{id}`   | `ROLE_ADMIN` | Elimina; `204`. Bloquea si algún tipo fue usado (`400 error.justificationTypeInUse`). |
 
 **Request — `POST /api/justification-types`**
 
@@ -534,21 +535,21 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 {
   "name": "Calamidad doméstica",
   "limitPerTrimester": 3,
-  "state": "ACTIVO"
+  "status": "ACTIVO"
 }
 ```
 
 | Campo               | Tipo    | Obligatorio | Reglas                                                                                           |
 | ------------------- | ------- | ----------- | ------------------------------------------------------------------------------------------------ |
-| `name`              | string  | Sí          | `@NotNull`, máximo 100. No se valida unicidad.                                                   |
-| `limitPerTrimester` | integer | No          | Sin `@Min`; el UC exige entero mayor a 0.                                                        |
-| `state`             | string  | Sí          | `@NotNull`; valores del enum `State`: `ACTIVO`, `INACTIVO`. El cliente define el estado inicial. |
+| `name`              | string  | Sí          | `@NotBlank`, máximo 100. **Nombre único** (se compara sin distinguir mayúsculas); un duplicado responde `400 error.justificationTypeNameAlreadyUsed`. |
+| `limitPerTrimester` | integer | Sí          | `@NotNull` + `@Min(1)`: entero mayor a 0 (E2). Un valor nulo, 0 o negativo responde `400 error.validation` con `limitPerTrimester` en `fieldErrors`. |
+| `status`            | string  | No          | Valores del enum `Status`: `ACTIVO`, `INACTIVO`. Si se omite al crear, el tipo nace **Activo**; en `PUT`/`PATCH` conserva el estado existente. |
 
-**Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `state`).
+**Response:** `201 Created` con el `JustificationTypeDTO` (`id`, `name`, `limitPerTrimester`, `status`). `GET /api/justification-types` devuelve todos los tipos (sin paginar); `GET /api/justification-types/active` devuelve solo los `ACTIVO` para el formulario del aprendiz.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.validation`; `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (E2: límite nulo, 0 o negativo); `400 error.justificationTypeNameAlreadyUsed` (nombre duplicado, E1); `400 error.justificationTypeInUse` (el tipo fue usado en justificaciones y no puede eliminarse, E3); `403`; `404`.
 
-**Notas / lo que se necesita:** no hay validación de nombre duplicado (E1), límite mayor a 0 (E2), bloqueo de eliminación si el tipo fue usado (E3) ni endpoint de solo activos para el formulario del aprendiz. Los estados del enum son `ACTIVO`/`INACTIVO` (el UC los llama Activo/Inactivo).
+**Notas / lo que se necesita:** reglas de UC016 implementadas. El **nombre es único** (se recorta y se compara sin distinguir mayúsculas) y se valida en `POST`, `PUT` y `PATCH` excluyendo el propio `id`; un duplicado responde `400 error.justificationTypeNameAlreadyUsed` (E1) y un nombre vacío o en blanco responde `400 error.validation` con `name` en `fieldErrors`. El **límite** es obligatorio y mayor a 0 (`@Min(1)`); un valor nulo, 0 o negativo responde `400 error.validation` con `limitPerTrimester` en `fieldErrors` (E2). Al crear, el tipo nace **Activo** (`status = ACTIVO`) si se omite el campo —el formulario del UC solo envía nombre y límite—; en `PUT`/`PATCH` un `status` ausente conserva el estado existente, así que Desactivar/Reactivar (A2/A3) se hace con `PATCH` (`status: "INACTIVO"` / `"ACTIVO"`). **Eliminar en uso** (E3): si alguna `Justification` referencia el tipo, `DELETE` responde `400 error.justificationTypeInUse`; en ese caso el tipo no se elimina y se **desactiva**. `GET /api/justification-types/active` devuelve solo los activos para el formulario del aprendiz (UC011). En `PUT` y `PATCH` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta responde `400 error.idnull` y si no existe, `400 error.idnotfound`. El campo de estado se llama **`status`** (antes `state`): entidad, DTO y documento MongoDB usan `status`; la migración Mongock (orden 008) renombra el campo en la colección `justification_type`. Las escrituras (`POST`, `PUT`, `PATCH`, `DELETE`) están restringidas a `ROLE_ADMIN`; la lectura queda para cualquier usuario autenticado.
 
 ---
 
@@ -566,9 +567,9 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | PATCH  | `/api/admin/users` o `/api/admin/users/{login}` | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el cuerpo. `200` con `AdminUserDTO`.    |
 | GET    | `/api/admin/users`                              | `ROLE_ADMIN` | Lista paginada de cuentas (`AdminUserDTO`).                                     |
 | GET    | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Detalle por login; `200` o `404`.                                               |
-| GET    | `/api/admin/users/search`                       | `ROLE_ADMIN` | Búsqueda por texto y estado; lista paginada de `UserManagementDTO`.             |
+| GET    | `/api/admin/users/search`                       | `ROLE_ADMIN` | Búsqueda por texto, `status` y `role`; paginada con `X-Total-Count` (`UserManagementDTO`). |
 | PATCH  | `/api/admin/users/activated`                    | `ROLE_ADMIN` | Activa/desactiva por número de documento; `200` con `AdminUserDTO`.             |
-| DELETE | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Elimina la cuenta; `204`. Contradice la regla "los usuarios nunca se eliminan". |
+| DELETE | `/api/admin/users/{login}`                      | —            | **No disponible**: los usuarios nunca se eliminan; responde `405`.              |
 
 **Request — `POST /api/admin/users`**
 
@@ -653,30 +654,31 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 `PATCH /api/admin/users` y `PATCH /api/admin/users/activated` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
 
-**Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"; la cuenta `admin` está protegida), `400 error.lastInstructor` (lista las materias sin instructor); `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.adminprotected` (la cuenta `admin` está protegida), `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"), `400 error.lastInstructor` (lista las materias afectadas); `403`; `404`.
 
-**Notas / lo que se necesita:** las cuentas creadas por un Administrador nacen con `mustChangePassword = true` en la entidad `User` y el indicador se expone en el `AdminUserDTO`; falta implementar el flujo de cambio obligatorio en el primer inicio. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero **no hay endpoint** para listarla o reenviarla (UC018). El borrado sigue disponible. La guarda del instructor único solo considera materias activas, no fichas Pendiente/Activa como pide el UC. Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (cualquier usuario autenticado), que puede crear o eliminar perfiles por fuera de este flujo.
+**Notas / lo que se necesita:** reglas de UC006 implementadas. Un solo rol por cuenta (`ROLE_USER` + rol de dominio); solo se pueden asignar **Administrador, Instructor o Aprendiz** —`ROLE_COORDINATOR` o un rol inexistente responden `400 error.rolenotfound`. El **cambio de rol** aplica las mismas guardas que la desactivación: no se puede degradar al **último administrador activo** (`error.lastAdmin`), ni a la **cuenta `admin`** protegida (`error.adminprotected`, que además bloquea su desactivación y el cambio de su documento), ni al **último instructor** de materias de fichas operativas (`error.lastInstructor`, considerando fichas en estado `ACTIVA`; el estado `Pendiente` no existe aún y se agregará en UC007). El **login se recalcula** cuando cambia el número **o el tipo** de documento. **Los usuarios nunca se eliminan**: el endpoint `DELETE /api/admin/users/{login}` se retiró y responde `405`; el estado se cambia con `PATCH /api/admin/users/activated`. `GET /api/admin/users/search` filtra por texto (nombre, documento o correo), `status` y `role`, y pagina con `X-Total-Count`/`Link` (20 por defecto). Las cuentas creadas por un Administrador nacen con `mustChangePassword = true`; el flujo de cambio obligatorio en el primer inicio es del frontend. El correo de credenciales se envía de forma síncrona al crear; si falla, se guarda una `Notificacion` pendiente, pero el **reenvío manual (E7) queda a cargo de UC018** (REST de notificaciones). Existe además el CRUD genérico `/api/user-profiles` sin `@PreAuthorize` (deuda transversal).
 
 ---
 
 ## UC012 — Gestionar programas de aprendizaje
 
-**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Implementado
 
 **Feature:** CRUD de programas con nombre, iniciales, código numérico y cantidad de trimestres. Solo los programas activos pueden recibir fichas nuevas.
 
 **Endpoints:**
 
-| Método | Ruta                      | Acceso                            | Descripción                                                                              |
-| ------ | ------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
-| GET    | `/api/programs`           | Autenticado                       | Lista paginada.                                                                          |
-| GET    | `/api/programs/search`    | Autenticado                       | Filtra por `search` (código o nombre) y `status`; paginado.                              |
-| GET    | `/api/programs/{id}`      | Autenticado                       | Detalle.                                                                                 |
-| POST   | `/api/programs`           | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.                                                              |
-| PUT    | `/api/programs/{id}`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.                                                                        |
-| PATCH  | `/api/programs`           | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `id` en el cuerpo; ignora `status` y valores en blanco.           |
-| PATCH  | `/api/programs/activated` | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Activa/desactiva; devuelve el programa y, si aplica, una advertencia por fichas activas. |
-| DELETE | `/api/programs/{id}`      | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                                          |
+| Método | Ruta                      | Acceso       | Descripción                                                                              |
+| ------ | ------------------------- | ------------ | ---------------------------------------------------------------------------------------- |
+| GET    | `/api/programs`           | Autenticado  | Lista paginada.                                                                          |
+| GET    | `/api/programs/active`    | Autenticado  | Lista de programas activos, sin paginar; los activos alimentan la creación de fichas (UC007). |
+| GET    | `/api/programs/search`    | Autenticado  | Filtra por `search` (código o nombre) y `status`; paginado.                              |
+| GET    | `/api/programs/{id}`      | Autenticado  | Detalle.                                                                                 |
+| POST   | `/api/programs`           | `ROLE_ADMIN` | Crea; `201` con el recurso.                                                              |
+| PUT    | `/api/programs`           | `ROLE_ADMIN` | Reemplaza; el `id` viaja en el body; `200`.                                              |
+| PATCH  | `/api/programs`           | `ROLE_ADMIN` | Actualización parcial; `id` en el cuerpo; ignora `status` y valores en blanco.           |
+| PATCH  | `/api/programs/activated` | `ROLE_ADMIN` | Activa/desactiva; devuelve el programa y, si aplica, una advertencia por fichas activas. |
+| DELETE | `/api/programs/{id}`      | `ROLE_ADMIN` | Elimina; `204`. Bloquea si el programa tiene fichas (`400 error.programInUse`).          |
 
 **Request — `POST /api/programs`**
 
@@ -693,9 +695,9 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 | ------------ | ------- | ----------- | ----------------------------------------------------------------------- |
 | `name`       | string  | Sí          | `@NotNull`, máximo 200; único sin distinguir mayúsculas.                |
 | `initials`   | string  | Sí          | `@NotNull`, máximo 10; se normaliza a mayúsculas; única.                |
-| `code`       | string  | Sí          | `@NotNull`, máximo 30; único. El backend **no** exige que sea numérico. |
+| `code`       | string  | Sí          | `@NotNull`, máximo 30, **solo números**; único. Un valor con caracteres distintos de dígitos responde `400 error.validation` con `code` en `fieldErrors` (E5). |
 | `trimesters` | integer | Sí          | `@Min(1)` y `@Max(12)`.                                                 |
-| `status`     | boolean | No          | Si se omite, el servicio lo crea activo (`true`).                       |
+| `status`     | boolean | No          | Ignorado en la creación: el programa nace **Activo** (`status = true`).  |
 
 **Request — `PATCH /api/programs/activated`**
 
@@ -740,29 +742,29 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 
 `warning` solo aparece al desactivar un programa con fichas activas; `activeFichasCount` se envía siempre que `status` sea `false`. Las listas paginadas usan las cabeceras `X-Total-Count` y `Link`.
 
-**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idinvalid`, `400 error.idnotfound`, `400 error.codeexists` ("Ya existe un programa con este código"), `400 error.initialsexists`, `400 error.nameexists`, `400 error.validation`; `403`; `404`.
+**Errores:** `400 error.idexists`, `400 error.idnull`, `400 error.idnotfound`, `400 error.validation` (código no numérico, E5, y rango de trimestres, E6); `400 error.codeexists` ("Ya existe un programa con este código"); `400 error.initialsexists` ("Ya existe un programa con estas iniciales"); `400 error.nameexists`; `400 error.trimestersoutofrange` y `400 error.codenotnumeric` (campos presentes en un `PATCH` fuera de regla); `400 error.programInUse` (el programa tiene fichas y no puede eliminarse, E8); `403`; `404`.
 
-**Notas / lo que se necesita:** no se valida que el código sea numérico (E5) y `DELETE` no verifica si el programa tiene fichas (E8). La advertencia de desactivación (E7) sí está implementada. El CRUD acepta `ROLE_COORDINATOR`, aunque los casos de uso solo contemplan Administrador.
+**Notas / lo que se necesita:** reglas de UC012 implementadas. El **código es numérico** (`@Pattern` en `POST`/`PUT`, validación en el servicio para los campos presentes en `PATCH`); la **cantidad de trimestres** se valida 1–12 en `POST`, `PUT` y en los campos presentes de `PATCH`. Al crear, el programa nace **siempre Activo** (`status = true`) y el valor enviado se ignora: el estado se cambia con `PATCH /api/programs/activated`, que implementa la advertencia E7 con `activeFichasCount`. **Eliminar en uso (E8):** si alguna ficha referencia el programa, `DELETE` responde `400 error.programInUse`; en ese caso no se elimina y se **desactiva**. `GET /api/programs/active` devuelve solo los activos para la creación de fichas (UC007). En `PUT` el `id` viaja **solo en el body** (ruta sin `{id}`); si falta, `400 error.idnull`; si no existe, `400 error.idnotfound`. La escritura (`POST`, `PUT`, `PATCH`, `PATCH /activated`, `DELETE`) está restringida a `ROLE_ADMIN`; la lectura queda para cualquier usuario autenticado. Al ser un reemplazo completo, `PUT` también puede cambiar `status` (además de `PATCH /activated`).
 
 ---
 
 ## UC014 — Gestionar trimestres académicos
 
-**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Parcial
+**Módulo:** Programas y trimestres | **Actor:** Administrador | **Estado:** Implementado
 
-**Feature:** CRUD de trimestres globales. Su estado (`status`) se calcula por fechas y un proceso diario lo sincroniza; el trimestre activo enmarca asistencias, horarios y justificaciones.
+**Feature:** CRUD de trimestres globales. Su estado (`status`, enum `FUTURO`/`ACTIVO`/`CERRADO`) se calcula por fechas y un job diario lo sincroniza; el trimestre activo enmarca asistencias, horarios y justificaciones.
 
 **Endpoints:**
 
-| Método | Ruta                     | Acceso                            | Descripción                                                     |
-| ------ | ------------------------ | --------------------------------- | --------------------------------------------------------------- |
-| GET    | `/api/trimesters`        | Autenticado                       | Lista paginada.                                                 |
-| GET    | `/api/trimesters/search` | Autenticado                       | Filtra por año (4 dígitos) o nombre, y por `status`; paginado.  |
-| GET    | `/api/trimesters/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Detalle.                                                        |
-| POST   | `/api/trimesters`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea y calcula `status`; `201`.                                 |
-| PUT    | `/api/trimesters/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`. No aplica validaciones de estado.             |
-| PATCH  | `/api/trimesters`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial con reglas por estado; `id` en el cuerpo. |
-| DELETE | `/api/trimesters/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                 |
+| Método | Ruta                     | Acceso       | Descripción                                                                         |
+| ------ | ------------------------ | ------------ | ----------------------------------------------------------------------------------- |
+| GET    | `/api/trimesters`        | Autenticado  | Lista paginada.                                                                      |
+| GET    | `/api/trimesters/search` | Autenticado  | Filtra por nombre, año (4 dígitos) o `status` (`FUTURO\|ACTIVO\|CERRADO`); paginado. |
+| GET    | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Detalle.                                                                             |
+| POST   | `/api/trimesters`        | `ROLE_ADMIN` | Crea y calcula `status`; `201`.                                                      |
+| PUT    | `/api/trimesters`        | `ROLE_ADMIN` | Reemplaza; `200`. Aplica las mismas reglas de estado que `PATCH`; `id` en el cuerpo. |
+| PATCH  | `/api/trimesters`        | `ROLE_ADMIN` | Actualización parcial con reglas por estado; `id` en el cuerpo.                      |
+| DELETE | `/api/trimesters/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                                      |
 
 **Request — `POST /api/trimesters`**
 
@@ -774,12 +776,12 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 }
 ```
 
-| Campo       | Tipo                  | Obligatorio | Reglas                                                                                                 |
-| ----------- | --------------------- | ----------- | ------------------------------------------------------------------------------------------------------ |
-| `name`      | string                | Sí          | `@NotNull`, máximo 30.                                                                                 |
-| `startDate` | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; debe ser anterior a `endDate`.                                                             |
-| `endDate`   | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; no puede solaparse con otro trimestre.                                                     |
-| `status`    | boolean               | No          | Lo calcula el servidor al crear (`startDate <= hoy <= endDate`); el valor enviado se ignora en `POST`. |
+| Campo       | Tipo                  | Obligatorio | Reglas                                                                                                                     |
+| ----------- | --------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `name`      | string                | Sí          | `@NotNull`, máximo 30.                                                                                                     |
+| `startDate` | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; debe ser anterior a `endDate`; en la creación, desde mañana (`startDate > hoy`).                                |
+| `endDate`   | string (`YYYY-MM-DD`) | Sí          | `@NotNull`; en la creación, no anterior a hoy (`endDate >= hoy`).                                                          |
+| `status`    | string                | No          | Enum `FUTURO`/`ACTIVO`/`CERRADO`; lo calcula el servidor por fechas y el valor enviado se ignora en `POST`, `PUT` y `PATCH`. |
 
 **Response:** `201 Created`
 
@@ -789,13 +791,15 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
   "name": "2026-2",
   "startDate": "2026-10-01",
   "endDate": "2026-12-20",
-  "status": false
+  "status": "FUTURO"
 }
 ```
 
-**Errores:** `400 error.datesorder` ("La fecha de inicio debe ser anterior a la fecha de fin"), `400 error.datesoverlap` ("Ya existe un trimestre que se solapa con las fechas indicadas"), `400 error.noteditable` ("No se puede editar un trimestre que ya ha finalizado"), `400 error.startdatelocked`, `400 error.enddateinpast`, `400 error.startdatemustbefuture`, `400 error.attendancestartdate`; además de `idexists`, `idnull`, `idinvalid`, `idnotfound` y de validación; `403`; `404`.
+**Errores:** `400 error.datesorder` ("La fecha de inicio debe ser anterior a la fecha de fin"), `400 error.enddateinpast` ("La fecha de fin no puede ser anterior a la fecha actual"), `400 error.startdatemustbefuture` ("La nueva fecha de inicio debe ser posterior a la fecha actual"), `400 error.datesoverlap` ("Las fechas se solapan con otro trimestre"), `400 error.noteditable` ("No se puede modificar un trimestre cerrado"), `400 error.startdatelocked` ("No se puede modificar la fecha de inicio de un trimestre activo"), `400 error.attendancestartdate` ("No se puede modificar la fecha de inicio de un trimestre que ya tiene asistencia registrada"); además de `idexists`, `idnull`, `idnotfound` y de validación; `403`; `404`.
 
-**Notas / lo que se necesita:** al crear **no** se valida que la fecha de inicio sea desde mañana ni que la fecha fin no esté vencida (solo orden y solapamiento). `PUT` no valida nada: reemplaza el documento tal como llega, incluido `status`. `PATCH` sí aplica las reglas por estado (no editable si cerró, inicio congelado si está activo, end ≥ hoy si está activo, inicio futuro si es futuro, bloqueo si ya hay asistencias). `DELETE` no verifica horarios ni asistencias asociadas. Los estados Futuro/Activo/Cerrado se derivan de `status` + fechas, no hay campo de estado explícito.
+**Notas / lo que se necesita:** `PUT` y `PATCH` aplican las mismas reglas de estado (un trimestre **cerrado** no se edita; en **activo** la fecha inicio está congelada y la fecha fin no puede ser anterior a hoy; en **futuro** la fecha inicio debe seguir siendo futura; cambiar la fecha inicio se bloquea si hay asistencias), validan orden de fechas (E2) y solape (E1) y recalculan `status`. **Eliminar en uso (E6):** si el trimestre tiene horarios o asistencias, `DELETE` responde `400 error.trimesterInUse`. La escritura está restringida a `ROLE_ADMIN`; `GET /api/trimesters/{id}` también exige `ROLE_ADMIN`.
+
+El `status` es un **enum persistido** (`StateTrimester`: `FUTURO`, `ACTIVO`, `CERRADO`) que el servidor calcula siempre por fechas e **ignora el valor enviado** en `POST`, `PUT` y `PATCH` (`CERRADO` si `endDate < hoy`; `FUTURO` si `startDate > hoy`; si no, `ACTIVO`). Al crear, las fechas se validan en este orden: `startDate < endDate` (`error.datesorder`), `endDate` no anterior a hoy (`error.enddateinpast`), `startDate` desde mañana (`error.startdatemustbefuture`) y sin solape (`error.datesoverlap`); por eso todo trimestre creado por `POST` nace **FUTURO**. Un **job diario** (01:00) mantiene el `status` sincronizado con las fechas, y la **migración Mongock orden 009** (`MigrateTrimesterStatusToState`) convierte el booleano previo al enum por fechas. **Desviación conocida (E1):** la spec pide que el mensaje de solape nombre el trimestre en conflicto, pero el contrato de errores solo entrega la clave `error.datesoverlap` (más `params: trimester`); el nombre no viaja al cliente y el frontend debe mostrar un texto genérico.
 
 ---
 
@@ -812,10 +816,10 @@ Todos los campos son opcionales: solo se actualizan los presentes. `id` es oblig
 | GET    | `/api/grades`        | `ROLE_ADMIN` o `ROLE_USER`        | Lista paginada de fichas (relaciones cargadas con `eagerload=true` por defecto). |
 | GET    | `/api/grades/active` | Autenticado                       | Lista de fichas con estado `ACTIVA` (sin paginar).                               |
 | GET    | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_USER`        | Detalle con relaciones.                                                          |
-| POST   | `/api/grades`        | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Crea; `201` con el recurso.                                                      |
-| PUT    | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Reemplaza; `200`.                                                                |
-| PATCH  | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Actualización parcial; `200`.                                                    |
-| DELETE | `/api/grades/{id}`   | `ROLE_ADMIN` o `ROLE_COORDINATOR` | Elimina; `204`.                                                                  |
+| POST   | `/api/grades`        | `ROLE_ADMIN` | Crea; `201` con el recurso.                                                      |
+| PUT    | `/api/grades/{id}`   | `ROLE_ADMIN` | Reemplaza; `200`.                                                                |
+| PATCH  | `/api/grades/{id}`   | `ROLE_ADMIN` | Actualización parcial; `200`.                                                    |
+| DELETE | `/api/grades/{id}`   | `ROLE_ADMIN` | Elimina; `204`.                                                                  |
 
 **Request — `POST /api/grades`**
 

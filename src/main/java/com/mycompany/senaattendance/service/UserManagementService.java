@@ -9,9 +9,10 @@ import org.springframework.data.domain.Pageable;
  *
  * @param searchTerm the text used to filter the users; may be empty or null
  * @param status     the activation status filter (true=active, false=inactive, null=all)
+ * @param role       the authority name filter (e.g. ROLE_INSTRUCTOR), or null for all roles
  * @param pageable   the pagination and sorting information for the result set
  * @return a paginated list of user management DTOs matching the search criteria
  */
 public interface UserManagementService {
-    Page<UserManagementDTO> searchUsers(String searchTerm, Boolean status, Pageable pageable);
+    Page<UserManagementDTO> searchUsers(String searchTerm, Boolean status, String role, Pageable pageable);
 }

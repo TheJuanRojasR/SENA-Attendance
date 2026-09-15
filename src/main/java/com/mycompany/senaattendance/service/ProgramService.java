@@ -2,6 +2,7 @@ package com.mycompany.senaattendance.service;
 
 import com.mycompany.senaattendance.service.dto.ProgramActivatedResponseDTO;
 import com.mycompany.senaattendance.service.dto.ProgramDTO;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,6 +56,13 @@ public interface ProgramService {
      * @return the list of entities.
      */
     Page<ProgramDTO> findAll(Pageable pageable);
+
+    /**
+     * Get all the active programs.
+     *
+     * @return the list of active entities.
+     */
+    List<ProgramDTO> findActivePrograms();
 
     /**
      * Search and filter programs.

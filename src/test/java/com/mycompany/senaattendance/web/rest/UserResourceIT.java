@@ -11,11 +11,14 @@ import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.Authority;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
@@ -24,6 +27,7 @@ import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.SetUserActivatedVM;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Consumer;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -81,6 +85,9 @@ class UserResourceIT {
     @Autowired
     private ClassSectionRepository classSectionRepository;
 
+    @Autowired
+    private GradeRepository gradeRepository;
+
     @MockitoBean
     private MailService mailService;
 
@@ -118,8 +125,13 @@ class UserResourceIT {
     @AfterEach
     void cleanupAndCheck() {
         classSectionRepository.deleteAll();
+        gradeRepository.deleteAll();
         userProfileRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    private Grade persistedGrade(String code, StateGrade state) {
+        return gradeRepository.save(new Grade().code(code).state(state).startDate(LocalDate.now()).endDate(LocalDate.now().plusMonths(3)));
     }
 
     private String seededDocumentTypeId() {
@@ -259,6 +271,24 @@ class UserResourceIT {
             AuthoritiesConstants.USER,
             AuthoritiesConstants.INSTRUCTOR
         );
+    }
+
+    @Test
+    void createUserWithCoordinatorRoleReturnsBadRequest() throws Exception {
+        AdminCreateUserVM userVM = new AdminCreateUserVM();
+        userVM.setEmail("coord.rejected@example.com");
+        userVM.setPassword("Passw0rd!");
+        userVM.setFirstName("John");
+        userVM.setFirstLastName("Doe");
+        userVM.setDocumentNumber("COORDREJ01");
+        userVM.setPhoneNumber("3001234567");
+        userVM.setDocumentTypeId(seededDocumentTypeId());
+        userVM.setRole(AuthoritiesConstants.COORDINATOR);
+
+        restUserMockMvc
+            .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.rolenotfound"));
     }
 
     @Test
@@ -460,6 +490,45 @@ class UserResourceIT {
     }
 
     @Test
+    void updateUserChangesDocumentTypeRecalculatesLogin() throws Exception {
+        User target = persistedUserWithProfile("TYPECHG01", "type.chg@example.com");
+        DocumentType otherType = documentTypeRepository
+            .findAll()
+            .stream()
+            .filter(dt -> !dt.getId().equals(seededDocumentTypeId()))
+            .findFirst()
+            .orElseThrow();
+
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(target.getId());
+        vm.setDocumentTypeId(otherType.getId());
+
+        String otherInitials = otherType.getInitials() != null ? otherType.getInitials() : "";
+        String expectedLogin = (otherInitials + "_TYPECHG01").toLowerCase().trim();
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.login").value(expectedLogin));
+
+        assertThat(userRepository.findById(target.getId()).orElseThrow().getLogin()).isEqualTo(expectedLogin);
+    }
+
+    @Test
+    void updateUserCoordinatorRoleRejected() throws Exception {
+        User target = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
+
+        AdminUpdateUserVM vm = new AdminUpdateUserVM();
+        vm.setId(target.getId());
+        vm.setRole(AuthoritiesConstants.COORDINATOR);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.rolenotfound"));
+    }
+
+    @Test
     void updateUserRoleChangesAuthorities() throws Exception {
         User user = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
         user.setAuthorities(
@@ -471,6 +540,8 @@ class UserResourceIT {
             )
         );
         userRepository.save(user);
+        // Keep another active admin so demoting this one is allowed (E6 guards the last active admin).
+        freshAdmin("role.keep.admin", "role.keep.admin@example.com");
 
         AdminUpdateUserVM vm = buildUpdateVM(
             user.getId(),
@@ -556,6 +627,8 @@ class UserResourceIT {
             )
         );
         userRepository.save(user);
+        // Keep another active admin so demoting this one is allowed (E6 guards the last active admin).
+        freshAdmin("role.keep.admin.2", "role.keep.admin.2@example.com");
 
         // PATCH carrying ONLY role: authorities must change, login stays
         AdminUpdateUserVM vm = new AdminUpdateUserVM();
@@ -723,15 +796,16 @@ class UserResourceIT {
     }
 
     @Test
-    void deleteUser() throws Exception {
-        userRepository.save(user);
+    void deleteUserEndpointIsNotAvailable() throws Exception {
+        // Users are never deleted (UC006 postcondition): the endpoint was removed.
+        User target = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
         int databaseSizeBeforeDelete = userRepository.findAll().size();
 
         restUserMockMvc
-            .perform(delete("/api/admin/users/{login}", user.getLogin()).accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNoContent());
+            .perform(delete("/api/admin/users/{login}", target.getLogin()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isMethodNotAllowed());
 
-        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeDelete - 1));
+        assertPersistedUsers(users -> assertThat(users).hasSize(databaseSizeBeforeDelete));
     }
 
     @Test
@@ -803,9 +877,110 @@ class UserResourceIT {
         restUserMockMvc
             .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.message").value("error.lastAdmin"));
+            .andExpect(jsonPath("$.message").value("error.adminprotected"));
 
         assertThat(userRepository.findById(adminUser.getId()).orElseThrow().isActivated()).isTrue();
+    }
+
+    @Test
+    void updateUserLastAdminRoleChangeBlocked() throws Exception {
+        // Make the target the ONLY active admin so losing its role would leave the system without one.
+        User target = freshAdmin("role.last.admin", "role.last.admin@example.com");
+        persistedProfile(target, "ROLELAST01");
+        for (User u : userRepository.findAll()) {
+            if (u.getId().equals(target.getId()) || !u.isActivated()) {
+                continue;
+            }
+            if (hasAuthority(u, AuthoritiesConstants.ADMIN)) {
+                u.setActivated(false);
+                userRepository.save(u);
+            }
+        }
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            target.getId(),
+            "ROLELAST01",
+            "role.last.admin@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastAdmin"));
+
+        assertThat(hasAuthority(userRepository.findById(target.getId()).orElseThrow(), AuthoritiesConstants.ADMIN)).isTrue();
+    }
+
+    @Test
+    void updateUserProtectedAdminRoleChangeBlocked() throws Exception {
+        User adminUser = protectedAdmin();
+        persistedProfile(adminUser, "ROLEPROT01");
+
+        // Keep the document untouched so the role-change guard (not the document guard) is the one under test.
+        AdminUpdateUserVM vm = buildUpdateVM(
+            adminUser.getId(),
+            null,
+            "protected.admin@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+        vm.setDocumentNumber(null);
+        vm.setDocumentTypeId(null);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.adminprotected"));
+
+        assertThat(hasAuthority(userRepository.findById(adminUser.getId()).orElseThrow(), AuthoritiesConstants.ADMIN)).isTrue();
+    }
+
+    @Test
+    void updateUserOnlyInstructorRoleChangeBlocked() throws Exception {
+        User instructor = instructorUser("role.only.instr", "role.only.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "ROLEINSTR01");
+        Grade activeGrade = persistedGrade("E5-ROL-FICHA-ACTIVA", StateGrade.ACTIVA);
+        classSectionRepository.save(new ClassSection().subjectName("E5 Rol Materia").isActive(true).instructor(profile).grade(activeGrade));
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            instructor.getId(),
+            "ROLEINSTR01",
+            "role.only.instr@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(hasAuthority(userRepository.findById(instructor.getId()).orElseThrow(), AuthoritiesConstants.INSTRUCTOR)).isTrue();
+    }
+
+    @Test
+    void updateUserInstructorRoleChangeWithNoSectionsOk() throws Exception {
+        User instructor = instructorUser("role.noact.instr", "role.noact.instr@example.com");
+        persistedProfile(instructor, "ROLEOK01");
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            instructor.getId(),
+            "ROLEOK01",
+            "role.noact.instr@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.authorities").value(hasItem("ROLE_APPRENTICE")));
     }
 
     @Test
@@ -841,7 +1016,8 @@ class UserResourceIT {
         User instructor = instructorUser("only.instr", "only.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "E5INSTR01");
 
-        ClassSection activeSection = new ClassSection().subjectName("E5 Ficha Activa").isActive(true).instructor(profile);
+        Grade activeGrade = persistedGrade("E5-FICHA-ACTIVA", StateGrade.ACTIVA);
+        ClassSection activeSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(activeGrade);
         classSectionRepository.save(activeSection);
 
         SetUserActivatedVM vm = new SetUserActivatedVM();
@@ -858,12 +1034,13 @@ class UserResourceIT {
 
     @Test
     void setUserActivatedInstructorNoActiveSectionsOk() throws Exception {
-        // Instructor has NO active class section (or only inactive ones): deactivation must succeed.
+        // The instructor's sections belong to fichas that are not operational: deactivation must succeed.
         User instructor = instructorUser("noact.instr", "noact.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "E5OK01");
 
-        // A single INACTIVE section does not trigger the E5 rule.
-        ClassSection inactiveSection = new ClassSection().subjectName("E5 Ficha Inactiva").isActive(false).instructor(profile);
+        // A section on a non-active ficha does not trigger the E5 rule.
+        Grade inactiveGrade = persistedGrade("E5-FICHA-INACTIVA", StateGrade.INACTIVA);
+        ClassSection inactiveSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(inactiveGrade);
         classSectionRepository.save(inactiveSection);
 
         SetUserActivatedVM vm = new SetUserActivatedVM();

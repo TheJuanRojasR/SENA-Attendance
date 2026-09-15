@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.Program;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -12,6 +13,14 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface ProgramRepository extends MongoRepository<Program, String> {
+    /**
+     * Returns the programs with the given status.
+     *
+     * @param status the status to filter by.
+     * @return the matching programs.
+     */
+    List<Program> findByStatus(Boolean status);
+
     /**
      * Finds programs whose code or name contains the given term (case-insensitive regex).
      * The whole filter runs in MongoDB so the page size and total count are accurate.

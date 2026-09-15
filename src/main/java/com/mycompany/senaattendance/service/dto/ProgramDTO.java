@@ -22,6 +22,7 @@ public class ProgramDTO implements Serializable {
 
     @NotNull
     @Size(max = 30)
+    @Pattern(regexp = "\\d+", message = "El código debe contener solo números")
     private String code;
 
     @NotNull

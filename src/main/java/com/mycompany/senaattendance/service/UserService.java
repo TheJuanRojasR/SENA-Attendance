@@ -6,6 +6,7 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.StateGrade;
 import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
@@ -52,7 +53,7 @@ public class UserService {
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,20}$");
 
     /**
-     * Login of the protected super admin. This account can NEVER be deactivated (rule E3).
+     * Login of the protected super admin. This account can NEVER be deactivated (rule E6).
      */
     private static final String PROTECTED_ADMIN_LOGIN = "admin";
 
@@ -60,6 +61,16 @@ public class UserService {
      * How long a password-reset link stays valid after it is requested.
      */
     private static final long RESET_KEY_VALIDITY_MINUTES = 30;
+
+    /**
+     * Roles that can be assigned to an account. {@code ROLE_COORDINATOR} is deliberately excluded:
+     * the current use cases no longer contemplate it.
+     */
+    private static final Set<String> ASSIGNABLE_ROLES = Set.of(
+        AuthoritiesConstants.ADMIN,
+        AuthoritiesConstants.INSTRUCTOR,
+        AuthoritiesConstants.APPRENTICE
+    );
 
     private final UserRepository userRepository;
 
@@ -316,6 +327,9 @@ public class UserService {
      * @return the immutable result set {@code {ROLE_USER, role}}.
      */
     private Set<Authority> buildAuthorities(String role) {
+        if (role == null || !ASSIGNABLE_ROLES.contains(role)) {
+            throw new BadRequestAlertException("Role not found", "userManagement", "rolenotfound");
+        }
         Set<Authority> authorities = new HashSet<>();
         authorities.add(
             authorityRepository
@@ -346,18 +360,36 @@ public class UserService {
             .map(user -> {
                 String documentNumber = null;
                 String newLogin = null;
+                String originalLogin = user.getLogin();
 
                 // ----- USER PROFILE (fetch first so we can read the existing documentType for login) -----
                 UserProfile userProfile = userProfileRepository
                     .findOneByUserId(user.getId())
                     .orElseThrow(() -> new BadRequestAlertException("UserProfile not found for current user", "userProfile", "notfound"));
 
-                // ----- CONDITIONAL documentNumber / login re-derivation -----
-                if (vm.getDocumentNumber() != null) {
-                    documentNumber = vm.getDocumentNumber().trim();
+                // The protected admin's identity document cannot change, because its login is the
+                // stable identifier used to protect the account.
+                if (
+                    StringUtils.equals(originalLogin, PROTECTED_ADMIN_LOGIN) &&
+                    (vm.getDocumentNumber() != null || vm.getDocumentTypeId() != null)
+                ) {
+                    throw new BadRequestAlertException(
+                        "La cuenta admin está protegida y no puede modificarse su documento",
+                        "userManagement",
+                        "adminprotected"
+                    );
+                }
+
+                // ----- CONDITIONAL document / login re-derivation -----
+                // The login is derived from the whole (documentType, documentNumber) pair, so changing
+                // either of them must re-derive it; the untouched half falls back to the stored value.
+                if (vm.getDocumentNumber() != null || vm.getDocumentTypeId() != null) {
                     DocumentType effectiveType =
                         vm.getDocumentTypeId() != null ? resolveDocumentType(vm.getDocumentTypeId()) : userProfile.getDocumentType();
-                    newLogin = buildLogin(effectiveType, documentNumber);
+                    String effectiveNumber =
+                        vm.getDocumentNumber() != null ? vm.getDocumentNumber().trim() : userProfile.getDocumentNumber();
+                    documentNumber = effectiveNumber;
+                    newLogin = buildLogin(effectiveType, effectiveNumber);
 
                     if (!newLogin.equals(user.getLogin())) {
                         // uniqueness excluding self
@@ -369,7 +401,7 @@ public class UserService {
                     }
 
                     userProfileRepository
-                        .findByDocumentTypeAndDocumentNumber(effectiveType != null ? effectiveType.getId() : null, documentNumber)
+                        .findByDocumentTypeAndDocumentNumber(effectiveType != null ? effectiveType.getId() : null, effectiveNumber)
                         .ifPresent(existing -> {
                             if (!existing.getUser().getId().equals(vm.getId())) {
                                 throw new DocumentNumberAlreadyUsedException("Document number is already in use");
@@ -399,7 +431,21 @@ public class UserService {
 
                 // ----- CONDITIONAL role (authorities only rebuilt when provided) -----
                 if (vm.getRole() != null) {
-                    user.setAuthorities(buildAuthorities(vm.getRole()));
+                    Set<Authority> newAuthorities = buildAuthorities(vm.getRole());
+                    boolean losesAdmin =
+                        hasAuthority(user.getAuthorities(), AuthoritiesConstants.ADMIN) &&
+                        !hasAuthority(newAuthorities, AuthoritiesConstants.ADMIN);
+                    boolean losesInstructor =
+                        hasAuthority(user.getAuthorities(), AuthoritiesConstants.INSTRUCTOR) &&
+                        !hasAuthority(newAuthorities, AuthoritiesConstants.INSTRUCTOR);
+                    if (losesAdmin) {
+                        validateProtectedAdmin(user, originalLogin);
+                        validateLastActiveAdmin(user);
+                    }
+                    if (losesInstructor) {
+                        validateLastInstructor(userProfile);
+                    }
+                    user.setAuthorities(newAuthorities);
                 }
 
                 // ----- USER PROFILE (only provided fields are touched) -----
@@ -431,13 +477,6 @@ public class UserService {
                 LOG.debug("Changed Information for User: {}", user);
                 return new AdminUserDTO(user);
             });
-    }
-
-    public void deleteUser(String login) {
-        userRepository.findOneByLogin(login).ifPresent(user -> {
-            userRepository.delete(user);
-            LOG.debug("Deleted User: {}", user);
-        });
     }
 
     /**
@@ -472,7 +511,8 @@ public class UserService {
         }
 
         if (!activated) {
-            validateLastAdmin(user);
+            validateProtectedAdmin(user, user.getLogin());
+            validateLastActiveAdmin(user);
             validateLastInstructor(profile);
         }
 
@@ -483,33 +523,43 @@ public class UserService {
     }
 
     /**
-     * A user deactivation must never leave the system without any active
-     * administrator, and the protected super admin (login {@code "admin"}) can never be deactivated.
+     * The protected super admin (login {@code "admin"}) is never deactivated nor demoted.
      *
-     * @param user the user being deactivated.
-     * @throws BadRequestAlertException with key {@code lastAdmin} when the rule is violated.
+     * @param user the user targeted by the operation.
+     * @throws BadRequestAlertException with key {@code adminprotected} when the rule is violated.
      */
-    private void validateLastAdmin(User user) {
-        if (StringUtils.equals(user.getLogin(), PROTECTED_ADMIN_LOGIN)) {
-            throw new BadRequestAlertException("Debe existir al menos un Administrador activo", "userManagement", "lastAdmin");
+    private void validateProtectedAdmin(User user, String login) {
+        if (StringUtils.equals(login, PROTECTED_ADMIN_LOGIN)) {
+            throw new BadRequestAlertException(
+                "La cuenta admin está protegida y no puede desactivarse",
+                "userManagement",
+                "adminprotected"
+            );
         }
+    }
 
-        boolean targetIsActiveAdmin =
-            user.isActivated() &&
-            user
-                .getAuthorities()
-                .stream()
-                .anyMatch(a -> StringUtils.equals(a.getName(), AuthoritiesConstants.ADMIN));
-
+    /**
+     * Deactivating or demoting an active administrator must never leave the system without any
+     * active administrator.
+     *
+     * @param user the user losing the administrator role.
+     * @throws BadRequestAlertException with key {@code lastAdmin} when no active administrator would remain.
+     */
+    private void validateLastActiveAdmin(User user) {
+        boolean targetIsActiveAdmin = user.isActivated() && hasAuthority(user.getAuthorities(), AuthoritiesConstants.ADMIN);
         if (!targetIsActiveAdmin) {
             return;
         }
 
-        // Count active admins EXCLUDING the user being deactivated. If none remain, block.
+        // Count active admins EXCLUDING the target. If none remain, block.
         long remainingActiveAdmins = userRepository.countByActivatedTrueAndAuthorities_Name(AuthoritiesConstants.ADMIN) - 1;
         if (remainingActiveAdmins == 0) {
             throw new BadRequestAlertException("Debe existir al menos un Administrador activo", "userManagement", "lastAdmin");
         }
+    }
+
+    private static boolean hasAuthority(Collection<Authority> authorities, String role) {
+        return authorities.stream().anyMatch(a -> StringUtils.equals(a.getName(), role));
     }
 
     /**
@@ -532,25 +582,31 @@ public class UserService {
             return;
         }
 
-        List<ClassSection> activeSections = classSectionRepository.findByInstructorIdAndIsActiveTrue(profile.getId());
-        if (activeSections.isEmpty()) {
+        // Operational means the section belongs to a ficha that is still running (ACTIVA).
+        // A ficha in another state (INACTIVA / APLAZADA) does not hold the instructor.
+        List<ClassSection> operationalSections = classSectionRepository
+            .findByInstructorId(profile.getId())
+            .stream()
+            .filter(section -> section.getGrade() != null && section.getGrade().getState() == StateGrade.ACTIVA)
+            .toList();
+
+        if (operationalSections.isEmpty()) {
             return;
         }
 
-        List<String> affectedSubjectNames = activeSections
+        List<String> affected = operationalSections
             .stream()
-            .map(ClassSection::getSubjectName)
-            .filter(subjectName -> subjectName != null && !subjectName.isBlank())
+            .map(section -> {
+                String subjectName = StringUtils.isBlank(section.getSubjectName()) ? "Materia sin nombre" : section.getSubjectName();
+                String gradeCode = section.getGrade().getCode();
+                return StringUtils.isBlank(gradeCode) ? subjectName : subjectName + " (ficha " + gradeCode + ")";
+            })
+            .distinct()
             .sorted()
             .toList();
 
-        if (affectedSubjectNames.isEmpty()) {
-            throw new BadRequestAlertException("Debe existir al menos un instructor para la ficha", "userManagement", "lastInstructor");
-        }
-
-        String detail = String.join("; ", affectedSubjectNames);
         throw new BadRequestAlertException(
-            "Debe existir al menos un instructor: " + detail + " queda sin instructor",
+            "Debe existir al menos un instructor: " + String.join("; ", affected) + " quedaría sin instructor",
             "userManagement",
             "lastInstructor"
         );

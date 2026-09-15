@@ -45,6 +45,7 @@ public class AdminCreateUserVM extends AdminUserDTO {
     @Size(min = 1)
     private String documentTypeId;
 
+    @NotNull
     @Size(min = 1, max = 50)
     private String role;
 

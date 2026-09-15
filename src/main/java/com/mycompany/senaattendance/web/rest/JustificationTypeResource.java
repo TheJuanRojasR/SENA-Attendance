@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +54,7 @@ public class JustificationTypeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<JustificationTypeDTO> createJustificationType(@Valid @RequestBody JustificationTypeDTO justificationTypeDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save JustificationType : {}", justificationTypeDTO);
@@ -69,27 +68,22 @@ public class JustificationTypeResource {
     }
 
     /**
-     * {@code PUT  /justification-types/:id} : Updates an existing justificationType.
+     * {@code PUT  /justification-types} : Updates an existing justificationType; the id is taken from the request body.
      *
-     * @param id the id of the justificationTypeDTO to save.
      * @param justificationTypeDTO the justificationTypeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated justificationTypeDTO,
      * or with status {@code 400 (Bad Request)} if the justificationTypeDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the justificationTypeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<JustificationTypeDTO> updateJustificationType(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody JustificationTypeDTO justificationTypeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update JustificationType : {}, {}", id, justificationTypeDTO);
-        if (justificationTypeDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<JustificationTypeDTO> updateJustificationType(@Valid @RequestBody JustificationTypeDTO justificationTypeDTO)
+        throws URISyntaxException {
+        String id = justificationTypeDTO.getId();
+        LOG.debug("REST request to update JustificationType : {}", justificationTypeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, justificationTypeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!justificationTypeRepository.existsById(id)) {
@@ -103,9 +97,9 @@ public class JustificationTypeResource {
     }
 
     /**
-     * {@code PATCH  /justification-types/:id} : Partial updates given fields of an existing justificationType, field will ignore if it is null
+     * {@code PATCH  /justification-types} : Partial updates given fields of an existing justificationType, field will ignore if it is null;
+     * the id is taken from the request body.
      *
-     * @param id the id of the justificationTypeDTO to save.
      * @param justificationTypeDTO the justificationTypeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated justificationTypeDTO,
      * or with status {@code 400 (Bad Request)} if the justificationTypeDTO is not valid,
@@ -113,18 +107,15 @@ public class JustificationTypeResource {
      * or with status {@code 500 (Internal Server Error)} if the justificationTypeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<JustificationTypeDTO> partialUpdateJustificationType(
-        @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody JustificationTypeDTO justificationTypeDTO
     ) throws URISyntaxException {
-        LOG.debug("REST request to partial update JustificationType partially : {}, {}", id, justificationTypeDTO);
-        if (justificationTypeDTO.getId() == null) {
+        String id = justificationTypeDTO.getId();
+        LOG.debug("REST request to partial update JustificationType partially : {}", justificationTypeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, justificationTypeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!justificationTypeRepository.existsById(id)) {
@@ -151,6 +142,17 @@ public class JustificationTypeResource {
     }
 
     /**
+     * {@code GET  /justification-types/active} : get all the active Justification Types.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of active Justification Types in body.
+     */
+    @GetMapping("/active")
+    public List<JustificationTypeDTO> getActiveJustificationTypes() {
+        LOG.debug("REST request to get all active JustificationTypes");
+        return justificationTypeService.findActiveJustificationTypes();
+    }
+
+    /**
      * {@code GET  /justification-types/:id} : get the "id" justificationType.
      *
      * @param id the id of the justificationTypeDTO to retrieve.
@@ -170,7 +172,7 @@ public class JustificationTypeResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteJustificationType(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JustificationType : {}", id);
         justificationTypeService.delete(id);

@@ -1,11 +1,15 @@
 package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.JustificationType;
+import com.mycompany.senaattendance.domain.enumeration.Status;
+import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.JustificationTypeService;
 import com.mycompany.senaattendance.service.dto.JustificationTypeDTO;
 import com.mycompany.senaattendance.service.mapper.JustificationTypeMapper;
+import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.errors.JustificationTypeNameAlreadyUsedException;
 import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,18 +31,26 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
 
     private final JustificationTypeMapper justificationTypeMapper;
 
+    private final JustificationRepository justificationRepository;
+
     public JustificationTypeServiceImpl(
         JustificationTypeRepository justificationTypeRepository,
-        JustificationTypeMapper justificationTypeMapper
+        JustificationTypeMapper justificationTypeMapper,
+        JustificationRepository justificationRepository
     ) {
         this.justificationTypeRepository = justificationTypeRepository;
         this.justificationTypeMapper = justificationTypeMapper;
+        this.justificationRepository = justificationRepository;
     }
 
     @Override
     public JustificationTypeDTO save(JustificationTypeDTO justificationTypeDTO) {
         LOG.debug("Request to save JustificationType : {}", justificationTypeDTO);
         JustificationType justificationType = justificationTypeMapper.toEntity(justificationTypeDTO);
+        validateAndNormalizeName(justificationType, null);
+
+        // Los tipos nuevos nacen activos
+        justificationType.setStatus(Status.ACTIVO);
 
         justificationType.setCreatedDate(Instant.now());
         Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
@@ -54,6 +66,7 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     public JustificationTypeDTO update(JustificationTypeDTO justificationTypeDTO) {
         LOG.debug("Request to update JustificationType : {}", justificationTypeDTO);
         JustificationType justificationType = justificationTypeMapper.toEntity(justificationTypeDTO);
+        validateAndNormalizeName(justificationType, justificationType.getId());
 
         Optional<JustificationType> optionalJustificationType = justificationTypeRepository.findById(justificationType.getId());
         if (optionalJustificationType.isPresent()) {
@@ -68,6 +81,11 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
             }
         }
 
+        // Un PUT sin status conserva el estado existente en lugar de borrarlo.
+        if (justificationType.getStatus() == null) {
+            justificationType.setStatus(optionalJustificationType.map(JustificationType::getStatus).orElse(Status.ACTIVO));
+        }
+
         justificationType = justificationTypeRepository.save(justificationType);
         return justificationTypeMapper.toDto(justificationType);
     }
@@ -80,6 +98,7 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
             .findById(justificationTypeDTO.getId())
             .map(existingJustificationType -> {
                 justificationTypeMapper.partialUpdate(existingJustificationType, justificationTypeDTO);
+                validateAndNormalizeName(existingJustificationType, existingJustificationType.getId());
 
                 return existingJustificationType;
             })
@@ -98,6 +117,16 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     }
 
     @Override
+    public List<JustificationTypeDTO> findActiveJustificationTypes() {
+        LOG.debug("Request to get all active JustificationTypes");
+        return justificationTypeRepository
+            .findJustificationTypeByStatus(Status.ACTIVO)
+            .stream()
+            .map(justificationTypeMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
+    }
+
+    @Override
     public Optional<JustificationTypeDTO> findOne(String id) {
         LOG.debug("Request to get JustificationType : {}", id);
         return justificationTypeRepository.findById(id).map(justificationTypeMapper::toDto);
@@ -106,6 +135,40 @@ public class JustificationTypeServiceImpl implements JustificationTypeService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete JustificationType : {}", id);
+        if (justificationRepository.existsByJustificationTypeId(id)) {
+            throw new BadRequestAlertException(
+                "This justification type is used by justifications and cannot be deleted",
+                "justificationType",
+                "justificationTypeInUse"
+            );
+        }
         justificationTypeRepository.deleteById(id);
+    }
+
+    /**
+     * Trims the justification type name and enforces its uniqueness case-insensitively.
+     * <p>
+     * When {@code excludeId} is not {@code null}, the justification type with that id is ignored so an
+     * update that keeps the same name does not collide with itself. On create {@code excludeId} is
+     * {@code null} and every existing justification type is considered. The trimmed name is written
+     * back onto the entity so the stored value is consistent.
+     *
+     * @param justificationType the justification type whose name is normalized and validated.
+     * @param excludeId the id to exclude from the uniqueness check, or {@code null} on create.
+     * @throws JustificationTypeNameAlreadyUsedException if another justification type with the same name exists.
+     */
+    private void validateAndNormalizeName(JustificationType justificationType, String excludeId) {
+        if (justificationType.getName() == null) {
+            return;
+        }
+        String name = justificationType.getName().trim();
+        justificationType.setName(name);
+        boolean duplicate =
+            excludeId == null
+                ? justificationTypeRepository.existsByNameIgnoreCase(name)
+                : justificationTypeRepository.existsByNameIgnoreCaseAndIdNot(name, excludeId);
+        if (duplicate) {
+            throw new JustificationTypeNameAlreadyUsedException();
+        }
     }
 }

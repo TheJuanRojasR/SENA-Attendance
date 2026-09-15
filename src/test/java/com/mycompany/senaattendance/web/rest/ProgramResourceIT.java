@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.ProgramAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -42,8 +43,8 @@ class ProgramResourceIT {
     private static final String DEFAULT_INITIALS = "AAAAAAAAAA";
     private static final String UPDATED_INITIALS = "BBBBBBBBBB";
 
-    private static final String DEFAULT_CODE = "AAAAAAAAAA";
-    private static final String UPDATED_CODE = "BBBBBBBBBB";
+    private static final String DEFAULT_CODE = "2281181";
+    private static final String UPDATED_CODE = "2281182";
 
     private static final Integer DEFAULT_TRIMESTERS = 1;
     private static final Integer UPDATED_TRIMESTERS = 2;
@@ -227,6 +228,30 @@ class ProgramResourceIT {
     }
 
     @Test
+    void createProgramForcesActiveStatus() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        // set the field false: the backend ignores it and creates the program as active
+        program.setStatus(false);
+
+        ProgramDTO programDTO = programMapper.toDto(program);
+        var returnedProgramDTO = om.readValue(
+            restProgramMockMvc
+                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            ProgramDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        assertThat(returnedProgramDTO.getStatus()).isTrue();
+        assertThat(getPersistedProgram(programMapper.toEntity(returnedProgramDTO)).getStatus()).isTrue();
+
+        insertedProgram = programMapper.toEntity(returnedProgramDTO);
+    }
+
+    @Test
     void createProgramWithoutStatusDefaultsToTrue() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
 
@@ -273,13 +298,30 @@ class ProgramResourceIT {
     }
 
     @Test
+    void createProgramWithNonNumericCodeReturnsBadRequest() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        program.setCode("AB12");
+
+        ProgramDTO programDTO = programMapper.toDto(program);
+
+        restProgramMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.validation"))
+            .andExpect(jsonPath("$.fieldErrors").isArray())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("code"));
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
     void createProgramWithDuplicateInitialsReturnsBadRequest() throws Exception {
         // Persist a program with DEFAULT_INITIALS so the upcoming POST collides on initials only
         programRepository.save(program);
         insertedProgram = program;
         long databaseSizeBeforeCreate = getRepositoryCount();
 
-        ProgramDTO programDTO = buildProgramDTO("ZZZZZZZZZZ", DEFAULT_INITIALS, "ZZZZZZZZZZ", DEFAULT_TRIMESTERS);
+        ProgramDTO programDTO = buildProgramDTO("ZZZZZZZZZZ", DEFAULT_INITIALS, "0000000", DEFAULT_TRIMESTERS);
 
         restProgramMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
@@ -296,7 +338,7 @@ class ProgramResourceIT {
         insertedProgram = program;
         long databaseSizeBeforeCreate = getRepositoryCount();
 
-        ProgramDTO programDTO = buildProgramDTO(DEFAULT_NAME, "ZZZZZZZZZZ", "ZZZZZZZZZZ", DEFAULT_TRIMESTERS);
+        ProgramDTO programDTO = buildProgramDTO(DEFAULT_NAME, "ZZZZZZZZZZ", "0000000", DEFAULT_TRIMESTERS);
 
         restProgramMockMvc
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
@@ -315,7 +357,7 @@ class ProgramResourceIT {
             .perform(
                 post(ENTITY_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_13", "INI_13", "CODE_13", 13)))
+                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_13", "INI_13", "0000013", 13)))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.fieldErrors").isArray())
@@ -325,7 +367,7 @@ class ProgramResourceIT {
             .perform(
                 post(ENTITY_API_URL)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_0", "INI_0", "CODE_0", 0)))
+                    .content(om.writeValueAsBytes(buildProgramDTO("NAME_0", "INI_0", "0000000", 0)))
             )
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.fieldErrors").isArray())
@@ -338,7 +380,7 @@ class ProgramResourceIT {
     void createProgramWithMaxTrimestersCreates() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
 
-        ProgramDTO programDTO = buildProgramDTO("NAME_12", "INI_12", "CODE_12", 12);
+        ProgramDTO programDTO = buildProgramDTO("NAME_12", "INI_12", "0000012", 12);
 
         var returnedProgramDTO = om.readValue(
             restProgramMockMvc
@@ -418,6 +460,25 @@ class ProgramResourceIT {
     }
 
     @Test
+    void getActivePrograms() throws Exception {
+        insertedProgram = programRepository.save(program);
+        Program inactiveProgram = programRepository.save(
+            createEntity().name("InactiveProg").initials("INACT").code("0000099").status(false)
+        );
+
+        try {
+            restProgramMockMvc
+                .perform(get(ENTITY_API_URL + "/active"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(jsonPath("$.[*].id").value(hasItem(insertedProgram.getId())))
+                .andExpect(jsonPath("$.[*].id").value(not(hasItem(inactiveProgram.getId()))));
+        } finally {
+            programRepository.delete(inactiveProgram);
+        }
+    }
+
+    @Test
     void getProgram() throws Exception {
         // Initialize the database
         insertedProgram = programRepository.save(program);
@@ -459,9 +520,7 @@ class ProgramResourceIT {
         ProgramDTO programDTO = programMapper.toDto(updatedProgram);
 
         restProgramMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, programDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
             .andExpect(status().isOk());
 
         // Validate the Program in the database
@@ -479,9 +538,7 @@ class ProgramResourceIT {
 
         // If the entity doesn't have an ID, it will throw BadRequestAlertException
         restProgramMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, programDTO.getId()).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO))
-            )
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
             .andExpect(status().isBadRequest());
 
         // Validate the Program in the database
@@ -489,38 +546,16 @@ class ProgramResourceIT {
     }
 
     @Test
-    void putWithIdMismatchProgram() throws Exception {
+    void putProgramWithoutIdReturnsBadRequest() throws Exception {
         long databaseSizeBeforeUpdate = getRepositoryCount();
-        program.setId(UUID.randomUUID().toString());
+        program.setId(null);
 
-        // Create the Program
         ProgramDTO programDTO = programMapper.toDto(program);
 
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restProgramMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(programDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the Program in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    void putWithMissingIdPathParamProgram() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        program.setId(UUID.randomUUID().toString());
-
-        // Create the Program
-        ProgramDTO programDTO = programMapper.toDto(program);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
         restProgramMockMvc
             .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
-            .andExpect(status().isMethodNotAllowed());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.idnull"));
 
         // Validate the Program in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
@@ -750,12 +785,44 @@ class ProgramResourceIT {
     }
 
     @Test
+    void patchProgramWithTrimestersOutOfRangeReturnsBadRequest() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        ProgramDTO patchDto = new ProgramDTO();
+        patchDto.setId(program.getId());
+        patchDto.setTrimesters(13);
+
+        restProgramMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(patchDto)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.trimestersoutofrange"));
+
+        assertThat(getPersistedProgram(program).getTrimesters()).isEqualTo(DEFAULT_TRIMESTERS);
+    }
+
+    @Test
+    void patchProgramWithNonNumericCodeReturnsBadRequest() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        ProgramDTO patchDto = new ProgramDTO();
+        patchDto.setId(program.getId());
+        patchDto.setCode("AB12");
+
+        restProgramMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(patchDto)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.codenotnumeric"));
+
+        assertThat(getPersistedProgram(program).getCode()).isEqualTo(DEFAULT_CODE);
+    }
+
+    @Test
     void patchProgramWithDuplicateCodeReturnsBadRequest() throws Exception {
         // A: already persisted with DEFAULT_CODE (the value we try to steal) -> cleaned by @AfterEach
         insertedProgram = programRepository.save(program);
 
         // B: the program we PATCH, trying to take A's code
-        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("OTHERCODE").status(true);
+        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("7777777").status(true);
         other = programRepository.save(other);
 
         try {
@@ -770,7 +837,7 @@ class ProgramResourceIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("error.codeexists"));
 
-            assertThat(getPersistedProgram(other).getCode()).as("code unchanged after rejected patch").isEqualTo("OTHERCODE");
+            assertThat(getPersistedProgram(other).getCode()).as("code unchanged after rejected patch").isEqualTo("7777777");
         } finally {
             programRepository.delete(other);
         }
@@ -780,7 +847,7 @@ class ProgramResourceIT {
     void patchProgramWithDuplicateInitialsReturnsBadRequest() throws Exception {
         insertedProgram = programRepository.save(program);
 
-        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("OTHERCODE").status(true);
+        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("7777777").status(true);
         other = programRepository.save(other);
 
         try {
@@ -805,7 +872,7 @@ class ProgramResourceIT {
     void patchProgramWithDuplicateNameReturnsBadRequest() throws Exception {
         insertedProgram = programRepository.save(program);
 
-        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("OTHERCODE").status(true);
+        Program other = createEntity().name("OTHER_NAME").initials("OTHERIN").code("7777777").status(true);
         other = programRepository.save(other);
 
         try {
@@ -928,6 +995,28 @@ class ProgramResourceIT {
     }
 
     @Test
+    void deleteProgramWithFichasReturnsBadRequest() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        Grade ficha = new Grade()
+            .code("FICHA-E8-01")
+            .state(StateGrade.ACTIVA)
+            .startDate(LocalDate.of(2025, 1, 1))
+            .endDate(LocalDate.of(2025, 12, 31))
+            .program(insertedProgram);
+        insertedGrade = gradeRepository.save(ficha);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restProgramMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedProgram.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.programInUse"));
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
     void deleteProgram() throws Exception {
         // Initialize the database
         insertedProgram = programRepository.save(program);
@@ -941,6 +1030,89 @@ class ProgramResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void createProgramAsNonAdminReturnsForbidden() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        ProgramDTO programDTO = programMapper.toDto(program);
+
+        restProgramMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void updateProgramAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ProgramDTO programDTO = programMapper.toDto(insertedProgram);
+
+        restProgramMockMvc
+            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void partialUpdateProgramAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        long databaseSizeBeforeUpdate = getRepositoryCount();
+        ProgramDTO programDTO = programMapper.toDto(insertedProgram);
+
+        restProgramMockMvc
+            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(programDTO)))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeUpdate);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void setProgramActivatedAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        var body = om.createObjectNode().put("id", insertedProgram.getId()).put("status", false);
+
+        restProgramMockMvc
+            .perform(
+                patch(ENTITY_API_URL + "/activated")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(body))
+            )
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    void deleteProgramAsNonAdminReturnsForbidden() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        restProgramMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedProgram.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void readProgramsAsAuthenticatedNonAdminReturnsOk() throws Exception {
+        insertedProgram = programRepository.save(program);
+
+        restProgramMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isOk());
+        restProgramMockMvc.perform(get(ENTITY_API_URL_ID, insertedProgram.getId())).andExpect(status().isOk());
+        restProgramMockMvc.perform(get(ENTITY_API_URL + "/active")).andExpect(status().isOk());
     }
 
     protected long getRepositoryCount() {

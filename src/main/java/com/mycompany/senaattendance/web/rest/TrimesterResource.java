@@ -1,5 +1,6 @@
 package com.mycompany.senaattendance.web.rest;
 
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.TrimesterService;
@@ -10,7 +11,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +58,7 @@ public class TrimesterResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> createTrimester(@Valid @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
         LOG.debug("REST request to save Trimester : {}", trimesterDTO);
         if (trimesterDTO.getId() != null) {
@@ -71,27 +71,21 @@ public class TrimesterResource {
     }
 
     /**
-     * {@code PUT  /trimesters/:id} : Updates an existing trimester.
+     * {@code PUT  /trimesters} : Updates an existing trimester; the id is taken from the request body.
      *
-     * @param id the id of the trimesterDTO to save.
      * @param trimesterDTO the trimesterDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated trimesterDTO,
      * or with status {@code 400 (Bad Request)} if the trimesterDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the trimesterDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<TrimesterDTO> updateTrimester(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody TrimesterDTO trimesterDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Trimester : {}, {}", id, trimesterDTO);
-        if (trimesterDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<TrimesterDTO> updateTrimester(@Valid @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
+        String id = trimesterDTO.getId();
+        LOG.debug("REST request to update Trimester : {}", trimesterDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, trimesterDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!trimesterRepository.existsById(id)) {
@@ -115,7 +109,7 @@ public class TrimesterResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> partialUpdateTrimester(@NotNull @RequestBody TrimesterDTO trimesterDTO) throws URISyntaxException {
         String id = trimesterDTO.getId();
         LOG.debug("REST request to partial update Trimester partially : {}", trimesterDTO);
@@ -168,7 +162,7 @@ public class TrimesterResource {
     @GetMapping("/search")
     public ResponseEntity<List<TrimesterDTO>> searchTrimesters(
         @RequestParam(required = false) String search,
-        @RequestParam(required = false) Boolean status,
+        @RequestParam(required = false) StateTrimester status,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to search Trimesters with term: {}, status: {}", search, status);
@@ -184,7 +178,7 @@ public class TrimesterResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the trimesterDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<TrimesterDTO> getTrimester(@PathVariable("id") String id) {
         LOG.debug("REST request to get Trimester : {}", id);
         Optional<TrimesterDTO> trimesterDTO = trimesterService.findOne(id);
@@ -198,7 +192,7 @@ public class TrimesterResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteTrimester(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Trimester : {}", id);
         trimesterService.delete(id);

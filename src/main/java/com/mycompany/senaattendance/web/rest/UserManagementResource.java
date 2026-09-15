@@ -48,11 +48,12 @@ public class UserManagementResource {
     public ResponseEntity<List<UserManagementDTO>> searchUsers(
         @RequestParam String search,
         @RequestParam(required = false) Boolean status,
+        @RequestParam(required = false) String role,
         @ParameterObject Pageable pageable
     ) {
-        LOG.debug("REST request to search users with term: {}, status: {}", search, status);
+        LOG.debug("REST request to search users with term: {}, status: {}, role: {}", search, status, role);
 
-        Page<UserManagementDTO> page = userManagementService.searchUsers(search, status, pageable);
+        Page<UserManagementDTO> page = userManagementService.searchUsers(search, status, role, pageable);
 
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
 

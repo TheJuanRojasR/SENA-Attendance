@@ -14,7 +14,10 @@ import com.mycompany.senaattendance.web.rest.errors.ProgramCodeAlreadyUsedExcept
 import com.mycompany.senaattendance.web.rest.errors.ProgramInitialsAlreadyUsedException;
 import com.mycompany.senaattendance.web.rest.errors.ProgramNameAlreadyUsedException;
 import java.time.Instant;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -49,9 +52,8 @@ public class ProgramServiceImpl implements ProgramService {
         LOG.debug("Request to save Program : {}", programDTO);
         Program program = programMapper.toEntity(programDTO);
 
-        if (program.getStatus() == null) {
-            program.setStatus(true);
-        }
+        // Los programas nacen siempre activos: el estado se cambia con Desactivar / Reactivar.
+        program.setStatus(true);
 
         validateAndNormalizeUniqueFields(program, null);
 
@@ -97,6 +99,7 @@ public class ProgramServiceImpl implements ProgramService {
 
         programDTO.setStatus(null);
         sanitizeBlankPatchFields(programDTO);
+        validatePatchFieldValues(programDTO);
         boolean hasFieldsToUpdate = hasPatchFields(programDTO);
 
         return programRepository
@@ -157,6 +160,12 @@ public class ProgramServiceImpl implements ProgramService {
     }
 
     @Override
+    public List<ProgramDTO> findActivePrograms() {
+        LOG.debug("Request to get all active Programs");
+        return programRepository.findByStatus(true).stream().map(programMapper::toDto).collect(Collectors.toCollection(LinkedList::new));
+    }
+
+    @Override
     public Page<ProgramDTO> search(String searchTerm, Boolean status, Pageable pageable) {
         LOG.debug("Request to search Programs with term: {}, status: {}", searchTerm, status);
 
@@ -185,7 +194,33 @@ public class ProgramServiceImpl implements ProgramService {
     @Override
     public void delete(String id) {
         LOG.debug("Request to delete Program : {}", id);
+        if (gradeRepository.existsByProgramId(id)) {
+            throw new BadRequestAlertException(
+                "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo",
+                ENTITY_NAME,
+                "programInUse"
+            );
+        }
         programRepository.deleteById(id);
+    }
+
+    /**
+     * The full DTO constraints include {@code NotNull} on every field, so they cannot run on a
+     * partial payload; the PATCH endpoint therefore validates only the fields actually present.
+     *
+     * @param programDTO the incoming partial update.
+     * @throws BadRequestAlertException with key {@code trimestersoutofrange} when the trimester
+     *                                  count is outside the 1..12 range.
+     * @throws BadRequestAlertException with key {@code codenotnumeric} when the code carries
+     *                                  non-digit characters.
+     */
+    private void validatePatchFieldValues(ProgramDTO programDTO) {
+        if (programDTO.getTrimesters() != null && (programDTO.getTrimesters() < 1 || programDTO.getTrimesters() > 12)) {
+            throw new BadRequestAlertException("La cantidad de trimestres debe estar entre 1 y 12", ENTITY_NAME, "trimestersoutofrange");
+        }
+        if (programDTO.getCode() != null && !programDTO.getCode().matches("\\d+")) {
+            throw new BadRequestAlertException("El código debe contener solo números", ENTITY_NAME, "codenotnumeric");
+        }
     }
 
     /**

@@ -1,9 +1,9 @@
 package com.mycompany.senaattendance.domain.enumeration;
 
 /**
- * The State enumeration.
+ * The Status enumeration.
  */
-public enum State {
+public enum Status {
     ACTIVO,
     INACTIVO,
 }

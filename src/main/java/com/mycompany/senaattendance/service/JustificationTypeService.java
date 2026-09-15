@@ -40,6 +40,13 @@ public interface JustificationTypeService {
     List<JustificationTypeDTO> findAll();
 
     /**
+     * Get all the active justificationTypes.
+     *
+     * @return the list of active entities.
+     */
+    List<JustificationTypeDTO> findActiveJustificationTypes();
+
+    /**
      * Get the "id" justificationType.
      *
      * @param id the id of the entity.
