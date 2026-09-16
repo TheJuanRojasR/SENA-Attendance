@@ -5,6 +5,7 @@ import axios, { AxiosResponse } from 'axios';
 
 import { AppThunk } from 'app/config/store';
 import { AUTHENTICATION_TOKEN_KEY } from 'app/shared/jhipster/constants';
+import { isProblemWithMessage } from 'app/shared/jhipster/problem-details';
 import { setLocale } from 'app/shared/reducers/locale';
 
 import { serializeAxiosError } from './reducer.utils';
@@ -44,6 +45,7 @@ interface IAuthParams {
   documentTypeId?: string;
   documentNumber?: string;
   password?: string;
+  rememberMe: boolean;
 }
 
 export const authenticate = createAsyncThunk(
@@ -54,14 +56,21 @@ export const authenticate = createAsyncThunk(
   },
 );
 
-export const login: (documentTypeId: string, documentNumber: string, password: string) => AppThunk =
-  (documentTypeId, documentNumber, password) => async dispatch => {
-    const result = await dispatch(authenticate({ documentTypeId, documentNumber, password }));
+export const login: (documentTypeId: string, documentNumber: string, password: string, rememberMe: boolean) => AppThunk =
+  (documentTypeId, documentNumber, password, rememberMe) => async dispatch => {
+    const result = await dispatch(authenticate({ documentTypeId, documentNumber, password, rememberMe }));
+    if (authenticate.rejected.match(result)) {
+      return;
+    }
     const response = result.payload as AxiosResponse;
     const bearerToken = response?.headers?.authorization;
     if (bearerToken?.startsWith('Bearer ')) {
       const jwt = bearerToken.slice(7, bearerToken.length);
-      Storage.session.set(AUTHENTICATION_TOKEN_KEY, jwt);
+      if (rememberMe) {
+        Storage.local.set(AUTHENTICATION_TOKEN_KEY, jwt);
+      } else {
+        Storage.session.set(AUTHENTICATION_TOKEN_KEY, jwt);
+      }
     }
     dispatch(getSession());
   };
@@ -114,12 +123,16 @@ export const AuthenticationSlice = createSlice({
   },
   extraReducers(builder) {
     builder
-      .addCase(authenticate.rejected, (state, action) => ({
-        ...initialState,
-        errorMessage: action.error.message!,
-        showModalLogin: true,
-        loginError: true,
-      }))
+      .addCase(authenticate.rejected, (state, action) => {
+        const data = (action.error as any)?.response?.data;
+        const problem = isProblemWithMessage(data) ? data : null;
+        return {
+          ...initialState,
+          errorMessage: problem?.message ?? action.error.message!,
+          showModalLogin: true,
+          loginError: true,
+        };
+      })
       .addCase(authenticate.fulfilled, state => ({
         ...state,
         loading: false,

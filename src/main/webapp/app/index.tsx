@@ -16,7 +16,7 @@ const store = getStore();
 registerLocale(store);
 
 const actions = bindActionCreators({ clearAuthentication }, store.dispatch);
-setupAxiosInterceptors(() => actions.clearAuthentication('login.error.unauthorized'));
+setupAxiosInterceptors(reason => actions.clearAuthentication(reason ?? 'login.error.unauthorized'));
 
 loadIcons();
 

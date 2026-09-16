@@ -227,7 +227,7 @@ describe('Authentication reducer tests', () => {
       const loginResponse = { headers: { authorization: 'Bearer TestToken' } };
       axios.post = vi.fn().mockResolvedValue(loginResponse);
 
-      await store.dispatch(login('user', 'user', true));
+      await store.dispatch(login('user', 'user', 'password', true));
       expect(Storage.session.get(AUTH_TOKEN_KEY)).toBe(undefined);
       expect(Storage.local.get(AUTH_TOKEN_KEY)).toBe('TestToken');
       clearAuthToken();

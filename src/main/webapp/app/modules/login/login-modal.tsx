@@ -4,13 +4,16 @@ import { Translate, ValidatedField, translate } from 'react-jhipster';
 import { Link } from 'react-router';
 
 import { type FieldError, type FieldValues, useForm } from 'react-hook-form';
-import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
+import { getActiveEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
+
+const KNOWN_LOGIN_ERROR_KEYS = ['error.badcredentials', 'error.accountinactive'];
 
 export interface ILoginModalProps {
   showModal: boolean;
   loginError: boolean;
-  handleLogin: (documentTypeId: string, documentNumber: string, password: string) => void;
+  errorMessage?: string;
+  handleLogin: (documentTypeId: string, documentNumber: string, password: string, rememberMe: boolean) => void;
   handleClose: () => void;
 }
 
@@ -18,13 +21,13 @@ const LoginModal = (props: ILoginModalProps) => {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    dispatch(getDocumentTypes({}));
+    dispatch(getDocumentTypes());
   }, []);
 
   const documentTypes = useAppSelector(state => state.documentType.entities);
 
-  const login = ({ documentTypeId, documentNumber, password }: FieldValues) => {
-    props.handleLogin(documentTypeId, documentNumber, password);
+  const login = ({ documentTypeId, documentNumber, password, rememberMe }: FieldValues) => {
+    props.handleLogin(documentTypeId, documentNumber, password, rememberMe);
   };
 
   const {
@@ -33,7 +36,9 @@ const LoginModal = (props: ILoginModalProps) => {
     formState: { errors, touchedFields },
   } = useForm({ mode: 'onTouched' });
 
-  const { loginError, handleClose } = props;
+  const { loginError, errorMessage, handleClose } = props;
+  const loginErrorKey =
+    errorMessage && KNOWN_LOGIN_ERROR_KEYS.includes(errorMessage) ? errorMessage : 'login.messages.error.authentication';
 
   const handleLoginSubmit = e => {
     handleSubmit(login)(e);
@@ -52,7 +57,7 @@ const LoginModal = (props: ILoginModalProps) => {
             <Col md="12">
               {loginError && (
                 <Alert variant="danger" data-cy="loginError">
-                  <Translate contentKey="login.messages.error.authentication">
+                  <Translate contentKey={loginErrorKey}>
                     <strong>Failed to sign in!</strong> Please check your credentials and try again.
                   </Translate>
                 </Alert>
@@ -104,6 +109,14 @@ const LoginModal = (props: ILoginModalProps) => {
                 register={register}
                 error={errors.password as FieldError}
                 isTouched={touchedFields.password}
+              />
+              <ValidatedField
+                name="rememberMe"
+                type="checkbox"
+                check
+                label={translate('login.form.rememberme')}
+                value={true}
+                register={register}
               />
             </Col>
           </Row>
