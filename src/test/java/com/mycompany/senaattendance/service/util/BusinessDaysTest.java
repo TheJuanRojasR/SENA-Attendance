@@ -47,6 +47,23 @@ class BusinessDaysTest {
     }
 
     @Test
+    void businessDaysAfterCountsOnlyTheDaysAfterTheFromDate() {
+        // From Monday: Tuesday, Wednesday, Thursday and Friday are still ahead.
+        assertThat(BusinessDays.businessDaysAfter(MONDAY, LocalDate.of(2026, 9, 18))).isEqualTo(4);
+        // From Friday: only the following Monday is ahead inside the window.
+        assertThat(BusinessDays.businessDaysAfter(FRIDAY, MONDAY)).isEqualTo(1);
+        // A window that ends on the same day or before it has no business days left.
+        assertThat(BusinessDays.businessDaysAfter(MONDAY, MONDAY)).isZero();
+        assertThat(BusinessDays.businessDaysAfter(MONDAY, FRIDAY)).isZero();
+    }
+
+    @Test
+    void businessDaysAfterSkipsWeekends() {
+        // From Friday to the following Tuesday: only Monday and Tuesday count.
+        assertThat(BusinessDays.businessDaysAfter(FRIDAY, LocalDate.of(2026, 9, 15))).isEqualTo(2);
+    }
+
+    @Test
     void deadlineCountsTheNextBusinessDayAsDayOne() {
         // Friday failure with 5 days: Monday is day 1 and the following Friday is day 5.
         assertThat(BusinessDays.justificationDeadline(FRIDAY, 5)).isEqualTo(LocalDate.of(2026, 9, 18));

@@ -60,12 +60,6 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private static final String ENTITY_NAME = "justificationDetails";
 
-    /**
-     * Business days the apprentice has to correct a rejected part, counted from the day after
-     * the rejection (UC011, A5/E5).
-     */
-    private static final int CORRECTION_BUSINESS_DAYS = 2;
-
     private final JustificationDetailsRepository justificationDetailsRepository;
 
     private final JustificationDetailsMapper justificationDetailsMapper;
@@ -214,7 +208,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
             return false;
         }
         LocalDate rejectionDay = LocalDate.ofInstant(responseDate, clock.getZone());
-        LocalDate deadline = BusinessDays.plus(rejectionDay, CORRECTION_BUSINESS_DAYS);
+        LocalDate deadline = BusinessDays.plus(rejectionDay, BusinessDays.CORRECTION_BUSINESS_DAYS);
         return !LocalDate.now(clock).isAfter(deadline);
     }
 

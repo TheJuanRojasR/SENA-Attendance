@@ -12,6 +12,11 @@ import java.util.Objects;
  */
 public final class BusinessDays {
 
+    /**
+     * Business days an apprentice has to correct a rejected justification part (UC011, A5/E5).
+     */
+    public static final int CORRECTION_BUSINESS_DAYS = 2;
+
     private BusinessDays() {}
 
     /**
@@ -77,5 +82,27 @@ public final class BusinessDays {
         Objects.requireNonNull(date, "date");
         DayOfWeek day = date.getDayOfWeek();
         return day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY;
+    }
+
+    /**
+     * Counts the business days of the window {@code (from, to]}: the days after {@code from} up to
+     * and including {@code to}. Used to report how many business days are left before a deadline,
+     * where zero means the deadline is today or already passed.
+     *
+     * @param from the day before the window, not counted.
+     * @param to the last day of the window, counted when it is a business day.
+     * @return the number of business days in the window, zero when {@code to} is not after
+     *         {@code from}.
+     */
+    public static long businessDaysAfter(LocalDate from, LocalDate to) {
+        Objects.requireNonNull(from, "from");
+        Objects.requireNonNull(to, "to");
+        long businessDays = 0;
+        for (LocalDate date = from.plusDays(1); !date.isAfter(to); date = date.plusDays(1)) {
+            if (isBusinessDay(date)) {
+                businessDays++;
+            }
+        }
+        return businessDays;
     }
 }
