@@ -16,7 +16,7 @@ import org.springframework.stereotype.Repository;
  * Spring Data MongoDB repository for the {@link Alerta} entity.
  */
 @Repository
-public interface AlertaRepository extends MongoRepository<Alerta, String> {
+public interface AlertaRepository extends MongoRepository<Alerta, String>, AlertaRepositoryCustom {
     /**
      * Finds the most recent alert of one apprentice for one materia in a trimester and with one
      * of the given states. Used to look for the active alert of the consecutive combination
