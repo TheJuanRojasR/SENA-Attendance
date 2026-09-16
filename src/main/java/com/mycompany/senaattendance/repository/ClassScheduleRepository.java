@@ -59,4 +59,16 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
      */
     @Query("{ 'classSection._id': ?0, 'trimester._id': ?1, 'day_of_week': ?2 }")
     List<ClassSchedule> findByClassSectionIdAndTrimesterIdAndDayOfWeek(String classSectionId, String trimesterId, DayOfWeek dayOfWeek);
+
+    /**
+     * Finds the schedules of a class section inside a trimester. Used to derive the programmed
+     * sessions of a materia when measuring its consecutive failures (UC013).
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @return the schedules of that class section and trimester.
+     */
+    // ------- SEARCH CLASS SCHEDULES BY CLASS SECTION AND TRIMESTER -------
+    @Query("{ 'classSection._id': ?0, 'trimester._id': ?1 }")
+    List<ClassSchedule> findByClassSectionIdAndTrimesterId(String classSectionId, String trimesterId);
 }

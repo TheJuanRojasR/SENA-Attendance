@@ -84,4 +84,25 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
         LocalDate endDate,
         StateAttendance stateAttendance
     );
+
+    /**
+     * Finds the attendance records of one apprentice in one class section for a date range, in
+     * any state. Used to rebuild the state of every programmed session when measuring the
+     * consecutive failures of a materia (UC013). The apprentice is matched through the scalar
+     * {@code student._id} and the class section through the scalar {@code classSection._id},
+     * where a String resolves to the referenced id.
+     *
+     * @param studentId the apprentice profile id.
+     * @param classSectionId the class section id.
+     * @param startDate the first day of the range, inclusive.
+     * @param endDate the last day of the range, inclusive.
+     * @return the matching records, possibly empty.
+     */
+    @Query("{ 'student._id': ?0, 'classSection._id': ?1, 'date': { $gte: ?2, $lte: ?3 } }")
+    List<Attendance> findByStudentIdAndClassSectionIdAndDateBetween(
+        String studentId,
+        String classSectionId,
+        LocalDate startDate,
+        LocalDate endDate
+    );
 }

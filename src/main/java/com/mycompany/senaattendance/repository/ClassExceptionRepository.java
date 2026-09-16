@@ -60,4 +60,18 @@ public interface ClassExceptionRepository extends MongoRepository<ClassException
      */
     @Query("{ 'classSection.$id': { $in: ?0 } }")
     Page<ClassException> findByClassSectionIdIn(List<ObjectId> classSectionIds, Pageable pageable);
+
+    /**
+     * Finds the non-teaching exceptions of a class section inside a date range. Used to discount
+     * the days without class when measuring the consecutive failures of a materia (UC013). The
+     * class section is matched through the scalar {@code classSection._id}, where a String
+     * resolves to the referenced id.
+     *
+     * @param classSectionId the class section id.
+     * @param startDate the first day of the range, inclusive.
+     * @param endDate the last day of the range, inclusive.
+     * @return the exceptions of that class section in the range, possibly empty.
+     */
+    @Query("{ 'classSection._id': ?0, 'date': { $gte: ?1, $lte: ?2 } }")
+    List<ClassException> findByClassSectionIdAndDateBetween(String classSectionId, LocalDate startDate, LocalDate endDate);
 }
