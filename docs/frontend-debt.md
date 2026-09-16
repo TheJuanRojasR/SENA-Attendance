@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (20 UCs implementadas y 2 parciales; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (21 UCs implementadas y 2 parciales —UC004 y UC023—; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -522,6 +522,30 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC013 — Gestionar alertas de inasistencia
+
+**Estado del backend:** implementado. El sistema genera y resuelve alertas por fallas consecutivas (materia) y acumuladas (ficha) al guardar o modificar asistencia y al aprobar una justificación; el aprendiz y los instructores reciben el aviso por la bandeja de UC018. Los umbrales (`consecutiveAbsenceAlertThreshold`, default 3; `accumulatedAbsenceAlertThreshold`, default 5) ya se consumen desde la configuración global (UC019). Ver [`docs/api-contracts.md#uc013--gestionar-alertas-de-inasistencia`](./api-contracts.md#uc013--gestionar-alertas-de-inasistencia).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** los endpoints de alertas son nuevos y el módulo stock `desertion-counter` sigue en el proyecto aunque ya no tiene backend; el aprendiz **no** consume `/api/alerts` (responde `403`): sus avisos llegan por la bandeja de UC018.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Estado      |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Bandeja (A1): consumir `GET /api/alerts` paginado (20 por defecto, `sort=generatedAt,desc`, `X-Total-Count`/`Link`) con los filtros `type`, `state`, `gradeId`, `studentId`, `from` y `to`; mostrar aprendiz, tipo, estado, conteo y umbral, materia (o ficha cuando sea `ACUMULADAS`) y fecha, destacando las `NO_LEIDA`.                                                                                                                                                                                                      | `Pendiente` |
+| 2   | Detalle y lectura (A2): abrir con `GET /api/alerts/{id}` y marcar leída con `PATCH /api/alerts/{id}/read` (idempotente); una alerta ajena responde `404`, que no debe confundirse con "no encontrada".                                                                                                                                                                                                                                                                                                                          | `Pendiente` |
+| 3   | Atender (A3): `PATCH /api/alerts/{id}/attend` con `{ observation }` obligatoria (máximo 300 caracteres). Una alerta resuelta automáticamente responde `400 error.alertAlreadyResolved`: no ofrecer la acción sobre las `RESUELTA_AUTOMATICAMENTE`.                                                                                                                                                                                                                                                                              | `Pendiente` |
+| 4   | Historial (A5): `GET /api/alerts/students/{studentId}` paginado.                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `Pendiente` |
+| 5   | Mostrar los estados `NO_LEIDA`, `LEIDA`, `ATENDIDA` y `RESUELTA_AUTOMATICAMENTE`, y los tipos `CONSECUTIVAS`/`ACUMULADAS`; en las alertas acumuladas `classSection` llega en `null` y `grade` siempre viaja.                                                                                                                                                                                                                                                                                                                    | `Pendiente` |
+| 6   | Alcance por rol: la bandeja y las acciones son de `ROLE_ADMIN` o `ROLE_INSTRUCTOR`; el instructor solo ve las `CONSECUTIVAS` de sus materias y las `ACUMULADAS` de sus fichas, y el Administrador ve todo. El aprendiz recibe `403`: ocultarle la pantalla y mostrarle sus avisos en la bandeja de UC018.                                                                                                                                                                                                                       | `Pendiente` |
+| 7   | **Eliminar el módulo stock de desertion-counter** (lo reemplazan las alertas): el backend se eliminó en el commit `e2760e8` y la colección se dropea con la migración 015. Quitar `src/main/webapp/app/entities/desertion-counter/*` (listado, alta, detalle, borrado, reducer y spec), `src/main/webapp/app/shared/model/desertion-counter.model.ts`, su registro en `app/entities/menu.tsx`, `app/entities/routes.tsx` y `app/entities/reducers.ts`, y las claves de `i18n/es/desertionCounter.json` y `i18n/es/global.json`. | `Pendiente` |
+
+### Claves i18n (`src/main/webapp/i18n/es/`)
+
+| Clave                        | Texto esperado (sugerido)                                       | Dónde se usa                                | Estado    |
+| ---------------------------- | --------------------------------------------------------------- | ------------------------------------------- | --------- |
+| `error.alertAlreadyResolved` | "La alerta fue resuelta automáticamente y no se puede atender." | Atención de una alerta resuelta (UC013-A3). | **Falta** |
+
+---
+
 ## Próximas UCs
 
 Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. La siguiente UC tiene backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
@@ -530,7 +554,7 @@ Las secciones de arriba se irán agregando a medida que el backend avance y cada
 | ----- | ------------------------------- | ----------------------------------------------------- |
 | UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
 
-UC013 (alertas de inasistencia) sigue **no implementada** en el backend y no se lista aquí hasta que su contrato exista; el tipo `ALERTA` y los reintentos automáticos de la entrega de notificaciones quedan diferidos a esa UC (UC018 ya está implementada, ver arriba).
+La única UC con backend parcial es UC023: sus paneles de Instructor y Aprendiz todavía devuelven los indicadores del Administrador. Con UC013 ya implementada (alertas de inasistencia, ver arriba), el tipo `ALERTA` y el job de reintentos de las notificaciones también están listos (UC018, ver arriba).
 
 ---
 
