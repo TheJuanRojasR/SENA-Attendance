@@ -2,12 +2,9 @@ package com.mycompany.senaattendance.service.impl;
 
 import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.domain.ClassSection;
-import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
-import com.mycompany.senaattendance.repository.UserProfileRepository;
-import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassExceptionService;
@@ -45,9 +42,7 @@ public class ClassExceptionServiceImpl implements ClassExceptionService {
 
     private final ClassSectionRepository classSectionRepository;
 
-    private final UserRepository userRepository;
-
-    private final UserProfileRepository userProfileRepository;
+    private final CurrentUserContext currentUserContext;
 
     private final ClassExceptionMapper classExceptionMapper;
 
@@ -56,15 +51,13 @@ public class ClassExceptionServiceImpl implements ClassExceptionService {
     public ClassExceptionServiceImpl(
         ClassExceptionRepository classExceptionRepository,
         ClassSectionRepository classSectionRepository,
-        UserRepository userRepository,
-        UserProfileRepository userProfileRepository,
+        CurrentUserContext currentUserContext,
         ClassExceptionMapper classExceptionMapper,
         Clock clock
     ) {
         this.classExceptionRepository = classExceptionRepository;
         this.classSectionRepository = classSectionRepository;
-        this.userRepository = userRepository;
-        this.userProfileRepository = userProfileRepository;
+        this.currentUserContext = currentUserContext;
         this.classExceptionMapper = classExceptionMapper;
         this.clock = clock;
     }
@@ -395,11 +388,6 @@ public class ClassExceptionServiceImpl implements ClassExceptionService {
      *         login or the account has no profile.
      */
     private String currentUserProfileId() {
-        return SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .map(User::getId)
-            .flatMap(userProfileRepository::findOneByUserId)
-            .map(UserProfile::getId)
-            .orElse(null);
+        return currentUserContext.profileId();
     }
 }

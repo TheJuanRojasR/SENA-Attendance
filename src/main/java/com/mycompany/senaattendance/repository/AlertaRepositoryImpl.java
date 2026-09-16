@@ -1,6 +1,7 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.Alerta;
+import com.mycompany.senaattendance.domain.enumeration.AlertaState;
 import com.mycompany.senaattendance.domain.enumeration.AlertaType;
 import java.util.ArrayList;
 import java.util.List;
@@ -81,6 +82,28 @@ public class AlertaRepositoryImpl implements AlertaRepositoryCustom {
         Query query = conditions.isEmpty() ? new Query() : new Query(new Criteria().andOperator(conditions));
         long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Alerta.class);
         return new PageImpl<>(mongoTemplate.find(query.with(pageable), Alerta.class), pageable, total);
+    }
+
+    @Override
+    public long countActiveAlerts(AlertaReadScope scope, String studentId) {
+        if (scope != null && scope.isEmpty()) {
+            return 0;
+        }
+
+        List<Criteria> conditions = new ArrayList<>();
+        conditions.add(Criteria.where(STATE).ne(AlertaState.RESUELTA_AUTOMATICAMENTE));
+        if (studentId != null) {
+            Optional<ObjectId> student = toObjectId(studentId);
+            if (student.isEmpty()) {
+                return 0;
+            }
+            conditions.add(Criteria.where(STUDENT_ID).is(student.get()));
+        }
+        if (scope != null && !scope.isUnrestricted()) {
+            conditions.add(readableScope(scope));
+        }
+
+        return mongoTemplate.count(new Query(new Criteria().andOperator(conditions)), Alerta.class);
     }
 
     /**

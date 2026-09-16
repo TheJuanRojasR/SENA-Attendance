@@ -16,8 +16,6 @@ import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsSearchCriteria;
 import com.mycompany.senaattendance.repository.JustificationRepository;
-import com.mycompany.senaattendance.repository.UserProfileRepository;
-import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.AlertaService;
@@ -80,9 +78,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final AuditLogRepository auditLogRepository;
 
-    private final UserRepository userRepository;
-
-    private final UserProfileRepository userProfileRepository;
+    private final CurrentUserContext currentUserContext;
 
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
@@ -99,8 +95,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         ClassSectionRepository classSectionRepository,
         AttendanceRepository attendanceRepository,
         AuditLogRepository auditLogRepository,
-        UserRepository userRepository,
-        UserProfileRepository userProfileRepository,
+        CurrentUserContext currentUserContext,
         GlobalConfigurationRepository globalConfigurationRepository,
         JustificationNotificationPort justificationNotificationPort,
         AlertaService alertaService,
@@ -112,8 +107,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         this.classSectionRepository = classSectionRepository;
         this.attendanceRepository = attendanceRepository;
         this.auditLogRepository = auditLogRepository;
-        this.userRepository = userRepository;
-        this.userProfileRepository = userProfileRepository;
+        this.currentUserContext = currentUserContext;
         this.globalConfigurationRepository = globalConfigurationRepository;
         this.justificationNotificationPort = justificationNotificationPort;
         this.alertaService = alertaService;
@@ -775,10 +769,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      *         login or the account has no profile.
      */
     private UserProfile currentUserProfile() {
-        return SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .flatMap(user -> userProfileRepository.findOneByUserId(user.getId()))
-            .orElse(null);
+        return currentUserContext.profile().orElse(null);
     }
 
     /**

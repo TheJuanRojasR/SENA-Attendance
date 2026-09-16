@@ -3,16 +3,12 @@ package com.mycompany.senaattendance.service.impl;
 import com.mycompany.senaattendance.domain.Alerta;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
-import com.mycompany.senaattendance.domain.User;
-import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.AlertaState;
 import com.mycompany.senaattendance.domain.enumeration.AlertaType;
 import com.mycompany.senaattendance.repository.AlertaReadScope;
 import com.mycompany.senaattendance.repository.AlertaRepository;
 import com.mycompany.senaattendance.repository.AlertaSearchCriteria;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
-import com.mycompany.senaattendance.repository.UserProfileRepository;
-import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.AlertaInboxService;
@@ -50,23 +46,19 @@ public class AlertaInboxServiceImpl implements AlertaInboxService {
 
     private final ClassSectionRepository classSectionRepository;
 
-    private final UserRepository userRepository;
-
-    private final UserProfileRepository userProfileRepository;
+    private final CurrentUserContext currentUserContext;
 
     private final AlertaMapper alertaMapper;
 
     public AlertaInboxServiceImpl(
         AlertaRepository alertaRepository,
         ClassSectionRepository classSectionRepository,
-        UserRepository userRepository,
-        UserProfileRepository userProfileRepository,
+        CurrentUserContext currentUserContext,
         AlertaMapper alertaMapper
     ) {
         this.alertaRepository = alertaRepository;
         this.classSectionRepository = classSectionRepository;
-        this.userRepository = userRepository;
-        this.userProfileRepository = userProfileRepository;
+        this.currentUserContext = currentUserContext;
         this.alertaMapper = alertaMapper;
     }
 
@@ -187,11 +179,6 @@ public class AlertaInboxServiceImpl implements AlertaInboxService {
      *         login or the account has no profile.
      */
     private String currentUserProfileId() {
-        return SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .map(User::getId)
-            .flatMap(userProfileRepository::findOneByUserId)
-            .map(UserProfile::getId)
-            .orElse(null);
+        return currentUserContext.profileId();
     }
 }

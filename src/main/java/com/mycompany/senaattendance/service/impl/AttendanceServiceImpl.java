@@ -6,7 +6,6 @@ import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Trimester;
-import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
@@ -18,8 +17,6 @@ import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
-import com.mycompany.senaattendance.repository.UserProfileRepository;
-import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.AlertaService;
@@ -81,9 +78,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private final TrimesterService trimesterService;
 
-    private final UserRepository userRepository;
-
-    private final UserProfileRepository userProfileRepository;
+    private final CurrentUserContext currentUserContext;
 
     private final AuditLogRepository auditLogRepository;
 
@@ -99,8 +94,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         ApprenticeRepository apprenticeRepository,
         TrimesterRepository trimesterRepository,
         TrimesterService trimesterService,
-        UserRepository userRepository,
-        UserProfileRepository userProfileRepository,
+        CurrentUserContext currentUserContext,
         AuditLogRepository auditLogRepository,
         AlertaService alertaService,
         Clock clock
@@ -112,8 +106,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.apprenticeRepository = apprenticeRepository;
         this.trimesterRepository = trimesterRepository;
         this.trimesterService = trimesterService;
-        this.userRepository = userRepository;
-        this.userProfileRepository = userProfileRepository;
+        this.currentUserContext = currentUserContext;
         this.auditLogRepository = auditLogRepository;
         this.alertaService = alertaService;
         this.clock = clock;
@@ -361,12 +354,7 @@ public class AttendanceServiceImpl implements AttendanceService {
      *         login or the account has no profile.
      */
     private String currentUserProfileId() {
-        return SecurityUtils.getCurrentUserLogin()
-            .flatMap(userRepository::findOneByLogin)
-            .map(User::getId)
-            .flatMap(userProfileRepository::findOneByUserId)
-            .map(UserProfile::getId)
-            .orElse(null);
+        return currentUserContext.profileId();
     }
 
     /**

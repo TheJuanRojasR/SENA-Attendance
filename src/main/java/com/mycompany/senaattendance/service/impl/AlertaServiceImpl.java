@@ -11,7 +11,6 @@ import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.AlertaState;
 import com.mycompany.senaattendance.domain.enumeration.AlertaType;
-import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.repository.AlertaRepository;
@@ -25,11 +24,10 @@ import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.service.AlertaNotificationPort;
 import com.mycompany.senaattendance.service.AlertaService;
+import com.mycompany.senaattendance.service.util.ClassSessions;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -401,7 +399,7 @@ public class AlertaServiceImpl implements AlertaService {
             .collect(Collectors.toSet());
 
         int streak = 0;
-        for (LocalDate date : programmedSessions(schedules, trimester.getStartDate(), referenceDate)) {
+        for (LocalDate date : ClassSessions.programmedSessions(schedules, trimester.getStartDate(), referenceDate)) {
             if (exceptionDates.contains(date)) {
                 continue;
             }
@@ -450,51 +448,6 @@ public class AlertaServiceImpl implements AlertaService {
                 StateAttendance.FALLA
             )
             .size();
-    }
-
-    /**
-     * Expands the weekday schedules of a materia into the concrete dates of the window,
-     * most recent first. The dates marked as a non-teaching exception are removed by the caller.
-     *
-     * @param schedules the schedules of the materia in the trimester.
-     * @param start the first day of the window.
-     * @param end the last day of the window.
-     * @return the programmed session dates in descending order, possibly empty.
-     */
-    private static List<LocalDate> programmedSessions(List<ClassSchedule> schedules, LocalDate start, LocalDate end) {
-        if (start == null || end == null || start.isAfter(end)) {
-            return List.of();
-        }
-        Set<LocalDate> dates = new HashSet<>();
-        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            for (ClassSchedule schedule : schedules) {
-                if (matches(date, schedule.getDayOfWeek())) {
-                    dates.add(date);
-                    break;
-                }
-            }
-        }
-        return dates.stream().sorted(Comparator.reverseOrder()).toList();
-    }
-
-    /**
-     * @param date the candidate session date.
-     * @param scheduleDay the weekday of the schedule.
-     * @return whether the date falls on that weekday.
-     */
-    private static boolean matches(LocalDate date, DayOfWeek scheduleDay) {
-        if (scheduleDay == null) {
-            return false;
-        }
-        return switch (scheduleDay) {
-            case LUNES -> date.getDayOfWeek() == java.time.DayOfWeek.MONDAY;
-            case MARTES -> date.getDayOfWeek() == java.time.DayOfWeek.TUESDAY;
-            case MIERCOLES -> date.getDayOfWeek() == java.time.DayOfWeek.WEDNESDAY;
-            case JUEVES -> date.getDayOfWeek() == java.time.DayOfWeek.THURSDAY;
-            case VIERNES -> date.getDayOfWeek() == java.time.DayOfWeek.FRIDAY;
-            case SABADO -> date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY;
-            case DOMINGO -> date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY;
-        };
     }
 
     /**

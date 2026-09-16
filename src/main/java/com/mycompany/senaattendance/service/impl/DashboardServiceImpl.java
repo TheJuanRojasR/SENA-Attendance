@@ -8,8 +8,10 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.DashboardService;
 import com.mycompany.senaattendance.service.dto.dashboard.AdminDashboardDTO;
+import com.mycompany.senaattendance.service.dto.dashboard.ApprenticeDashboardDTO;
 import com.mycompany.senaattendance.service.dto.dashboard.DashboardDTO;
 import com.mycompany.senaattendance.service.dto.dashboard.DashboardKpisDTO;
+import com.mycompany.senaattendance.service.dto.dashboard.InstructorDashboardDTO;
 import com.mycompany.senaattendance.service.dto.dashboard.RecentGradeDTO;
 import java.util.List;
 import org.slf4j.Logger;
@@ -45,18 +47,13 @@ public class DashboardServiceImpl implements DashboardService {
     public DashboardDTO getDashboardForCurrentUser() {
         LOG.debug("Request to get dashboard for current user");
 
-        if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN)) {
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
             return buildAdminDashboard();
         }
-
-        // if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.INSTRUCTOR)) {
-        //     return buildInstructorDashboard();   // futuro
-        // }
-        // if (SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.APPRENTICE)) {
-        //     return buildApprenticeDashboard();   // futuro
-        // }
-
-        return new AdminDashboardDTO(buildAdminKpis(), buildRecentGrades()); // Temporal
+        if (SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.INSTRUCTOR)) {
+            return buildInstructorDashboard();
+        }
+        return buildApprenticeDashboard();
     }
 
     // ------- ADMIN DASHBOARD -------
@@ -99,4 +96,12 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     // ------- INSTRUCTOR DASHBOARD -------
+    private InstructorDashboardDTO buildInstructorDashboard() {
+        return new InstructorDashboardDTO(0, 0, 0, 0, 0, List.of(), List.of(), null);
+    }
+
+    // ------- APPRENTICE DASHBOARD -------
+    private ApprenticeDashboardDTO buildApprenticeDashboard() {
+        return new ApprenticeDashboardDTO(null, List.of(), null, List.of(), List.of(), 0, null);
+    }
 }

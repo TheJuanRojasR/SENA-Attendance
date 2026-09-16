@@ -11,7 +11,6 @@ import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
-import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassSectionService;
 import com.mycompany.senaattendance.service.dto.ClassSectionDTO;
@@ -46,7 +45,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     private final ClassSectionRepository classSectionRepository;
 
     private final ClassSectionMapper classSectionMapper;
-    private final UserRepository userRepository;
+    private final CurrentUserContext currentUserContext;
     private final UserProfileRepository userProfileRepository;
     private final GradeRepository gradeRepository;
     private final AttendanceRepository attendanceRepository;
@@ -56,7 +55,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     public ClassSectionServiceImpl(
         ClassSectionRepository classSectionRepository,
         ClassSectionMapper classSectionMapper,
-        UserRepository userRepository,
+        CurrentUserContext currentUserContext,
         UserProfileRepository userProfileRepository,
         GradeRepository gradeRepository,
         AttendanceRepository attendanceRepository,
@@ -65,7 +64,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     ) {
         this.classSectionRepository = classSectionRepository;
         this.classSectionMapper = classSectionMapper;
-        this.userRepository = userRepository;
+        this.currentUserContext = currentUserContext;
         this.userProfileRepository = userProfileRepository;
         this.gradeRepository = gradeRepository;
         this.attendanceRepository = attendanceRepository;
@@ -201,22 +200,11 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     @Override
     public List<ClassSectionDTO> findAllForCurrentInstructor(String gradeCode) {
         LOG.debug("Request to get all ClassSections for the current instructor");
-        Optional<String> currentUserLogin = SecurityUtils.getCurrentUserLogin();
-        if (currentUserLogin.isEmpty()) {
+        String profileId = currentUserContext.profileId();
+        if (profileId == null) {
             return Collections.emptyList();
         }
 
-        User user = userRepository.findOneByLogin(currentUserLogin.get()).orElse(null);
-        if (user == null) {
-            return Collections.emptyList();
-        }
-
-        Optional<UserProfile> profileOpt = userProfileRepository.findOneByUserId(user.getId());
-        if (profileOpt.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        String profileId = profileOpt.get().getId();
         String gradeCodePattern = normalizeGradeCodeFilter(gradeCode);
 
         return classSectionRepository

@@ -4,6 +4,7 @@ import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import java.util.List;
 import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -71,4 +72,18 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
     // ------- SEARCH CLASS SCHEDULES BY CLASS SECTION AND TRIMESTER -------
     @Query("{ 'classSection._id': ?0, 'trimester._id': ?1 }")
     List<ClassSchedule> findByClassSectionIdAndTrimesterId(String classSectionId, String trimesterId);
+
+    /**
+     * Finds the schedules of several class sections inside one trimester. Used by the role
+     * dashboards to expand the weekly schedule of every materia into the concrete sessions of
+     * the day (UC023). The class section list is matched through the DBRef id ({@code $id}),
+     * which needs explicit ObjectIds, unlike the scalar {@code _id} lookups where a String
+     * resolves to the referenced id.
+     *
+     * @param classSectionIds the ObjectId values of the class sections.
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @return the schedules of those class sections and trimester, possibly empty.
+     */
+    @Query("{ 'classSection.$id': { $in: ?0 }, 'trimester._id': ?1 }")
+    List<ClassSchedule> findByClassSectionIdInAndTrimesterId(List<ObjectId> classSectionIds, String trimesterId);
 }

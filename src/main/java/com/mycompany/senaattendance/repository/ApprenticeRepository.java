@@ -30,6 +30,17 @@ public interface ApprenticeRepository extends MongoRepository<Apprentice, String
     List<Apprentice> findByGradeId(String gradeId);
 
     /**
+     * Finds every enrollment of one apprentice. Used by the apprentice dashboard to resolve the
+     * fichas and materias of the current user (UC023). The student is a DBRef, so it is matched
+     * through its referenced id, where a String resolves to the profile id.
+     *
+     * @param studentId the apprentice profile id.
+     * @return the enrollments of that apprentice, possibly empty.
+     */
+    @Query("{'student._id': ?0}")
+    List<Apprentice> findByStudentId(String studentId);
+
+    /**
      * Returns whether the apprentice already has a record in the ficha, in any academic state.
      * A previously unenrolled apprentice cannot rejoin the same ficha, so the check ignores
      * the state. The references are matched through {@code _id} because both are {@code @DBRef}
