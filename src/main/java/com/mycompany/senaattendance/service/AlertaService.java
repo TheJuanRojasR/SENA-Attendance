@@ -34,4 +34,21 @@ public interface AlertaService {
      * @param referenceDate the day the evaluation is anchored to.
      */
     void evaluate(String studentId, String classSectionId, LocalDate referenceDate);
+
+    /**
+     * Re-evaluates the active alerts of one apprentice after an approved justification lowered
+     * their failures, and resolves automatically the ones that stayed below their threshold
+     * (UC013, A4). The resolved alert keeps its history with the resolution instant, and the
+     * change is notified through the alert channel.
+     *
+     * <p>Only the alerts that are already active are revisited: an approval never generates a new
+     * alert. The counts are measured over the same windows as {@link #evaluate}, anchored to
+     * {@code referenceDate}; an apprentice who is no longer matriculado keeps their alerts (E2),
+     * so the resolution does not depend on the enrollment.
+     *
+     * @param studentId the apprentice profile id.
+     * @param classSectionId the materia whose justification was approved.
+     * @param referenceDate the day the evaluation is anchored to.
+     */
+    void resolveBelowThreshold(String studentId, String classSectionId, LocalDate referenceDate);
 }

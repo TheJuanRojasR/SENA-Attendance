@@ -32,6 +32,7 @@ import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.service.AlertaNotificationPort;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -103,6 +104,9 @@ class AlertaServiceImplTest {
 
     @Mock
     private GlobalConfigurationRepository globalConfigurationRepository;
+
+    @Mock
+    private AlertaNotificationPort alertaNotificationPort;
 
     @Mock
     private Clock clock;
@@ -391,8 +395,132 @@ class AlertaServiceImplTest {
     }
 
     // -----------------------------------------------------------------
+    // Automatic resolution (A4)
+    // -----------------------------------------------------------------
+
+    @Test
+    void activeConsecutiveAlertBelowTheThresholdIsResolvedAutomatically() {
+        mockResolutionContext();
+        mockThresholds(3, 5);
+        mockMondaySessions();
+        when(
+            attendanceRepository.findByStudentIdAndClassSectionIdAndDateBetween(
+                STUDENT_ID,
+                CLASS_SECTION_ID,
+                TRIMESTER_START,
+                REFERENCE_DATE
+            )
+        ).thenReturn(List.of());
+        Alerta activeAlert = activeAlert(AlertaType.CONSECUTIVAS);
+        when(
+            alertaRepository.findFirstByStudentAndClassSectionAndTrimesterAndTypeAndStateInOrderByGeneratedAtDesc(
+                eq(student),
+                eq(classSection),
+                eq(trimester),
+                eq(AlertaType.CONSECUTIVAS),
+                anyCollection()
+            )
+        ).thenReturn(Optional.of(activeAlert));
+        when(clock.instant()).thenReturn(NOW);
+
+        alertaService.resolveBelowThreshold(STUDENT_ID, CLASS_SECTION_ID, REFERENCE_DATE);
+
+        assertThat(activeAlert.getState()).isEqualTo(AlertaState.RESUELTA_AUTOMATICAMENTE);
+        assertThat(activeAlert.getResolvedAt()).isEqualTo(NOW);
+        verify(alertaRepository).save(activeAlert);
+        verify(alertaNotificationPort).resolved(activeAlert);
+    }
+
+    @Test
+    void activeAccumulatedAlertBelowTheThresholdIsResolvedAutomatically() {
+        mockResolutionContext();
+        mockThresholds(3, 5);
+        when(classSectionRepository.findByGradeId(GRADE_ID)).thenReturn(List.of(classSection));
+        when(
+            attendanceRepository.findByStudentIdAndClassSectionIdInAndDateBetweenAndStateAttendance(
+                STUDENT_ID,
+                List.of(new ObjectId(CLASS_SECTION_ID)),
+                TRIMESTER_START,
+                REFERENCE_DATE,
+                StateAttendance.FALLA
+            )
+        ).thenReturn(
+            List.of(
+                attendance(LocalDate.of(2026, 3, 2), StateAttendance.FALLA),
+                attendance(LocalDate.of(2026, 3, 3), StateAttendance.FALLA),
+                attendance(LocalDate.of(2026, 3, 4), StateAttendance.FALLA),
+                attendance(LocalDate.of(2026, 3, 5), StateAttendance.FALLA)
+            )
+        );
+        Alerta activeAlert = activeAlert(AlertaType.ACUMULADAS);
+        when(
+            alertaRepository.findFirstByStudentAndGradeAndTrimesterAndTypeAndStateInOrderByGeneratedAtDesc(
+                eq(student),
+                eq(grade),
+                eq(trimester),
+                eq(AlertaType.ACUMULADAS),
+                anyCollection()
+            )
+        ).thenReturn(Optional.of(activeAlert));
+        when(clock.instant()).thenReturn(NOW);
+
+        alertaService.resolveBelowThreshold(STUDENT_ID, CLASS_SECTION_ID, REFERENCE_DATE);
+
+        // Four failures stay below the accumulated threshold of five.
+        assertThat(activeAlert.getState()).isEqualTo(AlertaState.RESUELTA_AUTOMATICAMENTE);
+        assertThat(activeAlert.getResolvedAt()).isEqualTo(NOW);
+        verify(alertaNotificationPort).resolved(activeAlert);
+    }
+
+    @Test
+    void activeAlertThatStillReachesTheThresholdIsKept() {
+        mockResolutionContext();
+        mockThresholds(3, 5);
+        mockMondaySessions();
+        mockConsecutiveRecords(
+            attendance(REFERENCE_DATE, StateAttendance.FALLA),
+            attendance(LocalDate.of(2026, 3, 23), StateAttendance.FALLA),
+            attendance(LocalDate.of(2026, 3, 16), StateAttendance.FALLA)
+        );
+        when(
+            alertaRepository.findFirstByStudentAndClassSectionAndTrimesterAndTypeAndStateInOrderByGeneratedAtDesc(
+                eq(student),
+                eq(classSection),
+                eq(trimester),
+                eq(AlertaType.CONSECUTIVAS),
+                anyCollection()
+            )
+        ).thenReturn(Optional.of(activeAlert(AlertaType.CONSECUTIVAS)));
+
+        alertaService.resolveBelowThreshold(STUDENT_ID, CLASS_SECTION_ID, REFERENCE_DATE);
+
+        // The streak is three, which still reaches the threshold: the alert stays active.
+        verify(alertaRepository, never()).save(any());
+        verifyNoInteractions(alertaNotificationPort);
+    }
+
+    // -----------------------------------------------------------------
     // Fixture helpers
     // -----------------------------------------------------------------
+
+    private void mockResolutionContext() {
+        when(classSectionRepository.findById(CLASS_SECTION_ID)).thenReturn(Optional.of(classSection));
+        when(trimesterRepository.findAllContaining(REFERENCE_DATE)).thenReturn(List.of(trimester));
+        when(userProfileRepository.findById(STUDENT_ID)).thenReturn(Optional.of(student));
+    }
+
+    private Alerta activeAlert(AlertaType type) {
+        return new Alerta()
+            .id("active-alert")
+            .student(student)
+            .classSection(type == AlertaType.CONSECUTIVAS ? classSection : null)
+            .grade(grade)
+            .trimester(trimester)
+            .type(type)
+            .state(AlertaState.NO_LEIDA)
+            .absenceCount(3)
+            .threshold(3);
+    }
 
     private void mockEvaluationContext() {
         when(classSectionRepository.findById(CLASS_SECTION_ID)).thenReturn(Optional.of(classSection));

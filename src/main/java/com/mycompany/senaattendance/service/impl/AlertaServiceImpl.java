@@ -23,6 +23,7 @@ import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GlobalConfigurationRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.service.AlertaNotificationPort;
 import com.mycompany.senaattendance.service.AlertaService;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,10 +45,15 @@ import org.springframework.stereotype.Service;
 /**
  * Service Implementation for evaluating the absence alerts (UC013).
  *
- * <p>The evaluation is read-only until it decides to generate an alert: it resolves the trimester
- * of the reference date, rebuilds the failures of the apprentice and asks the repository for an
- * active alert of the same combination. Only the resolved alerts are excluded from that lookup,
- * because a resolved combination admits a new alert while the previous one stays as history.
+ * <p>The evaluation is read-only until it decides to write: it resolves the trimester of the
+ * reference date, rebuilds the failures of the apprentice and asks the repository for an active
+ * alert of the same combination. Only the resolved alerts are excluded from that lookup, because
+ * a resolved combination admits a new alert while the previous one stays as history.
+ *
+ * <p>The evaluation generates an alert when a threshold is reached, and the resolution flow
+ * resolves it automatically when an approved justification drops the count below the threshold
+ * (A4). Every write is announced through {@link AlertaNotificationPort}, so the alert lifecycle
+ * reaches the inbox (UC018).
  */
 @Service
 public class AlertaServiceImpl implements AlertaService {
@@ -78,6 +84,8 @@ public class AlertaServiceImpl implements AlertaService {
 
     private final GlobalConfigurationRepository globalConfigurationRepository;
 
+    private final AlertaNotificationPort alertaNotificationPort;
+
     private final Clock clock;
 
     public AlertaServiceImpl(
@@ -90,6 +98,7 @@ public class AlertaServiceImpl implements AlertaService {
         TrimesterRepository trimesterRepository,
         UserProfileRepository userProfileRepository,
         GlobalConfigurationRepository globalConfigurationRepository,
+        AlertaNotificationPort alertaNotificationPort,
         Clock clock
     ) {
         this.alertaRepository = alertaRepository;
@@ -101,6 +110,7 @@ public class AlertaServiceImpl implements AlertaService {
         this.trimesterRepository = trimesterRepository;
         this.userProfileRepository = userProfileRepository;
         this.globalConfigurationRepository = globalConfigurationRepository;
+        this.alertaNotificationPort = alertaNotificationPort;
         this.clock = clock;
     }
 
@@ -117,20 +127,13 @@ public class AlertaServiceImpl implements AlertaService {
         }
         LOG.debug("Request to evaluate the absence alerts of apprentice {} in materia {} at {}", studentId, classSectionId, referenceDate);
 
-        ClassSection classSection = classSectionRepository.findById(classSectionId).orElse(null);
-        if (classSection == null || classSection.getGrade() == null) {
+        AlertContext context = resolveContext(studentId, classSectionId, referenceDate);
+        if (context == null) {
             return;
         }
-        Trimester trimester = trimesterRepository.findAllContaining(referenceDate).stream().findFirst().orElse(null);
-        if (trimester == null) {
-            return;
-        }
-        UserProfile student = userProfileRepository.findById(studentId).orElse(null);
-        if (student == null) {
-            return;
-        }
-        Grade grade = classSection.getGrade();
-        if (!apprenticeRepository.existsByStudentIdAndGradeIdAndStateAcademic(studentId, grade.getId(), StateAcademic.MATRICULADO)) {
+        if (
+            !apprenticeRepository.existsByStudentIdAndGradeIdAndStateAcademic(studentId, context.grade().getId(), StateAcademic.MATRICULADO)
+        ) {
             // E2: an apprentice desvinculado from the ficha generates no new alerts.
             return;
         }
@@ -138,9 +141,160 @@ public class AlertaServiceImpl implements AlertaService {
         GlobalConfiguration configuration = globalConfigurationRepository
             .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
             .orElse(null);
-        evaluateConsecutive(student, classSection, grade, trimester, referenceDate, consecutiveThreshold(configuration));
-        evaluateAccumulated(student, studentId, grade, trimester, referenceDate, accumulatedThreshold(configuration));
+        evaluateConsecutive(
+            context.student(),
+            context.classSection(),
+            context.grade(),
+            context.trimester(),
+            referenceDate,
+            consecutiveThreshold(configuration)
+        );
+        evaluateAccumulated(
+            context.student(),
+            studentId,
+            context.grade(),
+            context.trimester(),
+            referenceDate,
+            accumulatedThreshold(configuration)
+        );
     }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The context is resolved the same way as in {@link #evaluate}, but the enrollment (E2) is
+     * not required: the approved justification may cover an apprentice who already left the ficha,
+     * and the alert that is already active must be able to reach its final state.
+     */
+    @Override
+    public void resolveBelowThreshold(String studentId, String classSectionId, LocalDate referenceDate) {
+        if (studentId == null || classSectionId == null || referenceDate == null) {
+            return;
+        }
+        LOG.debug(
+            "Request to resolve the absence alerts below the threshold of apprentice {} in materia {} at {}",
+            studentId,
+            classSectionId,
+            referenceDate
+        );
+
+        AlertContext context = resolveContext(studentId, classSectionId, referenceDate);
+        if (context == null) {
+            return;
+        }
+        GlobalConfiguration configuration = globalConfigurationRepository
+            .findById(GlobalConfiguration.GLOBAL_CONFIGURATION_ID)
+            .orElse(null);
+        resolveConsecutiveBelowThreshold(context, referenceDate, consecutiveThreshold(configuration));
+        resolveAccumulatedBelowThreshold(context, studentId, referenceDate, accumulatedThreshold(configuration));
+    }
+
+    /**
+     * Resolves the active consecutive alert of the materia when the approved justification left
+     * the trailing streak below the threshold. A materia without an active alert has nothing to
+     * resolve, and a streak that still reaches the threshold keeps the alert active.
+     *
+     * @param context the resolved evaluation context.
+     * @param referenceDate the last day of the window.
+     * @param threshold the configured consecutive threshold.
+     */
+    private void resolveConsecutiveBelowThreshold(AlertContext context, LocalDate referenceDate, int threshold) {
+        Optional<Alerta> activeAlert =
+            alertaRepository.findFirstByStudentAndClassSectionAndTrimesterAndTypeAndStateInOrderByGeneratedAtDesc(
+                context.student(),
+                context.classSection(),
+                context.trimester(),
+                AlertaType.CONSECUTIVAS,
+                ACTIVE_STATES
+            );
+        if (activeAlert.isEmpty()) {
+            return;
+        }
+        int streak = trailingFailures(context.student().getId(), context.classSection(), context.trimester(), referenceDate);
+        if (streak >= threshold) {
+            return;
+        }
+        resolve(activeAlert.get());
+    }
+
+    /**
+     * Resolves the active accumulated alert of the ficha when the approved justification left the
+     * total failures below the threshold. The alert has no materia, so it is looked up by the
+     * ficha of the materia that triggered the resolution.
+     *
+     * @param context the resolved evaluation context.
+     * @param studentId the apprentice profile id.
+     * @param referenceDate the last day of the window.
+     * @param threshold the configured accumulated threshold.
+     */
+    private void resolveAccumulatedBelowThreshold(AlertContext context, String studentId, LocalDate referenceDate, int threshold) {
+        Optional<Alerta> activeAlert = alertaRepository.findFirstByStudentAndGradeAndTrimesterAndTypeAndStateInOrderByGeneratedAtDesc(
+            context.student(),
+            context.grade(),
+            context.trimester(),
+            AlertaType.ACUMULADAS,
+            ACTIVE_STATES
+        );
+        if (activeAlert.isEmpty()) {
+            return;
+        }
+        int failures = accumulatedFailures(studentId, context.grade(), context.trimester(), referenceDate);
+        if (failures >= threshold) {
+            return;
+        }
+        resolve(activeAlert.get());
+    }
+
+    /**
+     * Persists the automatic resolution of an alert (A4). The alert keeps its history with the
+     * instant of the resolution, and the change is announced through the alert channel.
+     *
+     * @param alerta the alert to resolve.
+     */
+    private void resolve(Alerta alerta) {
+        alerta.setState(AlertaState.RESUELTA_AUTOMATICAMENTE);
+        alerta.setResolvedAt(Instant.now(clock));
+        alertaRepository.save(alerta);
+        LOG.debug("Resolved automatically the {} alert of apprentice {}", alerta.getType(), alerta.getStudent().getId());
+        alertaNotificationPort.resolved(alerta);
+    }
+
+    /**
+     * Resolves the apprentice, the materia, the ficha and the trimester of an evaluation. A
+     * materia without a ficha, a date outside every trimester and an unknown apprentice have no
+     * context to evaluate.
+     *
+     * @param studentId the apprentice profile id.
+     * @param classSectionId the materia whose session or justification triggered the evaluation.
+     * @param referenceDate the day the evaluation is anchored to.
+     * @return the resolved context, or {@code null} when any link is missing.
+     */
+    private AlertContext resolveContext(String studentId, String classSectionId, LocalDate referenceDate) {
+        ClassSection classSection = classSectionRepository.findById(classSectionId).orElse(null);
+        if (classSection == null || classSection.getGrade() == null) {
+            return null;
+        }
+        Trimester trimester = trimesterRepository.findAllContaining(referenceDate).stream().findFirst().orElse(null);
+        if (trimester == null) {
+            return null;
+        }
+        UserProfile student = userProfileRepository.findById(studentId).orElse(null);
+        if (student == null) {
+            return null;
+        }
+        return new AlertContext(student, classSection, classSection.getGrade(), trimester);
+    }
+
+    /**
+     * The resolved context of an evaluation: the apprentice, the materia that triggered it, the
+     * ficha of that materia and the trimester of the reference date.
+     *
+     * @param student the apprentice profile.
+     * @param classSection the materia of the evaluation.
+     * @param grade the ficha of the materia.
+     * @param trimester the trimester of the reference date.
+     */
+    private record AlertContext(UserProfile student, ClassSection classSection, Grade grade, Trimester trimester) {}
 
     /**
      * Generates the consecutive alert of the materia when its trailing streak reaches the

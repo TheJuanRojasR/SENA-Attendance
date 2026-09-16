@@ -20,6 +20,7 @@ import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
+import com.mycompany.senaattendance.service.AlertaService;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.JustificationNotificationPort;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
@@ -87,6 +88,8 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
 
     private final JustificationNotificationPort justificationNotificationPort;
 
+    private final AlertaService alertaService;
+
     private final Clock clock;
 
     public JustificationDetailsServiceImpl(
@@ -100,6 +103,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         UserProfileRepository userProfileRepository,
         GlobalConfigurationRepository globalConfigurationRepository,
         JustificationNotificationPort justificationNotificationPort,
+        AlertaService alertaService,
         Clock clock
     ) {
         this.justificationDetailsRepository = justificationDetailsRepository;
@@ -112,6 +116,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
         this.userProfileRepository = userProfileRepository;
         this.globalConfigurationRepository = globalConfigurationRepository;
         this.justificationNotificationPort = justificationNotificationPort;
+        this.alertaService = alertaService;
         this.clock = clock;
     }
 
@@ -313,7 +318,9 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
      * change. The deadline mark is never recalculated and a closed trimester does not block a
      * pending decision, so the conversion applies even when the apprentice is no longer enrolled.
      * A decision that arrives after the instructor response deadline is marked as late. Every
-     * decision notifies the resulting state once through the UC018 port.
+     * decision notifies the resulting state once through the UC018 port, and an approval also
+     * re-evaluates the active absence alerts so the ones that dropped below their threshold are
+     * resolved automatically (UC013, A4) through the alert channel.
      *
      * @param id the id of the part to decide.
      * @param decision the state and the reasons of the decision.
@@ -333,6 +340,7 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
             applyDecision(part, decision);
             JustificationDetails decided = justificationDetailsRepository.save(part);
             notifyDecision(decided);
+            resolveAlertsBelowThreshold(decided);
             return justificationDetailsMapper.toDto(decided);
         });
     }
@@ -432,6 +440,40 @@ public class JustificationDetailsServiceImpl implements JustificationDetailsServ
             return;
         }
         justificationNotificationPort.stateChanged(justification, part.getStateJustification());
+    }
+
+    /**
+     * Re-evaluates the alerts affected by an approval, so the ones that stayed below their
+     * threshold are resolved automatically (UC013, A4). Only an accepted part triggers it,
+     * because a rejection converts no failure and cannot lower a count.
+     *
+     * <p>The decision is the primary operation and the resolution is derived from it, so a
+     * failure of the evaluation is logged instead of turning a persisted decision into an error
+     * response. The alert change travels through the alert channel, never through the
+     * justification port.
+     *
+     * @param part the decided part.
+     */
+    private void resolveAlertsBelowThreshold(JustificationDetails part) {
+        if (part.getStateJustification() != StateJustification.ACEPTADA) {
+            return;
+        }
+        Justification justification = part.getJustification();
+        ClassSection classSection = part.getClassSection();
+        if (
+            justification == null ||
+            justification.getStudent() == null ||
+            justification.getStudent().getId() == null ||
+            classSection == null ||
+            classSection.getId() == null
+        ) {
+            return;
+        }
+        try {
+            alertaService.resolveBelowThreshold(justification.getStudent().getId(), classSection.getId(), LocalDate.now(clock));
+        } catch (RuntimeException e) {
+            LOG.warn("Could not resolve the absence alerts after approving the part {}", part.getId(), e);
+        }
     }
 
     /**

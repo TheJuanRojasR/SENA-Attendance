@@ -10,22 +10,31 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Alerta;
 import com.mycompany.senaattendance.domain.Attendance;
 import com.mycompany.senaattendance.domain.AuditLog;
 import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.JustificationType;
+import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.AlertaState;
+import com.mycompany.senaattendance.domain.enumeration.AlertaType;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
+import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.repository.AlertaRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.AuditLogRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
@@ -109,7 +118,16 @@ class JustificationDetailsResourceIT {
     private JustificationDetailsRepository justificationDetailsRepository;
 
     @Autowired
+    private AlertaRepository alertaRepository;
+
+    @Autowired
     private ClassSectionRepository classSectionRepository;
+
+    @Autowired
+    private GradeRepository gradeRepository;
+
+    @Autowired
+    private TrimesterRepository trimesterRepository;
 
     @Autowired
     private JustificationRepository justificationRepository;
@@ -216,8 +234,11 @@ class JustificationDetailsResourceIT {
         // Remove the related documents persisted for the PUT tests and the scoping tests
         attendanceRepository.deleteAll();
         auditLogRepository.deleteAll();
+        alertaRepository.deleteAll();
         justificationDetailsRepository.deleteAll();
         classSectionRepository.deleteAll();
+        gradeRepository.deleteAll();
+        trimesterRepository.deleteAll();
         justificationRepository.deleteAll();
         justificationTypeRepository.deleteAll();
         userProfileRepository.deleteAll();
@@ -1227,6 +1248,39 @@ class JustificationDetailsResourceIT {
     }
 
     // -----------------------------------------------------------------
+    // UC013 — La aprobación resuelve automáticamente las alertas
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void decideApprovedPartResolvesTheActiveAlertBelowTheThreshold() throws Exception {
+        UserProfile instructor = persistProfile(INSTRUCTOR_LOGIN, "3100000001");
+        UserProfile apprentice = persistApprentice(APPRENTICE_LOGIN);
+        LocalDate today = LocalDate.now(clock);
+        Grade grade = gradeRepository.save(withUniqueCode(GradeResourceIT.createEntity()));
+        ClassSection classSection = persistClassSection("Materia de la alerta", instructor, grade);
+        Justification justification = persistJustification(apprentice, today.minusDays(5), today, true);
+        JustificationDetails part = persistPart(justification, classSection, StateJustification.PENDIENTE);
+        Trimester trimester = persistTrimester(today.minusDays(30), today.plusDays(30));
+        Attendance coveredFailure = persistAttendance(classSection, apprentice, today.minusDays(3), StateAttendance.FALLA);
+        Alerta activeAlert = persistConsecutiveAlert(apprentice, classSection, grade, trimester);
+
+        patchDecision(part.getId(), Map.of("stateJustification", "ACEPTADA"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.stateJustification").value("ACEPTADA"));
+
+        // The approval converted the covered failure to JUSTIFICADA, so the failures of the
+        // materia dropped below the threshold and the active alert was resolved automatically.
+        assertThat(attendanceRepository.findById(coveredFailure.getId()).orElseThrow().getStateAttendance()).isEqualTo(
+            StateAttendance.JUSTIFICADA
+        );
+        Alerta resolved = alertaRepository.findById(activeAlert.getId()).orElseThrow();
+        assertThat(resolved.getState()).isEqualTo(AlertaState.RESUELTA_AUTOMATICAMENTE);
+        assertThat(resolved.getResolvedAt()).isNotNull();
+        assertThat(resolved.getObservation()).isNull();
+    }
+
+    // -----------------------------------------------------------------
     // UC010 — Una notificación por decisión (use-cases.md:1005, A2)
     // -----------------------------------------------------------------
 
@@ -1419,6 +1473,56 @@ class JustificationDetailsResourceIT {
         classSection.setSubjectName(subjectName);
         classSection.setInstructor(instructor);
         return classSectionRepository.save(classSection);
+    }
+
+    /**
+     * Persists a materia of a real ficha, so the alert evaluation can resolve the ficha of the
+     * materia from the database.
+     */
+    private ClassSection persistClassSection(String subjectName, UserProfile instructor, Grade grade) {
+        ClassSection classSection = ClassSectionResourceIT.createEntity();
+        classSection.setId(null);
+        classSection.setSubjectName(subjectName);
+        classSection.setInstructor(instructor);
+        classSection.setGrade(grade);
+        return classSectionRepository.save(classSection);
+    }
+
+    /**
+     * Persists an active trimester, which is the window the alert evaluation counts over.
+     */
+    private Trimester persistTrimester(LocalDate startDate, LocalDate endDate) {
+        return trimesterRepository.save(
+            new Trimester().name("Trimestre de alertas").startDate(startDate).endDate(endDate).status(StateTrimester.ACTIVO)
+        );
+    }
+
+    /**
+     * Persists an active consecutive alert of one materia, which is the state an approved
+     * justification that lowers the failures must resolve (UC013, A4).
+     */
+    private Alerta persistConsecutiveAlert(UserProfile apprentice, ClassSection classSection, Grade grade, Trimester trimester) {
+        return alertaRepository.save(
+            new Alerta()
+                .student(apprentice)
+                .classSection(classSection)
+                .grade(grade)
+                .trimester(trimester)
+                .type(AlertaType.CONSECUTIVAS)
+                .state(AlertaState.NO_LEIDA)
+                .absenceCount(3)
+                .threshold(3)
+                .generatedAt(Instant.now(clock))
+        );
+    }
+
+    /**
+     * Stamps a unique code on a ficha built by the shared factory, so the unique code index does
+     * not clash with a previous test run.
+     */
+    private static Grade withUniqueCode(Grade grade) {
+        grade.setCode("ALR-" + UUID.randomUUID().toString().substring(0, 8));
+        return grade;
     }
 
     /**

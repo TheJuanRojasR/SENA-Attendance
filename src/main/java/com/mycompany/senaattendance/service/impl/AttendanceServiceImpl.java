@@ -22,6 +22,7 @@ import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
+import com.mycompany.senaattendance.service.AlertaService;
 import com.mycompany.senaattendance.service.AttendanceService;
 import com.mycompany.senaattendance.service.TrimesterService;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
@@ -86,6 +87,8 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private final AuditLogRepository auditLogRepository;
 
+    private final AlertaService alertaService;
+
     private final Clock clock;
 
     public AttendanceServiceImpl(
@@ -99,6 +102,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         UserRepository userRepository,
         UserProfileRepository userProfileRepository,
         AuditLogRepository auditLogRepository,
+        AlertaService alertaService,
         Clock clock
     ) {
         this.attendanceRepository = attendanceRepository;
@@ -111,6 +115,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         this.userRepository = userRepository;
         this.userProfileRepository = userProfileRepository;
         this.auditLogRepository = auditLogRepository;
+        this.alertaService = alertaService;
         this.clock = clock;
     }
 
@@ -171,6 +176,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             attendance.setStateAttendance(stateAttendance);
             Attendance savedAttendance = attendanceRepository.save(attendance);
             recordStateChange(savedAttendance, previousState, stateAttendance, attendance.getClassSection().getInstructor());
+            evaluateAbsenceAlerts(savedAttendance, previousState);
             return attendanceMapper.toDto(savedAttendance);
         });
     }
@@ -501,6 +507,33 @@ public class AttendanceServiceImpl implements AttendanceService {
             attendance.setStateAttendance(newState);
             attendanceRepository.save(attendance);
             recordStateChange(attendance, previousState, newState, classSection.getInstructor());
+            evaluateAbsenceAlerts(attendance, previousState);
+        }
+    }
+
+    /**
+     * Evaluates the absence alerts of the apprentice after a record changed its state (UC013).
+     * A record that keeps its state carries no new information, and a new record counts as a
+     * change because its mark was never evaluated before.
+     *
+     * <p>The attendance write is the primary operation and the evaluation is derived from it, so
+     * a failure of the evaluation is logged instead of turning a valid save into an error
+     * response: the mark stays registered and the next change evaluates again.
+     *
+     * @param attendance the persisted record whose state changed.
+     * @param previousState the state before the change, or {@code null} in a new record.
+     */
+    private void evaluateAbsenceAlerts(Attendance attendance, StateAttendance previousState) {
+        if (attendance.getStateAttendance() == previousState) {
+            return;
+        }
+        if (attendance.getStudent() == null || attendance.getClassSection() == null || attendance.getDate() == null) {
+            return;
+        }
+        try {
+            alertaService.evaluate(attendance.getStudent().getId(), attendance.getClassSection().getId(), attendance.getDate());
+        } catch (RuntimeException e) {
+            LOG.warn("Could not evaluate the absence alerts of attendance {}", attendance.getId(), e);
         }
     }
 

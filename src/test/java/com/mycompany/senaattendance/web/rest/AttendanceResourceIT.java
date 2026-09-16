@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
+import com.mycompany.senaattendance.domain.Alerta;
 import com.mycompany.senaattendance.domain.Apprentice;
 import com.mycompany.senaattendance.domain.Attendance;
 import com.mycompany.senaattendance.domain.AuditLog;
@@ -22,9 +23,12 @@ import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
+import com.mycompany.senaattendance.domain.enumeration.AlertaState;
+import com.mycompany.senaattendance.domain.enumeration.AlertaType;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.repository.AlertaRepository;
 import com.mycompany.senaattendance.repository.ApprenticeRepository;
 import com.mycompany.senaattendance.repository.AttendanceRepository;
 import com.mycompany.senaattendance.repository.AuditLogRepository;
@@ -90,6 +94,9 @@ class AttendanceResourceIT {
 
     @Autowired
     private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private AlertaRepository alertaRepository;
 
     @Autowired
     private AuditLogRepository auditLogRepository;
@@ -251,6 +258,7 @@ class AttendanceResourceIT {
     void cleanup() {
         // The session endpoint persists records the fixture cannot track, so sweep the collection.
         attendanceRepository.deleteAll();
+        alertaRepository.deleteAll();
         auditLogRepository.deleteAll();
         insertedAttendances.clear();
         insertedExceptions.forEach(classExceptionRepository::delete);
@@ -499,6 +507,44 @@ class AttendanceResourceIT {
 
         // The first save only creates records and the second one keeps the same states.
         assertThat(auditLogRepository.findAll()).isEmpty();
+    }
+
+    // -----------------------------------------------------------------
+    // UC013 — La asistencia evalúa las alertas
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void saveSessionReachingTheAccumulatedThresholdGeneratesTheAlert() throws Exception {
+        // The apprentice already carries four failures in the ficha, so the fifth one recorded
+        // through the session reaches the accumulated threshold of the default configuration.
+        persistAttendance(classSection, firstStudent, sessionDate.minusDays(4), StateAttendance.FALLA);
+        persistAttendance(otherClassSection, firstStudent, sessionDate.minusDays(3), StateAttendance.FALLA);
+        persistAttendance(classSection, firstStudent, sessionDate.minusDays(2), StateAttendance.FALLA);
+        persistAttendance(otherClassSection, firstStudent, sessionDate.minusDays(1), StateAttendance.FALLA);
+
+        saveSession(
+            sessionPayload(
+                classSection.getId(),
+                sessionDate,
+                List.of(
+                    confirmation(firstStudent.getId(), StateAttendance.FALLA),
+                    confirmation(secondStudent.getId(), StateAttendance.PRESENTE)
+                )
+            )
+        );
+
+        List<Alerta> alertas = alertaRepository.findAll();
+        assertThat(alertas).hasSize(1);
+        Alerta alerta = alertas.getFirst();
+        assertThat(alerta.getType()).isEqualTo(AlertaType.ACUMULADAS);
+        assertThat(alerta.getState()).isEqualTo(AlertaState.NO_LEIDA);
+        assertThat(alerta.getAbsenceCount()).isEqualTo(5);
+        assertThat(alerta.getThreshold()).isEqualTo(5);
+        assertThat(alerta.getStudent().getId()).isEqualTo(firstStudent.getId());
+        assertThat(alerta.getGrade().getId()).isEqualTo(grade.getId());
+        assertThat(alerta.getGeneratedAt()).isNotNull();
+        assertThat(alerta.getResolvedAt()).isNull();
     }
 
     // -----------------------------------------------------------------
