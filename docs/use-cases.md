@@ -1291,8 +1291,5 @@ Documenta únicamente **dependencias de datos y precondiciones**, no relaciones 
 
 Estos cambios acompañan las reglas nuevas y aún no están implementados:
 
-- Entidad **`Alerta`** nueva (dos tipos, estados, trazabilidad) y **descarte** de `DesertionCounter`.
-- `Notificacion`: estado de **lectura**, **referencia** al objeto de origen y nuevos **tipos** (alertas, justificaciones).
-- `StateJustification`: agregar **CANCELADA** y la marca de plazo separada.
 - Utilidad de **días hábiles** (lunes a viernes) para los plazos.
 - Lógica de negocio de asistencia, justificaciones y alertas (hoy son CRUD sin reglas).
