@@ -4,7 +4,7 @@ Este archivo es el **seguimiento vivo del frontend**: describe lo que la interfa
 
 - **Propietario:** el desarrollador de frontend.
 - **Mantenimiento:** se actualiza a medida que el backend avanza; cada UC se agrega cuando su backend está listo. El backend no cambia para acomodar al frontend: el frontend se adapta al contrato.
-- **Estado actual:** buena parte del backend está implementado (21 UCs implementadas y 2 parciales —UC004 y UC023—; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
+- **Estado actual:** buena parte del backend está implementado (22 UCs implementadas y 1 parcial —UC004—; ver el índice de [`docs/api-contracts.md`](./api-contracts.md)); el frontend sigue, en su mayor parte, con los formularios stock de JHipster.
 
 ## Leyenda de estados
 
@@ -546,15 +546,25 @@ Claves `error.*` verificadas contra los archivos actuales:
 
 ---
 
+## UC023 — Consultar dashboard
+
+**Estado del backend:** implementado. `GET /api/dashboard` devuelve un panel distinto por rol: Administrador (KPIs y últimas fichas, sin cambios), Instructor (justificaciones pendientes, alertas activas, materias y fichas, aprendices matriculados y clases de hoy/próximas) y Aprendiz (asistencia del trimestre, fallas por ficha con umbral, justificaciones por estado con plazo de subsanación, matrículas con materias, próximas clases y alertas activas). Los indicadores de trimestre usan el trimestre activo; sin uno viajan vacíos y `trimesterMessage` trae "No hay un trimestre activo" (E2). Ver [`docs/api-contracts.md#uc023--consultar-dashboard`](./api-contracts.md#uc023--consultar-dashboard).
+
+**Estado del frontend:** pendiente. **Cambios incompatibles:** la respuesta ya no es siempre la del Administrador; la pantalla debe ramificar por el rol de la sesión (el `role()` del contrato no viaja como campo del JSON, así que no hay discriminador en el cuerpo) y consumir los campos nuevos. Los paneles de Instructor y Aprendiz se agregan al payload según el rol, y los indicadores de trimestre pueden venir vacíos con el mensaje de E2.
+
+| #   | Ítem                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Estado      |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Panel de Administrador: sin cambios (`kpis` + `recentGrades`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `Pendiente` |
+| 2   | Panel de Instructor: mostrar `pendingJustifications` con acceso directo a la bandeja de UC010, `activeAlerts` (bandeja de UC013), `assignedSubjects`, `assignedGrades`, `assignedApprentices` y las listas `todayClasses`/`upcomingClasses` (`classSectionId`, `subjectName`, `gradeCode`, `date`, `startTime`, `endTime`).                                                                                                                                                                                                        | `Pendiente` |
+| 3   | Panel de Aprendiz: mostrar `attendance` (`present`/`failure`/`justified` y `percentage`), `failuresByGrade` (`unexcusedFailures`, `threshold`, `missingToThreshold`), `justifications` por estado con `withinCorrectionWindow` (`deadline` y `remainingBusinessDays`, 0 = vence hoy), `grades` con sus `subjects`, `upcomingClasses` y `activeAlerts`.                                                                                                                                                                             | `Pendiente` |
+| 4   | E2 sin trimestre activo: la respuesta trae `trimesterMessage` con "No hay un trimestre activo" y los indicadores de trimestre vacíos; mostrar el mensaje y ocultar (o vaciar) las tarjetas de asistencia, fallas y clases. No hay clave i18n: el texto lo entrega el backend.                                                                                                                                                                                                                                                    | `Pendiente` |
+| 5   | Navegación desde el panel (paso 4): no hay hipervínculos en el payload; componer las rutas con los ids (`classSectionId`, `gradeId`, `studentId`), reutilizando las pantallas de UC017, UC013 y UC010.                                                                                                                                                                                                                                                                                                                             | `Pendiente` |
+
+---
+
 ## Próximas UCs
 
-Las secciones de arriba se irán agregando a medida que el backend avance y cada UC quede lista. La siguiente UC tiene backend **parcial** y el frontend puede ir adelantando trabajo contra su contrato:
-
-| UC    | Nombre                          | Contrato                                              |
-| ----- | ------------------------------- | ----------------------------------------------------- |
-| UC023 | Consultar dashboard             | [`docs/api-contracts.md`](./api-contracts.md) — UC023 |
-
-La única UC con backend parcial es UC023: sus paneles de Instructor y Aprendiz todavía devuelven los indicadores del Administrador. Con UC013 ya implementada (alertas de inasistencia, ver arriba), el tipo `ALERTA` y el job de reintentos de las notificaciones también están listos (UC018, ver arriba).
+No queda ninguna UC con backend pendiente o parcial: todas las secciones de este documento están disponibles. UC004 es la única con estado `Parcial` en el índice de contratos, pero su backend no tiene deuda (el logout es 100% del frontend, ver arriba); su trabajo pendiente se sigue en la sección UC004.
 
 ---
 

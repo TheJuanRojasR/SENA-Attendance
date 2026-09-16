@@ -62,7 +62,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 | [UC010](#uc010--gestionar-justificaciones)          | Gestionar justificaciones          | Implementado    |
 | [UC013](#uc013--gestionar-alertas-de-inasistencia)  | Gestionar alertas de inasistencia  | Implementado    |
 | [UC018](#uc018--gestionar-notificaciones)           | Gestionar notificaciones           | Implementado    |
-| [UC023](#uc023--consultar-dashboard)                | Consultar dashboard                | Parcial         |
+| [UC023](#uc023--consultar-dashboard)                | Consultar dashboard                | Implementado    |
 
 ---
 
@@ -1598,9 +1598,9 @@ El `type` es `CONSECUTIVAS` o `ACUMULADAS`, y el `state` es `NO_LEIDA`, `LEIDA`,
 
 ## UC023 — Consultar dashboard
 
-**Módulo:** Dashboard | **Actor:** Usuario (según rol) | **Estado:** Parcial
+**Módulo:** Dashboard | **Actor:** Usuario (según rol) | **Estado:** Implementado
 
-**Feature:** Panel de resumen por rol, calculado al momento de la consulta. Hoy solo el panel de Administrador tiene datos reales; para Instructor y Aprendiz el servicio devuelve el payload de Administrador como solución temporal.
+**Feature:** Panel de resumen por rol, calculado al momento de la consulta. Cada rol ve **solo su propio panel**: el Administrador conserva sus KPIs y últimas fichas, el Instructor recibe su carga, justificaciones, alertas y sesiones, y el Aprendiz recibe su asistencia, fallas, justificaciones, matrículas y sesiones. Los indicadores que dependen del trimestre usan el **trimestre activo**; sin uno, viajan vacíos y el mensaje "No hay un trimestre activo" queda en `trimesterMessage` (E2).
 
 **Endpoints:**
 
@@ -1608,7 +1608,9 @@ El `type` es `CONSECUTIVAS` o `ACUMULADAS`, y el `state` es `NO_LEIDA`, `LEIDA`,
 | ------ | ---------------- | --------------------------------------------------- | ----------------------------------------------------- |
 | GET    | `/api/dashboard` | `ROLE_ADMIN`, `ROLE_INSTRUCTOR` o `ROLE_APPRENTICE` | Devuelve el panel correspondiente al rol autenticado. |
 
-**Response — `GET /api/dashboard`:** `200 OK`
+**Response — `GET /api/dashboard`:** `200 OK`. La forma del cuerpo depende del rol autenticado; el método `role()` de la interfaz `DashboardDTO` no se serializa como campo del JSON.
+
+### Panel de Administrador (sin cambios)
 
 ```json
 {
@@ -1630,8 +1632,89 @@ El `type` es `CONSECUTIVAS` o `ACUMULADAS`, y el `state` es `NO_LEIDA`, `LEIDA`,
 }
 ```
 
-El panel de Administrador incluye KPIs y las últimas 5 fichas creadas (`recentGrades`). El método `role()` de la interfaz `DashboardDTO` no se serializa como campo del JSON.
+### Panel de Instructor
+
+```json
+{
+  "pendingJustifications": 3,
+  "activeAlerts": 2,
+  "assignedSubjects": 5,
+  "assignedGrades": 2,
+  "assignedApprentices": 41,
+  "todayClasses": [
+    {
+      "classSectionId": "665f1c2a9e13b7a1f2c8d9e71",
+      "subjectName": "Matemáticas",
+      "gradeCode": "3412345",
+      "date": "2026-09-15",
+      "startTime": "07:00:00",
+      "endTime": "09:00:00"
+    }
+  ],
+  "upcomingClasses": [],
+  "trimesterMessage": null
+}
+```
+
+| Campo                  | Tipo            | Descripción                                                                                                                                                                                                 |
+| ---------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pendingJustifications`| integer         | Partes de justificación en estado `PENDIENTE` de sus materias, el trabajo pendiente de la bandeja de UC010.                                                                                                   |
+| `activeAlerts`         | integer         | Alertas activas (`NO_LEIDA`, `LEIDA` o `ATENDIDA`) de sus materias y fichas, con el mismo alcance de la bandeja de UC013.                                                                                     |
+| `assignedSubjects`     | integer         | Materias asignadas al instructor (incluidas las inactivas, que se muestran con su estado en UC017).                                                                                                          |
+| `assignedGrades`       | integer         | Fichas distintas donde dicta al menos una materia.                                                                                                                                                            |
+| `assignedApprentices`  | integer         | Aprendices en estado `MATRICULADO` en esas fichas, contados una vez por aprendiz aunque esté en varias.                                                                                                       |
+| `todayClasses`         | array de sesión | Sesiones de hoy derivadas de los horarios de sus materias en el trimestre activo, descontando las fechas no lectivas de UC009 (A4); acotado a 10.                                                              |
+| `upcomingClasses`      | array de sesión | Próximas 5 sesiones después de hoy, con el mismo cálculo.                                                                                                                                                     |
+| `trimesterMessage`     | string \| null  | `"No hay un trimestre activo"` cuando no hay trimestre activo; `null` en caso contrario.                                                                                                                      |
+
+La sesión (`todayClasses` y `upcomingClasses`) tiene `classSectionId`, `subjectName`, `gradeCode`, `date`, `startTime` y `endTime`.
+
+### Panel de Aprendiz
+
+```json
+{
+  "attendance": { "present": 12, "failure": 2, "justified": 1, "percentage": 80.0 },
+  "failuresByGrade": [
+    { "gradeId": "665f1c2a9e13b7a1f2c8d9e72", "gradeCode": "3412345", "unexcusedFailures": 2, "threshold": 5, "missingToThreshold": 3 }
+  ],
+  "justifications": {
+    "pending": 1,
+    "approved": 2,
+    "rejected": 1,
+    "withinCorrectionWindow": [
+      { "id": "665f1c2a9e13b7a1f2c8d9e73", "subjectName": "Matemáticas", "deadline": "2026-09-17", "remainingBusinessDays": 2 }
+    ]
+  },
+  "grades": [
+    {
+      "gradeId": "665f1c2a9e13b7a1f2c8d9e72",
+      "gradeCode": "3412345",
+      "programName": "Análisis y Desarrollo de Software",
+      "subjects": [{ "id": "665f1c2a9e13b7a1f2c8d9e71", "subjectName": "Matemáticas" }]
+    }
+  ],
+  "upcomingClasses": [],
+  "activeAlerts": 1,
+  "trimesterMessage": null
+}
+```
+
+| Campo                  | Tipo            | Descripción                                                                                                                                                                                              |
+| ---------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attendance`           | object \| null  | Totales por estado de las sesiones registradas del aprendiz en el trimestre activo (`present`/`failure`/`justified` = A/F/J) y `percentage` sobre ese total con 2 decimales. `null` sin trimestre activo. |
+| `failuresByGrade`      | array           | Fallas no justificadas (`FALLA`) por ficha matriculada en el trimestre activo, el umbral acumulado de UC013 (`threshold`; `GlobalConfiguration`, default 5) y `missingToThreshold` = `max(0, threshold - fallas)`. Vacío sin trimestre activo. |
+| `justifications`       | object          | Partes de las justificaciones del aprendiz por estado (`pending`, `approved`, `rejected`); `withinCorrectionWindow` lista las `RECHAZADA` que aún se pueden subsanar (2 días hábiles desde `responseDate`, UC011 A5/E5) con `deadline` y `remainingBusinessDays` (0 = vence hoy). |
+| `grades`               | array           | Sus fichas en estado `MATRICULADO` con `gradeId`, `gradeCode`, `programName` y `subjects` (`id` y `subjectName`).                                                                                          |
+| `upcomingClasses`      | array de sesión | Próximas 5 sesiones de sus materias en el trimestre activo desde hoy, descontando las fechas no lectivas. Vacío sin trimestre activo.                                                                     |
+| `activeAlerts`         | integer         | Alertas activas que lo afectan: cualquier estado distinto de `RESUELTA_AUTOMATICAMENTE`.                                                                                                                   |
+| `trimesterMessage`     | string \| null  | Igual que en el panel del Instructor.                                                                                                                                                                       |
+
+**Alcance por rol:** el panel del Instructor se limita a sus materias y fichas (`classSectionRepository.findByInstructorId` y la banda de alertas de UC013); el del Aprendiz, a sus matrículas `MATRICULADO` y a sus propios registros de asistencia, justificaciones y alertas. Un usuario sin perfil resoluble recibe su panel en cero, nunca el de otro rol.
 
 **Errores:** `401` sin sesión; `403` con un rol distinto de los tres admitidos.
 
-**Notas / lo que se necesita:** faltan los paneles de Instructor (justificaciones pendientes, alertas activas, clases de hoy, materias y aprendices a cargo) y de Aprendiz (porcentaje de asistencia, fallas y umbral, justificaciones por estado, próximas clases). No hay cálculo por trimestre activo ni manejo de "No hay un trimestre activo". La restricción de que cada rol vea solo sus datos no aplica todavía: Instructor y Aprendiz reciben los indicadores globales del Administrador.
+**Excepciones:** E1 — sin datos, los indicadores viajan en cero y las listas vacías. E2 — sin trimestre activo, los indicadores de trimestre (`todayClasses` y `upcomingClasses` en el Instructor; `attendance`, `failuresByGrade` y `upcomingClasses` en el Aprendiz) viajan vacíos y `trimesterMessage` expone "No hay un trimestre activo"; los indicadores de trimestre independiente (justificaciones, alertas, matrículas y carga del instructor) se siguen calculando.
+
+**Notas:** la asistencia se calcula sobre las **sesiones registradas** (registros de asistencia dentro del rango del trimestre), como pide la spec. Las **fallas por ficha** usan el umbral **acumulado** de UC013 y agrupan por ficha matriculada. El **plazo de subsanación** replica los 2 días hábiles de UC011 (`BusinessDays.CORRECTION_BUSINESS_DAYS`) contados desde el día siguiente al rechazo. Las **alertas activas** no se restringen al trimestre activo: una alerta sin resolver sigue contando. Las materias asignadas y las fichas del instructor incluyen las inactivas (mismo criterio que UC017). Todo lo que pide la spec de UC023 quedó calculado con el modelo actual: no hubo métricas fuera del contrato.
+
+**Verificación:** `DashboardResourceIT` cubre los paneles de Instructor (2 casos) y Aprendiz (2 casos), además de los casos preexistentes de rol no admitido y sin sesión; `CurrentUserContextTest` y `ClassSessionsTest` cubren los helpers compartidos.
