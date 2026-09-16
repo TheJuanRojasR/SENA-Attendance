@@ -18,6 +18,7 @@ import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Modality;
+import com.mycompany.senaattendance.domain.Notificacion;
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.Trimester;
@@ -25,6 +26,8 @@ import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.AlertaState;
 import com.mycompany.senaattendance.domain.enumeration.AlertaType;
+import com.mycompany.senaattendance.domain.enumeration.NotificacionEstado;
+import com.mycompany.senaattendance.domain.enumeration.NotificacionTipo;
 import com.mycompany.senaattendance.domain.enumeration.StateAcademic;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
@@ -38,6 +41,7 @@ import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.ModalityRepository;
+import com.mycompany.senaattendance.repository.NotificacionRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
@@ -58,6 +62,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -97,6 +102,9 @@ class AttendanceResourceIT {
 
     @Autowired
     private AlertaRepository alertaRepository;
+
+    @Autowired
+    private NotificacionRepository notificacionRepository;
 
     @Autowired
     private AuditLogRepository auditLogRepository;
@@ -259,6 +267,7 @@ class AttendanceResourceIT {
         // The session endpoint persists records the fixture cannot track, so sweep the collection.
         attendanceRepository.deleteAll();
         alertaRepository.deleteAll();
+        notificacionRepository.deleteAll();
         auditLogRepository.deleteAll();
         insertedAttendances.clear();
         insertedExceptions.forEach(classExceptionRepository::delete);
@@ -545,6 +554,26 @@ class AttendanceResourceIT {
         assertThat(alerta.getGrade().getId()).isEqualTo(grade.getId());
         assertThat(alerta.getGeneratedAt()).isNotNull();
         assertThat(alerta.getResolvedAt()).isNull();
+
+        // The generation notifies the apprentice and every instructor of the ficha.
+        Notificacion apprenticeNotification = singleNotificationOf(firstStudent);
+        assertThat(apprenticeNotification.getTipo()).isEqualTo(NotificacionTipo.ALERTA);
+        assertThat(apprenticeNotification.getEstado()).isEqualTo(NotificacionEstado.PENDIENTE);
+        assertThat(apprenticeNotification.getRead()).isFalse();
+        assertThat(apprenticeNotification.getReferenceType()).isEqualTo("ALERT");
+        assertThat(apprenticeNotification.getReferenceId()).isEqualTo(alerta.getId());
+        assertThat(singleNotificationOf(instructor).getReferenceId()).isEqualTo(alerta.getId());
+        assertThat(singleNotificationOf(otherInstructor).getReferenceId()).isEqualTo(alerta.getId());
+    }
+
+    /**
+     * @param profile the recipient of the notification.
+     * @return the single notification of that profile.
+     */
+    private Notificacion singleNotificationOf(UserProfile profile) {
+        List<Notificacion> notifications = notificacionRepository.findByUser(profile.getUser(), Pageable.unpaged()).getContent();
+        assertThat(notifications).hasSize(1);
+        return notifications.getFirst();
     }
 
     // -----------------------------------------------------------------

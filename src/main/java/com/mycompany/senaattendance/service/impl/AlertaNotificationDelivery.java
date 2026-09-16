@@ -22,14 +22,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Real delivery of the absence alert notifications (UC018): every alert event persists one in-app
- * notification for the apprentice and for the instructors related to the alert, unread, with
- * {@code referenceType = "ALERT"} and the id of the alert.
+ * Real delivery of the absence alert notifications (UC018): every alert event, generation or
+ * automatic resolution, persists one in-app notification for the apprentice and for the
+ * instructors related to the alert, unread, with {@code referenceType = "ALERT"} and the id of
+ * the alert.
  *
  * <p>Recipients of a consecutive alert are the apprentice and the instructor of the materia; the
  * recipients of an accumulated alert are the apprentice and every instructor of the ficha, which
  * is the scope of that alert type (UC013, generation rule). The instructors are deduplicated by
- * user, so an instructor who teaches several materias of the ficha receives a single notification.
+ * user, so an instructor who teaches several materias of the ficha receives a single notification
+ * per event.
  *
  * <p>The notifications are in-app, so they are persisted already delivered (the {@code PENDIENTE}
  * state of the inbox) and unread; only the email channel of the credentials flow can fail and be
@@ -42,8 +44,17 @@ public class AlertaNotificationDelivery implements AlertaNotificationPort {
 
     private static final String REFERENCE_TYPE = "ALERT";
 
+    private static final String APPRENTICE_GENERATED_CONSECUTIVE_MESSAGE =
+        "Se generó una alerta por fallas consecutivas en una de tus materias.";
+
+    private static final String APPRENTICE_GENERATED_ACCUMULATED_MESSAGE = "Se generó una alerta por fallas acumuladas en tu ficha.";
+
     private static final String APPRENTICE_RESOLVED_MESSAGE =
         "Tu alerta de inasistencia fue resuelta automáticamente: tus fallas bajaron del umbral.";
+
+    private static final String INSTRUCTOR_GENERATED_CONSECUTIVE_MESSAGE = "Se generó una alerta de inasistencia en una de tus materias.";
+
+    private static final String INSTRUCTOR_GENERATED_ACCUMULATED_MESSAGE = "Se generó una alerta de inasistencia en tu ficha.";
 
     private static final String INSTRUCTOR_RESOLVED_MESSAGE =
         "Una alerta de inasistencia de tu materia fue resuelta automáticamente: las fallas del aprendiz bajaron del umbral.";
@@ -68,12 +79,41 @@ public class AlertaNotificationDelivery implements AlertaNotificationPort {
     }
 
     @Override
+    public void generated(Alerta alerta) {
+        if (alerta == null || alerta.getId() == null) {
+            return;
+        }
+        notifyApprentice(alerta, apprenticeGeneratedMessage(alerta));
+        notifyInstructors(alerta, instructorGeneratedMessage(alerta));
+    }
+
+    @Override
     public void resolved(Alerta alerta) {
         if (alerta == null || alerta.getId() == null) {
             return;
         }
         notifyApprentice(alerta, APPRENTICE_RESOLVED_MESSAGE);
         notifyInstructors(alerta, instructorResolvedMessage(alerta));
+    }
+
+    /**
+     * @param alerta the generated alert.
+     * @return the message the apprentice receives, which names the scope of the alert.
+     */
+    private static String apprenticeGeneratedMessage(Alerta alerta) {
+        return alerta.getType() == AlertaType.ACUMULADAS
+            ? APPRENTICE_GENERATED_ACCUMULATED_MESSAGE
+            : APPRENTICE_GENERATED_CONSECUTIVE_MESSAGE;
+    }
+
+    /**
+     * @param alerta the generated alert.
+     * @return the message the instructors receive, which names the scope of the alert.
+     */
+    private static String instructorGeneratedMessage(Alerta alerta) {
+        return alerta.getType() == AlertaType.ACUMULADAS
+            ? INSTRUCTOR_GENERATED_ACCUMULATED_MESSAGE
+            : INSTRUCTOR_GENERATED_CONSECUTIVE_MESSAGE;
     }
 
     /**

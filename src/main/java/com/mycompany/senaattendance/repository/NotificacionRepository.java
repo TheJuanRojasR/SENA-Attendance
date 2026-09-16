@@ -5,6 +5,7 @@ import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.enumeration.NotificacionEstado;
 import com.mycompany.senaattendance.domain.enumeration.NotificacionTipo;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +18,15 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface NotificacionRepository extends MongoRepository<Notificacion, String>, NotificacionRepositoryCustom {
     Page<Notificacion> findByUser(User user, Pageable pageable);
+
+    /**
+     * Finds the notifications in one delivery state. Used by the retry job (UC018, E3) to collect
+     * the failed deliveries it has to retry.
+     *
+     * @param estado the delivery state to match.
+     * @return the matching notifications, possibly empty.
+     */
+    List<Notificacion> findByEstado(NotificacionEstado estado);
 
     /**
      * Returns the most recent notification of one user with one of the given delivery states.

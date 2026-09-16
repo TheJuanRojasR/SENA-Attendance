@@ -498,7 +498,8 @@ public class AlertaServiceImpl implements AlertaService {
     }
 
     /**
-     * Persists the new alert in its initial state, with the count that triggered it.
+     * Persists the new alert in its initial state, with the count that triggered it, and
+     * announces it through the alert channel (UC018).
      *
      * @param student the apprentice profile.
      * @param classSection the materia of a consecutive alert, or {@code null} in an accumulated one.
@@ -529,6 +530,7 @@ public class AlertaServiceImpl implements AlertaService {
             .generatedAt(Instant.now(clock));
         alertaRepository.save(alerta);
         LOG.debug("Generated a {} alert for apprentice {} with count {} at threshold {}", type, student.getId(), count, threshold);
+        alertaNotificationPort.generated(alerta);
     }
 
     /**

@@ -18,11 +18,14 @@ import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.Justification;
 import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.JustificationType;
+import com.mycompany.senaattendance.domain.Notificacion;
 import com.mycompany.senaattendance.domain.Trimester;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.AlertaState;
 import com.mycompany.senaattendance.domain.enumeration.AlertaType;
+import com.mycompany.senaattendance.domain.enumeration.NotificacionEstado;
+import com.mycompany.senaattendance.domain.enumeration.NotificacionTipo;
 import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
@@ -34,6 +37,7 @@ import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.JustificationRepository;
 import com.mycompany.senaattendance.repository.JustificationTypeRepository;
+import com.mycompany.senaattendance.repository.NotificacionRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -119,6 +123,9 @@ class JustificationDetailsResourceIT {
 
     @Autowired
     private AlertaRepository alertaRepository;
+
+    @Autowired
+    private NotificacionRepository notificacionRepository;
 
     @Autowired
     private ClassSectionRepository classSectionRepository;
@@ -235,6 +242,7 @@ class JustificationDetailsResourceIT {
         attendanceRepository.deleteAll();
         auditLogRepository.deleteAll();
         alertaRepository.deleteAll();
+        notificacionRepository.deleteAll();
         justificationDetailsRepository.deleteAll();
         classSectionRepository.deleteAll();
         gradeRepository.deleteAll();
@@ -1278,6 +1286,24 @@ class JustificationDetailsResourceIT {
         assertThat(resolved.getState()).isEqualTo(AlertaState.RESUELTA_AUTOMATICAMENTE);
         assertThat(resolved.getResolvedAt()).isNotNull();
         assertThat(resolved.getObservation()).isNull();
+
+        // The automatic resolution notifies the apprentice and the instructor of the materia.
+        List<Notificacion> apprenticeNotifications = notificacionRepository
+            .findByUser(apprentice.getUser(), Pageable.unpaged())
+            .getContent();
+        assertThat(apprenticeNotifications).hasSize(1);
+        Notificacion apprenticeNotification = apprenticeNotifications.getFirst();
+        assertThat(apprenticeNotification.getTipo()).isEqualTo(NotificacionTipo.ALERTA);
+        assertThat(apprenticeNotification.getEstado()).isEqualTo(NotificacionEstado.PENDIENTE);
+        assertThat(apprenticeNotification.getRead()).isFalse();
+        assertThat(apprenticeNotification.getReferenceType()).isEqualTo("ALERT");
+        assertThat(apprenticeNotification.getReferenceId()).isEqualTo(activeAlert.getId());
+
+        List<Notificacion> instructorNotifications = notificacionRepository
+            .findByUser(instructor.getUser(), Pageable.unpaged())
+            .getContent();
+        assertThat(instructorNotifications).hasSize(1);
+        assertThat(instructorNotifications.getFirst().getReferenceId()).isEqualTo(activeAlert.getId());
     }
 
     // -----------------------------------------------------------------

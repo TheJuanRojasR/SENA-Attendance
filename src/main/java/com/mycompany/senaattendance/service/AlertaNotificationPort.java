@@ -13,6 +13,14 @@ import com.mycompany.senaattendance.domain.Alerta;
  */
 public interface AlertaNotificationPort {
     /**
+     * Notifies the generation of an alert (UC013, flow step 3): the apprentice and the instructors
+     * related to the alert learn that a threshold was reached.
+     *
+     * @param alerta the generated alert.
+     */
+    void generated(Alerta alerta);
+
+    /**
      * Notifies the automatic resolution of an alert (UC013, A4): the apprentice and the
      * instructors related to the alert learn that their failures dropped below the threshold.
      *

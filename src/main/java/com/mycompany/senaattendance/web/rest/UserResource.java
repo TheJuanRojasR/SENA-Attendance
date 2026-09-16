@@ -7,6 +7,7 @@ import com.mycompany.senaattendance.domain.enumeration.NotificacionEstado;
 import com.mycompany.senaattendance.domain.enumeration.NotificacionTipo;
 import com.mycompany.senaattendance.repository.NotificacionRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
+import com.mycompany.senaattendance.service.CredentialsResendService;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
@@ -89,10 +90,18 @@ public class UserResource {
 
     private final NotificacionRepository notificacionRepository;
 
-    public UserResource(UserService userService, MailService mailService, NotificacionRepository notificacionRepository) {
+    private final CredentialsResendService credentialsResendService;
+
+    public UserResource(
+        UserService userService,
+        MailService mailService,
+        NotificacionRepository notificacionRepository,
+        CredentialsResendService credentialsResendService
+    ) {
         this.userService = userService;
         this.mailService = mailService;
         this.notificacionRepository = notificacionRepository;
+        this.credentialsResendService = credentialsResendService;
     }
 
     /**
@@ -179,25 +188,6 @@ public class UserResource {
     }
 
     /**
-     * Closes the open credentials notification of the user according to the delivery result: the
-     * notification becomes {@code ENVIADA} when the email was delivered or {@code REINTENTAR} when
-     * it failed (UC018, E3). A user without an open notification is not an error.
-     */
-    private void updateCredentialsNotification(User user, boolean delivered) {
-        NotificacionEstado estado = delivered ? NotificacionEstado.ENVIADA : NotificacionEstado.REINTENTAR;
-        notificacionRepository
-            .findFirstByUserAndTipoAndEstadoInOrderByCreatedDateDesc(
-                user,
-                NotificacionTipo.CREDENTIALS,
-                List.of(NotificacionEstado.PENDIENTE, NotificacionEstado.REINTENTAR)
-            )
-            .ifPresent(notificacion -> {
-                notificacion.setEstado(estado);
-                notificacionRepository.save(notificacion);
-            });
-    }
-
-    /**
      * {@code GET /admin/users} : get all users with all the details - calling this are only allowed for the administrators.
      *
      * @param pageable the pagination information.
@@ -277,14 +267,7 @@ public class UserResource {
         String documentNumber = credentialsVM.getDocumentNumber();
         LOG.debug("REST request to resend the access credentials to User by document number: {}", documentNumber);
 
-        User user = userService.resendCredentials(documentNumber);
-        boolean delivered = false;
-        try {
-            delivered = mailService.sendPasswordResetMailSync(user);
-        } catch (MessagingException | RuntimeException e) {
-            LOG.warn("Could not resend the credentials email to user '{}'", user.getLogin(), e);
-        }
-        updateCredentialsNotification(user, delivered);
+        User user = credentialsResendService.resend(documentNumber);
 
         return ResponseEntity.ok()
             .headers(HeaderUtil.createAlert(applicationName, "userManagement.credentialsresent", user.getLogin()))
