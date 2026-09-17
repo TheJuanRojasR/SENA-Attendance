@@ -17,6 +17,9 @@
     "documentTypeInactive": "El tipo de documento está inactivo y no puede usarse en el registro.",
     "invalidpassword": "Contraseña no válida.",
     "badcredentials": "Tipo o número de documento o contraseña incorrectos.",
-    "accountinactive": "Tu cuenta está inactiva. Contacta al administrador."
+    "accountinactive": "Tu cuenta está inactiva. Contacta al administrador.",
+    "documentimmutable": "Este dato no puede modificarse.",
+    "currentpasswordinvalid": "La contraseña actual es incorrecta.",
+    "samepassword": "La nueva contraseña debe ser diferente a la actual."
   }
 }
