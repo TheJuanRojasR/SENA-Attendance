@@ -48,4 +48,16 @@ public interface JustificationDetailsRepository
      */
     @Query("{ 'justification.$id': { $in: ?0 } }")
     List<JustificationDetails> findAllByJustificationIdIn(List<ObjectId> justificationIds);
+
+    /**
+     * Returns whether any justification part references the given class section. The class
+     * section is a DBRef, so it is matched through the scalar {@code classSection._id}, where a
+     * String resolves to the referenced id. Used as a defense-in-depth guard before deleting a
+     * materia: a part would otherwise stay orphaned.
+     *
+     * @param classSectionId the class section id to check.
+     * @return {@code true} when at least one part references the class section.
+     */
+    @Query(value = "{ 'classSection._id': ?0 }", exists = true)
+    boolean existsByClassSectionId(String classSectionId);
 }

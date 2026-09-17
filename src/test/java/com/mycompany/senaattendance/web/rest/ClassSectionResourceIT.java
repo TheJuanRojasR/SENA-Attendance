@@ -15,6 +15,7 @@ import com.mycompany.senaattendance.domain.ClassException;
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
 import com.mycompany.senaattendance.domain.Grade;
+import com.mycompany.senaattendance.domain.JustificationDetails;
 import com.mycompany.senaattendance.domain.Program;
 import com.mycompany.senaattendance.domain.User;
 import com.mycompany.senaattendance.domain.UserProfile;
@@ -26,6 +27,7 @@ import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.ProgramRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.repository.UserRepository;
@@ -109,6 +111,9 @@ class ClassSectionResourceIT {
     private ClassExceptionRepository classExceptionRepository;
 
     @Autowired
+    private JustificationDetailsRepository justificationDetailsRepository;
+
+    @Autowired
     private ClassSectionMapper classSectionMapper;
 
     @Autowired
@@ -123,6 +128,8 @@ class ClassSectionResourceIT {
     private ClassSchedule insertedSchedule;
 
     private ClassException insertedException;
+
+    private JustificationDetails insertedJustificationDetails;
 
     private final List<User> insertedInstructorUsers = new ArrayList<>();
 
@@ -322,6 +329,10 @@ class ClassSectionResourceIT {
         if (insertedException != null) {
             classExceptionRepository.delete(insertedException);
             insertedException = null;
+        }
+        if (insertedJustificationDetails != null) {
+            justificationDetailsRepository.delete(insertedJustificationDetails);
+            insertedJustificationDetails = null;
         }
         // Remove the related documents persisted for the PUT tests
         gradeRepository.deleteAll();
@@ -1177,6 +1188,32 @@ class ClassSectionResourceIT {
         assertSameRepositoryCount(databaseSizeBeforeDelete);
         assertThat(classSectionRepository.existsById(insertedClassSection.getId())).isTrue();
         assertThat(attendanceRepository.existsById(insertedAttendance.getId())).isTrue();
+    }
+
+    @Test
+    void deleteClassSectionWithJustificationsIsRejected() throws Exception {
+        // Initialize the database with a materia referenced by a justification part
+        insertedClassSection = classSectionRepository.save(classSection);
+        insertedJustificationDetails = justificationDetailsRepository.save(
+            new JustificationDetails()
+                .classSection(insertedClassSection)
+                .rejectionReason("Motivo de prueba")
+                .correctionText("Corrección de prueba")
+                .correctionFileUrlContentType("application/pdf")
+        );
+
+        long databaseSizeBeforeDelete = getRepositoryCount();
+
+        // Deleting a materia with justification parts is rejected: it must be deactivated instead
+        restClassSectionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, insertedClassSection.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.classSectionInUseWithJustifications"));
+
+        // The materia and its justification part are kept
+        assertSameRepositoryCount(databaseSizeBeforeDelete);
+        assertThat(classSectionRepository.existsById(insertedClassSection.getId())).isTrue();
+        assertThat(justificationDetailsRepository.existsById(insertedJustificationDetails.getId())).isTrue();
     }
 
     @Test

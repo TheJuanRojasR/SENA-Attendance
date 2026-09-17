@@ -10,6 +10,7 @@ import com.mycompany.senaattendance.repository.ClassExceptionRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
+import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
 import com.mycompany.senaattendance.repository.UserProfileRepository;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassSectionService;
@@ -51,6 +52,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     private final AttendanceRepository attendanceRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassExceptionRepository classExceptionRepository;
+    private final JustificationDetailsRepository justificationDetailsRepository;
 
     public ClassSectionServiceImpl(
         ClassSectionRepository classSectionRepository,
@@ -60,7 +62,8 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         GradeRepository gradeRepository,
         AttendanceRepository attendanceRepository,
         ClassScheduleRepository classScheduleRepository,
-        ClassExceptionRepository classExceptionRepository
+        ClassExceptionRepository classExceptionRepository,
+        JustificationDetailsRepository justificationDetailsRepository
     ) {
         this.classSectionRepository = classSectionRepository;
         this.classSectionMapper = classSectionMapper;
@@ -70,6 +73,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         this.attendanceRepository = attendanceRepository;
         this.classScheduleRepository = classScheduleRepository;
         this.classExceptionRepository = classExceptionRepository;
+        this.justificationDetailsRepository = justificationDetailsRepository;
     }
 
     @Override
@@ -152,11 +156,18 @@ public class ClassSectionServiceImpl implements ClassSectionService {
     /**
      * Deletes a class section and cascades the deletion to its schedules and exceptions. The
      * class section cannot be deleted when it already has attendance records, because they are
-     * the audit trail of the subject; in that case it must be deactivated instead. A missing
-     * class section is still a silent no-op.
+     * the audit trail of the subject; in that case it must be deactivated instead. It cannot be
+     * deleted either when a justification part references it, because that part would stay
+     * orphaned. A missing class section is still a silent no-op.
+     *
+     * <p>The justification guard is defense in depth: in the real flow it is nearly unreachable,
+     * because a part is born from failures and failures require attendance, which already blocks
+     * the deletion. It still protects against legacy data and against any future path that
+     * creates a part without attendance.
      *
      * @param id the id of the class section to delete.
-     * @throws BadRequestAlertException when the class section has attendance records.
+     * @throws BadRequestAlertException when the class section has attendance records or
+     *         justification parts.
      */
     @Override
     @Transactional
@@ -167,6 +178,13 @@ public class ClassSectionServiceImpl implements ClassSectionService {
                 "No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación",
                 ENTITY_NAME,
                 "classSectionInUse"
+            );
+        }
+        if (hasJustifications(id)) {
+            throw new BadRequestAlertException(
+                "No es posible eliminar la materia: tiene justificaciones asociadas. Puede desactivarla para retirarla de operación",
+                ENTITY_NAME,
+                "classSectionInUseWithJustifications"
             );
         }
         classScheduleRepository.deleteAll(classScheduleRepository.findByClassSectionId(id));
@@ -187,6 +205,18 @@ public class ClassSectionServiceImpl implements ClassSectionService {
             return false;
         }
         return attendanceRepository.countByClassSection_IdIn(List.of(new ObjectId(classSectionId))) > 0;
+    }
+
+    /**
+     * Resolves whether the class section already has justification parts. A part references the
+     * class section through a DBRef, so the guard asks the repository with the scalar
+     * {@code classSection._id} lookup, where a String resolves to the referenced id.
+     *
+     * @param classSectionId the class section id.
+     * @return {@code true} when at least one justification part references the class section.
+     */
+    private boolean hasJustifications(String classSectionId) {
+        return justificationDetailsRepository.existsByClassSectionId(classSectionId);
     }
 
     /**
