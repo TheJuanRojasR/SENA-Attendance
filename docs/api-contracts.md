@@ -27,7 +27,7 @@ Cuándo este documento dice `por confirmar`, el dato no pudo determinarse con ce
 
 - **Base path:** todos los endpoints viven bajo `/api`. Las rutas de este documento son absolutas, por ejemplo `/api/register`.
 - **Autenticación:** JWT. El login es `POST /api/authenticate` y devuelve el token en el cuerpo (`id_token`) y en la cabecera `Authorization`. Las peticiones autenticadas envían `Authorization: Bearer <token>`.
-- **Vigencia del token:** 86 400 segundos (24 horas) en los perfiles `dev` y `prod`. El flag `rememberMe` del login extiende la vigencia a 30 días (`token-validity-in-seconds-for-remember-me: 2592000`); este flag no está contemplado en los casos de uso.
+- **Vigencia del token:** 86 400 segundos (24 horas) por defecto en los perfiles `dev` y `prod`. El flag `rememberMe` del login —opcional y `false` por defecto— extiende la vigencia a 30 días (`token-validity-in-seconds-for-remember-me: 2592000`); es la opción "mantener sesión" documentada en UC002.
 - **Roles:** el sistema emite `ROLE_ADMIN`, `ROLE_INSTRUCTOR`, `ROLE_APPRENTICE` y `ROLE_USER` (los tres primeros siempre acompañados de `ROLE_USER`).
 - **Endpoints públicos:** `POST /api/authenticate`, `GET /api/authenticate`, `/api/register`, `/api/activate`, `/api/account/reset-password/init`, `/api/account/reset-password/finish` y `GET /api/document-types/**`. Los métodos de escritura de `/api/document-types/**` siguen protegidos por `@PreAuthorize` (solo `ROLE_ADMIN`).
 - **Paginación:** parámetros `page` (base 0), `size` y `sort=campo,asc|desc`. Spring Boot aplica el tamaño por defecto de 20 registros porque el proyecto no lo sobrescribe en `application.yml`. Los endpoints paginados devuelven un **arreglo JSON** con la página actual; el total y el enlace a la página siguiente viajan en las cabeceras `X-Total-Count` y `Link`. Los catálogos no paginados devuelven el arreglo completo.
@@ -131,7 +131,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 
 **Módulo:** Cuenta y acceso | **Actor:** Usuario (Aprendiz, Instructor o Administrador) | **Estado:** Implementado
 
-**Feature:** Autenticación por tipo y número de documento + contraseña. Emite un JWT de 24 horas y valida el token en cada petición.
+**Feature:** Autenticación por tipo y número de documento + contraseña. Emite un JWT de 24 horas, o de 30 días con la opción "mantener sesión" (`rememberMe`), y valida el token en cada petición.
 
 **Endpoints:**
 
@@ -157,7 +157,7 @@ Campos heredados de `AdminUserDTO` como `login`, `id`, `activated` o `authoritie
 | `documentTypeId` | string  | Sí          | `@NotNull`, 1–254.                                  |
 | `documentNumber` | string  | Sí          | `@NotNull`, 1–20.                                   |
 | `password`       | string  | Sí          | `@NotNull`, 4–20 a nivel de validación de bean.     |
-| `rememberMe`     | boolean | No          | Si es `true`, la vigencia del token pasa a 30 días. |
+| `rememberMe`     | boolean | No          | Opcional, `false` por defecto. Si es `true`, la vigencia del token pasa a 30 días ("mantener sesión", UC002). |
 
 **Response:** `200 OK`
 
@@ -272,7 +272,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 
 **Feature:** Cierre manual de la sesión del dispositivo actual. Con JWT sin estado, el cierre consiste en descartar el token en el cliente.
 
-**Endpoints:** no hay endpoint de servidor. El token sigue siendo válido hasta su expiración (máximo 24 horas); no existe lista de revocación ni invalidación inmediata.
+**Endpoints:** no hay endpoint de servidor. El token sigue siendo válido hasta su expiración (24 horas, o hasta 30 días si la sesión se abrió con `rememberMe`); no existe lista de revocación ni invalidación inmediata.
 
 **Propuesta** (no implementada): `POST /api/logout` — invalida el token actual (por ejemplo, con una lista de revocación de corta vida). Su implementación es opcional para el MVP, dado que el cliente puede descartar el token.
 
