@@ -206,6 +206,18 @@ public class UserService {
         user.setResetDate(Instant.now());
     }
 
+    /**
+     * Registers an apprentice from the public sign-up flow. The user account and its profile are
+     * two writes with no transaction behind them: MongoDB standalone does not support
+     * multi-document transactions, so a failure between both saves would leave a user without a
+     * profile. That half-created account is compensated by deleting the user, because otherwise
+     * it would block every retry with the same document number. The original failure is always
+     * the one propagated to the caller.
+     *
+     * @param userVM the registration payload.
+     * @param password the raw password to encode.
+     * @return the persisted user.
+     */
     public User registerUser(ManagedUserVM userVM, String password) {
         if (userVM.getEmail() == null || userVM.getEmail().isBlank()) {
             throw new BadRequestAlertException("Email is required", "userManagement", "emailrequired");
@@ -284,10 +296,38 @@ public class UserService {
         userProfile.setUser(newUser);
         userProfile.setDocumentType(documentType);
 
-        userProfileRepository.save(userProfile);
+        try {
+            userProfileRepository.save(userProfile);
+        } catch (RuntimeException profileFailure) {
+            // Explicit compensation: the user and its profile are two separate writes and MongoDB
+            // standalone has no transaction to roll them back together. Deleting the freshly
+            // created user on a best-effort basis keeps a failed registration retryable (the
+            // document number becomes free again) instead of leaving an account without profile.
+            compensateFailedProfileCreation(newUser, profileFailure);
+        }
 
         LOG.debug("Created Information for User: {}", newUser);
         return newUser;
+    }
+
+    /**
+     * Removes the user created by a registration whose profile could not be persisted and then
+     * rethrows the original failure. The removal is best-effort: if it also fails, the cleanup
+     * failure is attached as a suppressed exception so the caller still receives the original
+     * cause and an operator can see both in the logs.
+     *
+     * @param newUser the user to remove.
+     * @param profileFailure the original failure raised while saving the profile.
+     */
+    private void compensateFailedProfileCreation(User newUser, RuntimeException profileFailure) {
+        try {
+            userRepository.delete(newUser);
+            LOG.warn("Removed the user {} after its profile could not be created", newUser.getLogin());
+        } catch (RuntimeException cleanupFailure) {
+            LOG.error("Could not remove the user {} after its profile could not be created", newUser.getLogin(), cleanupFailure);
+            profileFailure.addSuppressed(cleanupFailure);
+        }
+        throw profileFailure;
     }
 
     @Transactional
