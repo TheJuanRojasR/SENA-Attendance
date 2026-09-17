@@ -373,6 +373,7 @@ class DashboardResourceIT {
                 .initials("PG" + suffix.substring(0, 4))
                 .code("PRG-" + suffix)
                 .trimesters(3)
+                .status(true)
         );
 
         // 2. Modality.
