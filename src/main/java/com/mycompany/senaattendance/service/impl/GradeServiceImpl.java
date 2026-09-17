@@ -587,7 +587,11 @@ public class GradeServiceImpl implements GradeService {
         }
         programRepository.findById(program.getId()).ifPresent(existing -> {
             if (Boolean.FALSE.equals(existing.getStatus())) {
-                throw new BadRequestAlertException("No se pueden crear fichas para un programa inactivo", "program", "programInactive");
+                throw new BadRequestAlertException(
+                    "El programa seleccionado ya no está disponible, selecciona otro",
+                    "program",
+                    "programInactive"
+                );
             }
         });
     }
@@ -603,7 +607,11 @@ public class GradeServiceImpl implements GradeService {
         }
         modalityRepository.findById(modality.getId()).ifPresent(existing -> {
             if (Boolean.FALSE.equals(existing.getIsActive())) {
-                throw new BadRequestAlertException("No se pueden crear fichas para una modalidad inactiva", "modality", "modalityInactive");
+                throw new BadRequestAlertException(
+                    "La modalidad seleccionada ya no está disponible, selecciona otro",
+                    "modality",
+                    "modalityInactive"
+                );
             }
         });
     }
@@ -619,7 +627,11 @@ public class GradeServiceImpl implements GradeService {
         }
         timeSlotRepository.findById(timeSlot.getId()).ifPresent(existing -> {
             if (Boolean.FALSE.equals(existing.getIsActive())) {
-                throw new BadRequestAlertException("No se pueden crear fichas para una jornada inactiva", "timeSlot", "timeSlotInactive");
+                throw new BadRequestAlertException(
+                    "La jornada seleccionada ya no está disponible, selecciona otro",
+                    "timeSlot",
+                    "timeSlotInactive"
+                );
             }
         });
     }
