@@ -86,4 +86,17 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
      */
     @Query("{ 'classSection.$id': { $in: ?0 }, 'trimester._id': ?1 }")
     List<ClassSchedule> findByClassSectionIdInAndTrimesterId(List<ObjectId> classSectionIds, String trimesterId);
+
+    /**
+     * Finds the schedules of the given class sections. Used to read only the schedules of the
+     * materias assigned to the current instructor. The class sections are matched through the
+     * DBRef id ({@code $id}), which needs explicit ObjectIds, unlike the scalar {@code _id}
+     * lookups where a String resolves to the referenced id.
+     *
+     * @param classSectionIds the ObjectId values of the class sections.
+     * @param pageable the pagination information.
+     * @return the page of schedules of those class sections.
+     */
+    @Query("{ 'classSection.$id': { $in: ?0 } }")
+    Page<ClassSchedule> findByClassSectionIdIn(List<ObjectId> classSectionIds, Pageable pageable);
 }

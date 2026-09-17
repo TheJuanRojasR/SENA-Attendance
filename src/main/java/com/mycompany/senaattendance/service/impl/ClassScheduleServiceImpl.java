@@ -10,6 +10,7 @@ import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.ClassScheduleService;
 import com.mycompany.senaattendance.service.TrimesterService;
@@ -19,6 +20,7 @@ import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -47,13 +49,16 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
 
     private final TrimesterService trimesterService;
 
+    private final CurrentUserContext currentUserContext;
+
     public ClassScheduleServiceImpl(
         ClassScheduleRepository classScheduleRepository,
         ClassScheduleMapper classScheduleMapper,
         ClassSectionRepository classSectionRepository,
         GradeRepository gradeRepository,
         TrimesterRepository trimesterRepository,
-        TrimesterService trimesterService
+        TrimesterService trimesterService,
+        CurrentUserContext currentUserContext
     ) {
         this.classScheduleRepository = classScheduleRepository;
         this.classScheduleMapper = classScheduleMapper;
@@ -61,6 +66,7 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
         this.gradeRepository = gradeRepository;
         this.trimesterRepository = trimesterRepository;
         this.trimesterService = trimesterService;
+        this.currentUserContext = currentUserContext;
     }
 
     @Override
@@ -135,9 +141,107 @@ public class ClassScheduleServiceImpl implements ClassScheduleService {
     }
 
     @Override
+    public Page<ClassScheduleDTO> findAllForCurrentUser(Pageable pageable) {
+        LOG.debug("Request to get the class schedules the current user can read");
+        return findPageForCurrentUser(pageable, false).map(classScheduleMapper::toDto);
+    }
+
+    @Override
+    public Page<ClassScheduleDTO> findAllWithEagerRelationshipsForCurrentUser(Pageable pageable) {
+        LOG.debug("Request to get the class schedules the current user can read with eager relationships");
+        return findPageForCurrentUser(pageable, true).map(classScheduleMapper::toDto);
+    }
+
+    @Override
     public Optional<ClassScheduleDTO> findOne(String id) {
         LOG.debug("Request to get ClassSchedule : {}", id);
         return classScheduleRepository.findOneWithEagerRelationships(id).map(classScheduleMapper::toDto);
+    }
+
+    @Override
+    public Optional<ClassScheduleDTO> findOneForCurrentUser(String id) {
+        LOG.debug("Request to get ClassSchedule : {}", id);
+        return classScheduleRepository
+            .findOneWithEagerRelationships(id)
+            .filter(this::isReadableByCurrentUser)
+            .map(classScheduleMapper::toDto);
+    }
+
+    /**
+     * Resolves the page of schedules the current user can read. An administrator reads every
+     * schedule; an instructor reads only the schedules of the class sections assigned to them.
+     *
+     * @param pageable the pagination information.
+     * @param eagerRelationships whether to load the related entities eagerly.
+     * @return the page of readable schedules.
+     */
+    private Page<ClassSchedule> findPageForCurrentUser(Pageable pageable, boolean eagerRelationships) {
+        if (isCurrentUserAdmin()) {
+            return eagerRelationships
+                ? classScheduleRepository.findAllWithEagerRelationships(pageable)
+                : classScheduleRepository.findAll(pageable);
+        }
+
+        List<ObjectId> classSectionScope = currentInstructorClassSectionIds();
+        if (classSectionScope.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        return classScheduleRepository.findByClassSectionIdIn(classSectionScope, pageable);
+    }
+
+    /**
+     * @return whether the current user is an administrator, who reads every schedule.
+     */
+    private static boolean isCurrentUserAdmin() {
+        return SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN);
+    }
+
+    /**
+     * Resolves whether the current user can read the schedule: an administrator reads every
+     * schedule, and an instructor only the schedules of the class sections assigned to them.
+     *
+     * @param classSchedule the schedule to read.
+     * @return whether the schedule is inside the readable scope of the current user.
+     */
+    private boolean isReadableByCurrentUser(ClassSchedule classSchedule) {
+        if (isCurrentUserAdmin()) {
+            return true;
+        }
+
+        ClassSection classSection = classSchedule.getClassSection();
+        if (classSection == null || classSection.getInstructor() == null) {
+            return false;
+        }
+        String currentProfileId = currentUserContext.profileId();
+        return currentProfileId != null && currentProfileId.equals(classSection.getInstructor().getId());
+    }
+
+    /**
+     * Resolves the class sections assigned to the current instructor. A user without a resolvable
+     * profile or without assigned class sections reads no schedule.
+     *
+     * @return the ObjectId values of the assigned class sections, possibly empty.
+     */
+    private List<ObjectId> currentInstructorClassSectionIds() {
+        String currentProfileId = currentUserContext.profileId();
+        if (currentProfileId == null) {
+            return List.of();
+        }
+        return classSectionRepository
+            .findByInstructorId(currentProfileId)
+            .stream()
+            .map(ClassSection::getId)
+            .filter(ClassScheduleServiceImpl::isObjectId)
+            .map(ObjectId::new)
+            .toList();
+    }
+
+    /**
+     * @param id the candidate id.
+     * @return whether the id is a 24-hex string convertible into an {@code ObjectId}.
+     */
+    private static boolean isObjectId(String id) {
+        return id != null && id.length() == 24 && ObjectId.isValid(id);
     }
 
     @Override

@@ -4,6 +4,7 @@ import static com.mycompany.senaattendance.domain.ClassScheduleAsserts.*;
 import static com.mycompany.senaattendance.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -11,16 +12,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.senaattendance.IntegrationTest;
 import com.mycompany.senaattendance.domain.ClassSchedule;
 import com.mycompany.senaattendance.domain.ClassSection;
+import com.mycompany.senaattendance.domain.DocumentType;
 import com.mycompany.senaattendance.domain.Grade;
 import com.mycompany.senaattendance.domain.TimeSlot;
 import com.mycompany.senaattendance.domain.Trimester;
+import com.mycompany.senaattendance.domain.User;
+import com.mycompany.senaattendance.domain.UserProfile;
 import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import com.mycompany.senaattendance.domain.enumeration.StateTrimester;
+import com.mycompany.senaattendance.repository.AuthorityRepository;
 import com.mycompany.senaattendance.repository.ClassScheduleRepository;
 import com.mycompany.senaattendance.repository.ClassSectionRepository;
+import com.mycompany.senaattendance.repository.DocumentTypeRepository;
 import com.mycompany.senaattendance.repository.GradeRepository;
 import com.mycompany.senaattendance.repository.TimeSlotRepository;
 import com.mycompany.senaattendance.repository.TrimesterRepository;
+import com.mycompany.senaattendance.repository.UserProfileRepository;
+import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.dto.ClassScheduleDTO;
 import com.mycompany.senaattendance.service.mapper.ClassScheduleMapper;
@@ -29,7 +37,9 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +87,8 @@ class ClassScheduleResourceIT {
     private static final String ENTITY_API_URL = "/api/class-schedules";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
+    private static final String INSTRUCTOR_LOGIN = "schedule_instructor";
+
     @Autowired
     private ObjectMapper om;
 
@@ -94,6 +106,18 @@ class ClassScheduleResourceIT {
 
     @Autowired
     private TrimesterRepository trimesterRepository;
+
+    @Autowired
+    private AuthorityRepository authorityRepository;
+
+    @Autowired
+    private DocumentTypeRepository documentTypeRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private ClassScheduleMapper classScheduleMapper;
@@ -114,6 +138,12 @@ class ClassScheduleResourceIT {
     private Trimester insertedTrimester;
 
     private final List<ClassSchedule> extraInsertedSchedules = new ArrayList<>();
+
+    private final List<UserProfile> insertedProfiles = new ArrayList<>();
+
+    private final List<User> insertedUsers = new ArrayList<>();
+
+    private final List<DocumentType> insertedDocumentTypes = new ArrayList<>();
 
     /**
      * Create an entity for this test.
@@ -183,6 +213,40 @@ class ClassScheduleResourceIT {
         gradeRepository.deleteAll();
         trimesterRepository.deleteAll();
         timeSlotRepository.deleteAll();
+        // Remove the accounts and profiles seeded for the scoping tests
+        insertedProfiles.forEach(userProfileRepository::delete);
+        insertedProfiles.clear();
+        insertedUsers.forEach(userRepository::delete);
+        insertedUsers.clear();
+        insertedDocumentTypes.forEach(documentTypeRepository::delete);
+        insertedDocumentTypes.clear();
+    }
+
+    /**
+     * Persists a document type, an active user and the profile that backs it, so the current-user
+     * context can resolve the authenticated login of the scoping tests.
+     *
+     * @param login the login of the seeded account.
+     * @param documentNumber the document number of the seeded profile.
+     * @return the persisted instructor profile.
+     */
+    private UserProfile persistInstructorProfile(String login, String documentNumber) {
+        DocumentType documentType = documentTypeRepository.save(DocumentTypeResourceIT.createEntity());
+        insertedDocumentTypes.add(documentType);
+
+        User user = UserResourceIT.createEntity();
+        user.setLogin(login);
+        user.setEmail(login + "@example.com");
+        user.setActivated(true);
+        user.setAuthorities(new HashSet<>(Set.of(authorityRepository.findById(AuthoritiesConstants.INSTRUCTOR).orElseThrow())));
+        insertedUsers.add(userRepository.save(user));
+
+        UserProfile profile = UserProfileResourceIT.createEntity();
+        profile.setDocumentNumber(documentNumber);
+        profile.setDocumentType(documentType);
+        profile.setUser(user);
+        insertedProfiles.add(userProfileRepository.save(profile));
+        return profile;
     }
 
     /**
@@ -820,6 +884,94 @@ class ClassScheduleResourceIT {
     void getNonExistingClassSchedule() throws Exception {
         // Get the classSchedule
         restClassScheduleMockMvc.perform(get(ENTITY_API_URL_ID, Long.MAX_VALUE)).andExpect(status().isNotFound());
+    }
+
+    // -----------------------------------------------------------------
+    // Authorization: readings are scoped by role
+    // -----------------------------------------------------------------
+
+    @Test
+    void getAllClassSchedulesAsAdminReadsEverySchedule() throws Exception {
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+        ClassSection otherSection = persistClassSectionInGrade("Otra materia", insertedGrade);
+        ClassSchedule otherSchedule = persistSchedule(
+            otherSection,
+            insertedTrimester,
+            DayOfWeek.MARTES,
+            LocalTime.of(13, 0),
+            LocalTime.of(14, 0)
+        );
+
+        restClassScheduleMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "2"))
+            .andExpect(jsonPath("$", hasSize(2)))
+            .andExpect(jsonPath("$[*].id", hasItem(insertedClassSchedule.getId())))
+            .andExpect(jsonPath("$[*].id", hasItem(otherSchedule.getId())));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAllClassSchedulesAsInstructorReturnsOnlyTheSchedulesOfOwnClassSections() throws Exception {
+        UserProfile instructor = persistInstructorProfile(INSTRUCTOR_LOGIN, "1000000001");
+        insertedClassSection.setInstructor(instructor);
+        insertedClassSection = classSectionRepository.save(insertedClassSection);
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        ClassSection otherSection = persistClassSectionInGrade("Otra materia", insertedGrade);
+        persistSchedule(otherSection, insertedTrimester, DayOfWeek.MARTES, LocalTime.of(13, 0), LocalTime.of(14, 0));
+
+        restClassScheduleMockMvc
+            .perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-Total-Count", "1"))
+            .andExpect(jsonPath("$", hasSize(1)))
+            .andExpect(jsonPath("$[0].id").value(insertedClassSchedule.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getOwnClassScheduleAsInstructorReadsIt() throws Exception {
+        UserProfile instructor = persistInstructorProfile(INSTRUCTOR_LOGIN, "1000000001");
+        insertedClassSection.setInstructor(instructor);
+        insertedClassSection = classSectionRepository.save(insertedClassSection);
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        restClassScheduleMockMvc
+            .perform(get(ENTITY_API_URL_ID, insertedClassSchedule.getId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(insertedClassSchedule.getId()));
+    }
+
+    @Test
+    @WithMockUser(username = INSTRUCTOR_LOGIN, authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getClassScheduleOfAnotherInstructorsClassSectionReturnsNotFound() throws Exception {
+        persistInstructorProfile(INSTRUCTOR_LOGIN, "1000000001");
+        ClassSection otherSection = persistClassSectionInGrade("Otra materia", insertedGrade);
+        ClassSchedule otherSchedule = persistSchedule(
+            otherSection,
+            insertedTrimester,
+            DayOfWeek.MARTES,
+            LocalTime.of(13, 0),
+            LocalTime.of(14, 0)
+        );
+
+        restClassScheduleMockMvc.perform(get(ENTITY_API_URL_ID, otherSchedule.getId())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(username = "schedule_apprentice", authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllClassSchedulesAsApprenticeReturnsForbidden() throws Exception {
+        restClassScheduleMockMvc.perform(get(ENTITY_API_URL).accept(MediaType.APPLICATION_JSON)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "schedule_apprentice", authorities = AuthoritiesConstants.APPRENTICE)
+    void getClassScheduleAsApprenticeReturnsForbidden() throws Exception {
+        insertedClassSchedule = classScheduleRepository.save(classSchedule);
+
+        restClassScheduleMockMvc.perform(get(ENTITY_API_URL_ID, insertedClassSchedule.getId())).andExpect(status().isForbidden());
     }
 
     @Test

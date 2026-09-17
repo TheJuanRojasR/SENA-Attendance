@@ -132,13 +132,16 @@ public class ClassScheduleResource {
     }
 
     /**
-     * {@code GET  /class-schedules} : get all the Class Schedules.
+     * {@code GET  /class-schedules} : get all the Class Schedules the current user can read. An
+     * administrator reads every schedule and an instructor only the schedules of the class
+     * sections assigned to them.
      *
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Schedules in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<List<ClassScheduleDTO>> getAllClassSchedules(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -146,24 +149,27 @@ public class ClassScheduleResource {
         LOG.debug("REST request to get a page of ClassSchedules");
         Page<ClassScheduleDTO> page;
         if (eagerload) {
-            page = classScheduleService.findAllWithEagerRelationships(pageable);
+            page = classScheduleService.findAllWithEagerRelationshipsForCurrentUser(pageable);
         } else {
-            page = classScheduleService.findAll(pageable);
+            page = classScheduleService.findAllForCurrentUser(pageable);
         }
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**
-     * {@code GET  /class-schedules/:id} : get the "id" classSchedule.
+     * {@code GET  /class-schedules/:id} : get the "id" classSchedule when the current user can
+     * read it. An administrator reads every schedule and an instructor only the schedules of the
+     * class sections assigned to them, so a schedule outside that scope resolves as not found.
      *
      * @param id the id of the classScheduleDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the classScheduleDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ClassScheduleDTO> getClassSchedule(@PathVariable("id") String id) {
         LOG.debug("REST request to get ClassSchedule : {}", id);
-        Optional<ClassScheduleDTO> classScheduleDTO = classScheduleService.findOne(id);
+        Optional<ClassScheduleDTO> classScheduleDTO = classScheduleService.findOneForCurrentUser(id);
         return ResponseUtil.wrapOrNotFound(classScheduleDTO);
     }
 

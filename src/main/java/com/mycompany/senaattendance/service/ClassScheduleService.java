@@ -50,12 +50,41 @@ public interface ClassScheduleService {
     Page<ClassScheduleDTO> findAllWithEagerRelationships(Pageable pageable);
 
     /**
+     * Get all the classSchedules the current user can read. An administrator reads every
+     * schedule and an instructor only the schedules of the materias assigned to them.
+     *
+     * @param pageable the pagination information.
+     * @return the page of readable entities.
+     */
+    Page<ClassScheduleDTO> findAllForCurrentUser(Pageable pageable);
+
+    /**
+     * Get all the classSchedules the current user can read with eager load of many-to-many
+     * relationships. An administrator reads every schedule and an instructor only the schedules
+     * of the materias assigned to them.
+     *
+     * @param pageable the pagination information.
+     * @return the page of readable entities.
+     */
+    Page<ClassScheduleDTO> findAllWithEagerRelationshipsForCurrentUser(Pageable pageable);
+
+    /**
      * Get the "id" classSchedule.
      *
      * @param id the id of the entity.
      * @return the entity.
      */
     Optional<ClassScheduleDTO> findOne(String id);
+
+    /**
+     * Get the "id" classSchedule when the current user can read it. An administrator reads any
+     * schedule and an instructor only the schedules of the materias assigned to them, so a
+     * schedule outside that scope resolves as empty.
+     *
+     * @param id the id of the entity.
+     * @return the readable entity.
+     */
+    Optional<ClassScheduleDTO> findOneForCurrentUser(String id);
 
     /**
      * Delete the "id" classSchedule.
