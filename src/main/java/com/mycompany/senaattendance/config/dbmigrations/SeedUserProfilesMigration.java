@@ -9,6 +9,7 @@ import io.mongock.api.annotations.Execution;
 import io.mongock.api.annotations.RollbackExecution;
 import java.time.Instant;
 import java.util.List;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -77,9 +78,18 @@ public class SeedUserProfilesMigration {
         return users.stream().findFirst().orElse(null);
     }
 
+    /**
+     * The reference is stored as a BSON {@code ObjectId} even though the mapped id is a String,
+     * so the {@code $id} lookup must use the raw value. Legacy string ids keep working through
+     * the fallback.
+     */
     private boolean hasUserProfile(User user) {
-        Query query = Query.query(Criteria.where("user.$id").is(user.getId()));
+        Query query = Query.query(Criteria.where("user.$id").is(toRawId(user.getId())));
         return template.exists(query, "user_profile");
+    }
+
+    private static Object toRawId(String id) {
+        return id != null && ObjectId.isValid(id) ? new ObjectId(id) : id;
     }
 
     private UserProfile createPlaceholderProfile(User user) {

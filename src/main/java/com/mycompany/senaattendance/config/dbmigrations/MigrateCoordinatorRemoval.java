@@ -31,10 +31,11 @@ public class MigrateCoordinatorRemoval {
 
     @Execution
     public void changeSet() {
-        List<String> coordinatorIds = template
+        // The ids are read as raw BSON values: persisted documents use ObjectId, so casting to String breaks.
+        List<Object> coordinatorIds = template
             .getCollection(USER_COLLECTION)
             .find(new Document("login", COORDINATOR_LOGIN))
-            .map(document -> document.getString(ID_FIELD))
+            .map(document -> document.get(ID_FIELD))
             .into(new ArrayList<>());
 
         if (!coordinatorIds.isEmpty()) {

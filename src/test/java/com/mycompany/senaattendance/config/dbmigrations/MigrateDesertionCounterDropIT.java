@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mycompany.senaattendance.IntegrationTest;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,7 @@ class MigrateDesertionCounterDropIT {
 
     private static final String COLLECTION = "desertion_counter";
 
-    private static final String LEGACY_ID = "desertion-counter-drop-migration-test";
+    private static final ObjectId LEGACY_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e581");
 
     @Autowired
     private MongoTemplate template;

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mycompany.senaattendance.IntegrationTest;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 class MigrateJustificationTypeStateToStatusIT {
 
     private static final String COLLECTION = "justification_type";
-    private static final String LEGACY_ID = "legacy-justification-type-migration-test";
+    private static final ObjectId LEGACY_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e551");
 
     @Autowired
     private MongoTemplate template;

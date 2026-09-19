@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mycompany.senaattendance.IntegrationTest;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +19,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 class MigrateNotificacionReadStateIT {
 
     private static final String COLLECTION = "notificacion";
-    private static final String LEGACY_ID = "legacy-notificacion-read-migration-test";
-    private static final String READ_ID = "read-notificacion-read-migration-test";
+    private static final ObjectId LEGACY_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e561");
+    private static final ObjectId READ_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e562");
 
     @Autowired
     private MongoTemplate template;
