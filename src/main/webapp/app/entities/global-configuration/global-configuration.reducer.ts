@@ -1,16 +1,15 @@
-import { createAsyncThunk, isFulfilled, isPending } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-import { IGlobalConfiguration, defaultValue } from 'app/shared/model/global-configuration.model';
-import { EntityState, IQueryParams, createEntitySlice, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
+import { IGlobalConfiguration } from 'app/shared/model/global-configuration.model';
+import { isProblemWithMessage } from 'app/shared/jhipster/problem-details';
+import { serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 import { cleanEntity } from 'app/shared/util/entity-utils';
-import { ASC } from 'app/shared/util/pagination.constants';
 
-const initialState: EntityState<IGlobalConfiguration> = {
+const initialState = {
   loading: false,
-  errorMessage: null,
-  entities: [],
-  entity: defaultValue,
+  errorMessage: null as string | null,
+  entity: null as IGlobalConfiguration | null,
   updating: false,
   updateSuccess: false,
 };
@@ -19,60 +18,16 @@ const apiUrl = 'api/global-configurations';
 
 // Actions
 
-export const getEntities = createAsyncThunk(
-  'globalConfiguration/fetch_entity_list',
-  async ({ sort }: IQueryParams) => {
-    const requestUrl = `${apiUrl}?${sort ? `sort=${sort}&` : ''}cacheBuster=${Date.now()}`;
-    return axios.get<IGlobalConfiguration[]>(requestUrl);
-  },
-  { serializeError: serializeAxiosError },
-);
-
-export const getEntity = createAsyncThunk(
-  'globalConfiguration/fetch_entity',
-  async (id: string | number) => {
-    const requestUrl = `${apiUrl}/${id}`;
-    return axios.get<IGlobalConfiguration>(requestUrl);
-  },
-  { serializeError: serializeAxiosError },
-);
-
-export const createEntity = createAsyncThunk(
-  'globalConfiguration/create_entity',
-  async (entity: IGlobalConfiguration, thunkAPI) => {
-    const result = await axios.post<IGlobalConfiguration>(apiUrl, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
-
-export const updateEntity = createAsyncThunk(
-  'globalConfiguration/update_entity',
-  async (entity: IGlobalConfiguration, thunkAPI) => {
-    const result = await axios.put<IGlobalConfiguration>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
+export const getConfigurations = createAsyncThunk('globalConfiguration/fetch_configurations', async () => {
+  const requestUrl = `${apiUrl}`;
+  return axios.get<IGlobalConfiguration>(requestUrl);
+});
 
 export const partialUpdateEntity = createAsyncThunk(
   'globalConfiguration/partial_update_entity',
   async (entity: IGlobalConfiguration, thunkAPI) => {
-    const result = await axios.patch<IGlobalConfiguration>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
-
-export const deleteEntity = createAsyncThunk(
-  'globalConfiguration/delete_entity',
-  async (id: string | number, thunkAPI) => {
-    const requestUrl = `${apiUrl}/${id}`;
-    const result = await axios.delete<IGlobalConfiguration>(requestUrl);
-    thunkAPI.dispatch(getEntities({}));
+    const result = await axios.patch<IGlobalConfiguration>(`${apiUrl}`, cleanEntity(entity));
+    thunkAPI.dispatch(getConfigurations());
     return result;
   },
   { serializeError: serializeAxiosError },
@@ -80,50 +35,44 @@ export const deleteEntity = createAsyncThunk(
 
 // slice
 
-export const GlobalConfigurationSlice = createEntitySlice({
+export const GlobalConfigurationSlice = createSlice({
   name: 'globalConfiguration',
   initialState,
+  reducers: {
+    reset() {
+      return initialState;
+    },
+  },
   extraReducers(builder) {
     builder
-      .addCase(getEntity.fulfilled, (state, action) => {
-        state.loading = false;
-        state.entity = action.payload.data;
-      })
-      .addCase(deleteEntity.fulfilled, state => {
-        state.updating = false;
-        state.updateSuccess = true;
-        state.entity = {};
-      })
-      .addMatcher(isFulfilled(getEntities), (state, action) => {
-        const { data } = action.payload;
-
-        return {
-          ...state,
-          loading: false,
-          entities: data.sort((a, b) => {
-            if (!action.meta?.arg?.sort) {
-              return 1;
-            }
-            const [predicate, order] = action.meta.arg.sort.split(',');
-            return order === ASC ? (a[predicate] < b[predicate] ? -1 : 1) : b[predicate] < a[predicate] ? -1 : 1;
-          }),
-        };
-      })
-      .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
-        state.updating = false;
-        state.loading = false;
-        state.updateSuccess = true;
-        state.entity = action.payload.data;
-      })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addCase(getConfigurations.pending, state => {
         state.errorMessage = null;
-        state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+      .addCase(getConfigurations.rejected, state => {
+        state.loading = false;
+      })
+      .addCase(getConfigurations.fulfilled, (state, action) => {
+        state.loading = false;
+        state.entity = action.payload.data;
+      })
+      .addCase(partialUpdateEntity.pending, state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
+      })
+      .addCase(partialUpdateEntity.rejected, (state, action) => {
+        const data = (action.error as any)?.response?.data;
+        const problem = isProblemWithMessage(data) ? data : null;
+        state.updating = false;
+        state.updateSuccess = false;
+        state.errorMessage = problem?.message ?? action.error?.message ?? null;
+      })
+      .addCase(partialUpdateEntity.fulfilled, (state, action) => {
+        state.updating = false;
+        state.loading = false;
+        state.updateSuccess = true;
+        state.entity = action.payload.data;
       });
   },
 });

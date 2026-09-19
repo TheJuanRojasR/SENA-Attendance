@@ -1,192 +1,166 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { Translate, getSortState } from 'react-jhipster';
-import { Link, useLocation, useNavigate } from 'react-router';
+import './global-configuration.scss';
 
-import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import React, { useEffect, useState } from 'react';
+import { Button, Card, Col, Form, Row } from 'react-bootstrap';
+import { type FieldError, useForm } from 'react-hook-form';
+import { Translate, ValidatedInput } from 'react-jhipster';
+import { toast } from 'react-toastify';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
-import { overrideSortStateWithQueryParams } from 'app/shared/util/entity-utils';
-import { ASC, DESC } from 'app/shared/util/pagination.constants';
 
-import { getEntities } from './global-configuration.reducer';
+import { getConfigurations, partialUpdateEntity } from './global-configuration.reducer';
 
 export const GlobalConfiguration = () => {
+  const [isEditing, setIsEditing] = useState(false);
   const dispatch = useAppDispatch();
 
-  const pageLocation = useLocation();
-  const navigate = useNavigate();
+  const entity = useAppSelector(state => state.globalConfiguration.entity);
+  const updating = useAppSelector(state => state.globalConfiguration.updating);
+  const updateSuccess = useAppSelector(state => state.globalConfiguration.updateSuccess);
 
-  const [sortState, setSortState] = useState(overrideSortStateWithQueryParams(getSortState(pageLocation, 'id'), pageLocation.search));
-
-  const globalConfigurationList = useAppSelector(state => state.globalConfiguration.entities);
-  const loading = useAppSelector(state => state.globalConfiguration.loading);
-
-  const getAllEntities = () => {
-    dispatch(
-      getEntities({
-        sort: `${sortState.sort},${sortState.order}`,
-      }),
-    );
-  };
-
-  const sortEntities = () => {
-    getAllEntities();
-    const endURL = `?sort=${sortState.sort},${sortState.order}`;
-    if (pageLocation.search !== endURL) {
-      navigate(`${pageLocation.pathname}${endURL}`);
-    }
-  };
+  const {
+    handleSubmit,
+    register,
+    reset: resetForm,
+    formState: { errors, touchedFields },
+  } = useForm({ mode: 'onTouched', defaultValues: entity });
 
   useEffect(() => {
-    sortEntities();
-  }, [sortState.order, sortState.sort]);
+    dispatch(getConfigurations());
+  }, []);
 
-  const sort = p => () => {
-    setSortState({
-      ...sortState,
-      order: sortState.order === ASC ? DESC : ASC,
-      sort: p,
-    });
-  };
-
-  const handleSyncList = () => {
-    sortEntities();
-  };
-
-  const getSortIconByFieldName = (fieldName: string) => {
-    const sortFieldName = sortState.sort;
-    const { order } = sortState;
-    if (sortFieldName !== fieldName) {
-      return faSort;
+  useEffect(() => {
+    if (entity) {
+      resetForm(entity);
     }
-    return order === ASC ? faSortUp : faSortDown;
+  }, [entity, resetForm]);
+
+  useEffect(() => {
+    if (updateSuccess) {
+      toast.success('Configuración actualizada correctamente');
+    }
+  }, [updateSuccess]);
+
+  const handleValidSubmit = values => {
+    dispatch(partialUpdateEntity(values));
   };
+  const handleEditClick = () => setIsEditing(true);
+  const handleCancelClick = () => setIsEditing(false);
+
+  const dayRangeValidation = (label: string) => ({
+    required: { value: true, message: `${label} es obligatorio` },
+    valueAsNumber: true,
+    min: { value: 1, message: `${label} debe ser mayor o igual a 1` },
+    max: { value: 30, message: `${label} no puede ser mayor a 30` },
+    validate: (v: number) => Number.isInteger(v) || `${label} debe ser un número entero`,
+  });
+
+  const thresholdValidation = (label: string) => ({
+    required: { value: true, message: `${label} es obligatorio` },
+    valueAsNumber: true,
+    min: { value: 1, message: `${label} debe ser mayor o igual a 1` },
+    validate: (v: number) => Number.isInteger(v) || `${label} debe ser un número entero`,
+  });
 
   return (
     <div>
-      <h2 id="global-configuration-heading" data-cy="GlobalConfigurationHeading">
-        <Translate contentKey="senaAttendanceApp.globalConfiguration.home.title">Global Configurations</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon="sync" spin={loading} />{' '}
-            <Translate contentKey="senaAttendanceApp.globalConfiguration.home.refreshListLabel">Refresh List</Translate>
-          </Button>
-          <Link
-            to="/global-configuration/new"
-            className="btn btn-primary jh-create-entity"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-          >
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.globalConfiguration.home.createLabel">Create new Global Configuration</Translate>
-          </Link>
-        </div>
-      </h2>
-      <div className="table-responsive">
-        {globalConfigurationList?.length > 0 ? (
-          <Table responsive>
-            <thead>
-              <tr>
-                <th className="hand" onClick={sort('id')}>
-                  <Translate contentKey="senaAttendanceApp.globalConfiguration.id">ID</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
-                </th>
-                <th className="hand" onClick={sort('studentJustificationDays')}>
-                  <Translate contentKey="senaAttendanceApp.globalConfiguration.studentJustificationDays">
-                    Student Justification Days
-                  </Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('studentJustificationDays')} />
-                </th>
-                <th className="hand" onClick={sort('instructorResponseDays')}>
-                  <Translate contentKey="senaAttendanceApp.globalConfiguration.instructorResponseDays">Instructor Response Days</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('instructorResponseDays')} />
-                </th>
-                <th className="hand" onClick={sort('lateArrivalsToFail')}>
-                  <Translate contentKey="senaAttendanceApp.globalConfiguration.lateArrivalsToFail">Late Arrivals To Fail</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('lateArrivalsToFail')} />
-                </th>
-                <th className="hand" onClick={sort('maxPostponementJustifications')}>
-                  <Translate contentKey="senaAttendanceApp.globalConfiguration.maxPostponementJustifications">
-                    Max Postponement Justifications
-                  </Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('maxPostponementJustifications')} />
-                </th>
-                <th className="hand" onClick={sort('standardTrimesterMonths')}>
-                  <Translate contentKey="senaAttendanceApp.globalConfiguration.standardTrimesterMonths">
-                    Standard Trimester Months
-                  </Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('standardTrimesterMonths')} />
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {globalConfigurationList.map(globalConfiguration => (
-                <tr key={`entity-${globalConfiguration.id}`} data-cy="entityTable">
-                  <td>
-                    <Button as={Link as any} to={`/global-configuration/${globalConfiguration.id}`} variant="link" size="sm">
-                      {globalConfiguration.id}
-                    </Button>
-                  </td>
-                  <td>{globalConfiguration.studentJustificationDays}</td>
-                  <td>{globalConfiguration.instructorResponseDays}</td>
-                  <td>{globalConfiguration.lateArrivalsToFail}</td>
-                  <td>{globalConfiguration.maxPostponementJustifications}</td>
-                  <td>{globalConfiguration.standardTrimesterMonths}</td>
-                  <td className="text-end">
-                    <div className="btn-group flex-btn-group-container">
-                      <Button
-                        as={Link as any}
-                        to={`/global-configuration/${globalConfiguration.id}`}
-                        variant="info"
-                        size="sm"
-                        data-cy="entityDetailsButton"
-                      >
-                        <FontAwesomeIcon icon="eye" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/global-configuration/${globalConfiguration.id}/edit`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() => (globalThis.location.href = `/global-configuration/${globalConfiguration.id}/delete`)}
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.globalConfiguration.home.notFound">No Global Configurations found</Translate>
+      <Row>
+        <h2 id="global-configuration-heading" data-cy="GlobalConfigurationHeading">
+          <Translate contentKey="senaAttendanceApp.globalConfiguration.home.title">Global Configurations</Translate>
+        </h2>
+        <p>Gestiona los parámetros y umbrales operativos del sistema de control de asistencia institucional.</p>
+      </Row>
+      <Card className="top-border-card">
+        <Form className="d-flex flex-column" onSubmit={handleSubmit(handleValidSubmit)}>
+          <Col md="12">
+            <h6>Tiempos y Plazos de Justificación</h6>
+            <p>Defina la vigencia legal y los tiempos hábiles para la radicacion y respuesta institucional.</p>
+          </Col>
+          <Col md="12" className="formbody">
+            <div>
+              <p>Dias para Justificar</p>
+              <span> Días que tiene el aprendiz para presentar una justificación tras una inasistencia </span>
+              <ValidatedInput
+                name="studentJustificationDays"
+                type="text"
+                disabled={!isEditing}
+                data-cy="studentJustificationDays"
+                register={register}
+                error={errors.studentJustificationDays as FieldError}
+                isTouched={touchedFields.studentJustificationDays}
+                validate={dayRangeValidation('Los días para justificar')}
+              />
             </div>
-          )
-        )}
-      </div>
+            <div>
+              <p> Dias de Respuesta del Instructor </p>
+              <span> Plazo máximo para que el instructor revise y valide o rechace la justificación </span>
+              <ValidatedInput
+                name="instructorResponseDays"
+                type="text"
+                disabled={!isEditing}
+                data-cy="instructorResponseDays"
+                register={register}
+                error={errors.instructorResponseDays as FieldError}
+                isTouched={touchedFields.instructorResponseDays}
+                validate={dayRangeValidation('Los días de respuesta del instructor')}
+              />
+            </div>
+          </Col>
+          <Col md="12">
+            <h6> Umbrales y Alestras de Inasistencias</h6>
+            <p>Cantidad de inasistencias continuas que disparan reporte preventivo y alerta</p>
+          </Col>
+          <Col md="12" className="formbody">
+            <div>
+              <h6>Umbral de fallas consecutivas</h6>
+              <span> Cantidad de insasistencias continuas que disparan reporte preventivo y alerta</span>
+              <ValidatedInput
+                name="consecutiveAbsenceAlertThreshold"
+                type="text"
+                disabled={!isEditing}
+                data-cy="consecutiveAbsenceAlertThreshold"
+                register={register}
+                error={errors.consecutiveAbsenceAlertThreshold as FieldError}
+                isTouched={touchedFields.consecutiveAbsenceAlertThreshold}
+                validate={thresholdValidation('El umbral de fallas consecutivas')}
+              />
+            </div>
+            <div>
+              <h6>Umbral de fallas acumuladas</h6>
+              <span> Número máximo de fallas acumuladas en el trimestre que alertan comité o condicionalidad </span>
+              <ValidatedInput
+                name="accumulatedAbsenceAlertThreshold"
+                type="text"
+                disabled={!isEditing}
+                data-cy="accumulatedAbsenceAlertThreshold"
+                register={register}
+                error={errors.accumulatedAbsenceAlertThreshold as FieldError}
+                isTouched={touchedFields.accumulatedAbsenceAlertThreshold}
+                validate={thresholdValidation('El umbral de fallas acumuladas')}
+              />
+            </div>
+          </Col>
+          <div>
+            {isEditing ? (
+              <div className="d-flex">
+                <Button variant="primary" type="submit" disabled={updating} data-cy="submit">
+                  {' '}
+                  Guardar{' '}
+                </Button>
+                <Button variant="primary" type="button" onClick={handleCancelClick} data-cy="edit">
+                  {' '}
+                  Cancelar{' '}
+                </Button>
+              </div>
+            ) : (
+              <Button variant="primary" type="button" onClick={handleEditClick} data-cy="edit">
+                {' '}
+                Editar{' '}
+              </Button>
+            )}
+          </div>
+        </Form>
+      </Card>
     </div>
   );
 };
