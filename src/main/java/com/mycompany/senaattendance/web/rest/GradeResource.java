@@ -5,12 +5,12 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.GradeService;
 import com.mycompany.senaattendance.service.dto.GradeDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.GradeIdVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +57,7 @@ public class GradeResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<GradeDTO> createGrade(@Valid @RequestBody GradeDTO gradeDTO) throws URISyntaxException {
         LOG.debug("REST request to save Grade : {}", gradeDTO);
         if (gradeDTO.getId() != null) {
@@ -70,27 +70,21 @@ public class GradeResource {
     }
 
     /**
-     * {@code PUT  /grades/:id} : Updates an existing grade.
+     * {@code PUT  /grades} : Updates an existing grade; the id is taken from the request body.
      *
-     * @param id the id of the gradeDTO to save.
      * @param gradeDTO the gradeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated gradeDTO,
      * or with status {@code 400 (Bad Request)} if the gradeDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the gradeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<GradeDTO> updateGrade(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody GradeDTO gradeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update Grade : {}, {}", id, gradeDTO);
-        if (gradeDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> updateGrade(@Valid @RequestBody GradeDTO gradeDTO) throws URISyntaxException {
+        String id = gradeDTO.getId();
+        LOG.debug("REST request to update Grade : {}", gradeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, gradeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!gradeRepository.existsById(id)) {
@@ -104,9 +98,9 @@ public class GradeResource {
     }
 
     /**
-     * {@code PATCH  /grades/:id} : Partial updates given fields of an existing grade, field will ignore if it is null
+     * {@code PATCH  /grades} : Partial updates given fields of an existing grade, field will ignore if it is null.
+     * The id is taken from the request body.
      *
-     * @param id the id of the gradeDTO to save.
      * @param gradeDTO the gradeDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated gradeDTO,
      * or with status {@code 400 (Bad Request)} if the gradeDTO is not valid,
@@ -114,18 +108,13 @@ public class GradeResource {
      * or with status {@code 500 (Internal Server Error)} if the gradeDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<GradeDTO> partialUpdateGrade(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody GradeDTO gradeDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update Grade partially : {}, {}", id, gradeDTO);
-        if (gradeDTO.getId() == null) {
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> partialUpdateGrade(@NotNull @RequestBody GradeDTO gradeDTO) throws URISyntaxException {
+        String id = gradeDTO.getId();
+        LOG.debug("REST request to partial update Grade partially : {}", gradeDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, gradeDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!gradeRepository.existsById(id)) {
@@ -141,6 +130,69 @@ public class GradeResource {
     }
 
     /**
+     * {@code PATCH  /grades/postponed} : Postpone the ficha identified by {@code id}. Only a
+     * PENDIENTE or ACTIVA ficha can be postponed, moving it to APLAZADA. The body must carry
+     * the ficha {@code id}.
+     *
+     * @param gradeIdVM the request body carrying the ficha id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated
+     *         ficha, {@code 400 (Bad Request)} if the id is invalid, no ficha matches it or
+     *         the current state cannot be postponed, or {@code 403 (Forbidden)} for non-admin
+     *         users.
+     */
+    @PatchMapping("/postponed")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> postponeGrade(@Valid @RequestBody GradeIdVM gradeIdVM) {
+        String id = gradeIdVM.getId();
+        LOG.debug("REST request to postpone Grade : {}", id);
+        GradeDTO gradeDTO = gradeService.postpone(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "grade.postponed", id))
+            .body(gradeDTO);
+    }
+
+    /**
+     * {@code PATCH  /grades/resumed} : Resume the postponed ficha identified by {@code id}.
+     * Its state is recomputed from its date range. The body must carry the ficha {@code id}.
+     *
+     * @param gradeIdVM the request body carrying the ficha id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated
+     *         ficha, {@code 400 (Bad Request)} if the id is invalid, no ficha matches it or
+     *         the ficha is not postponed, or {@code 403 (Forbidden)} for non-admin users.
+     */
+    @PatchMapping("/resumed")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> resumeGrade(@Valid @RequestBody GradeIdVM gradeIdVM) {
+        String id = gradeIdVM.getId();
+        LOG.debug("REST request to resume Grade : {}", id);
+        GradeDTO gradeDTO = gradeService.resume(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "grade.resumed", id))
+            .body(gradeDTO);
+    }
+
+    /**
+     * {@code PATCH  /grades/cancelled} : Cancel the ficha identified by {@code id}. Any ficha
+     * that is not already cancelled moves to CANCELADA, a definitive state. The body must
+     * carry the ficha {@code id}.
+     *
+     * @param gradeIdVM the request body carrying the ficha id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the updated
+     *         ficha, {@code 400 (Bad Request)} if the id is invalid, no ficha matches it or
+     *         the ficha is already cancelled, or {@code 403 (Forbidden)} for non-admin users.
+     */
+    @PatchMapping("/cancelled")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<GradeDTO> cancelGrade(@Valid @RequestBody GradeIdVM gradeIdVM) {
+        String id = gradeIdVM.getId();
+        LOG.debug("REST request to cancel Grade : {}", id);
+        GradeDTO gradeDTO = gradeService.cancel(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "grade.cancelled", id))
+            .body(gradeDTO);
+    }
+
+    /**
      * {@code GET  /grades} : get all the Grades.
      *
      * @param pageable the pagination information.
@@ -148,7 +200,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Grades in body.
      */
     @GetMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<GradeDTO>> getAllGrades(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -170,7 +222,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of active Grades in body.
      */
     @GetMapping("/active")
-    //@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<GradeDTO>> getActiveGrades() {
         LOG.debug("REST request to get all active Grades");
         List<GradeDTO> activeGrades = gradeService.findActiveGrades();
@@ -184,7 +236,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the gradeDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.USER + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<GradeDTO> getGrade(@PathVariable("id") String id) {
         LOG.debug("REST request to get Grade : {}", id);
         Optional<GradeDTO> gradeDTO = gradeService.findOne(id);
@@ -198,7 +250,7 @@ public class GradeResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteGrade(@PathVariable("id") String id) {
         LOG.debug("REST request to delete Grade : {}", id);
         gradeService.delete(id);

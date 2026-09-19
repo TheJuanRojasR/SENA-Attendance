@@ -437,6 +437,38 @@ class TrimesterServiceImplTest {
         verify(trimesterRepository, never()).save(any());
     }
 
+    // -----------------------------------------------------------------
+    // classify() public state computation
+    // -----------------------------------------------------------------
+
+    @Test
+    void classifyClosedTrimesterUsesDatesOverPersistedStatus() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        // The persisted status is deliberately stale: the class must derive it from the dates.
+        Trimester staleActive = closedTrimester(today).status(StateTrimester.ACTIVO);
+
+        assertThat(trimesterService.classify(staleActive)).isEqualTo(StateTrimester.CERRADO);
+    }
+
+    @Test
+    void classifyActiveTrimesterUsesDatesOverPersistedStatus() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester staleClosed = activeTrimester(today).status(StateTrimester.CERRADO);
+
+        assertThat(trimesterService.classify(staleClosed)).isEqualTo(StateTrimester.ACTIVO);
+    }
+
+    @Test
+    void classifyFutureTrimesterUsesDatesOverPersistedStatus() {
+        LocalDate today = LocalDate.of(2026, 3, 10);
+        mockClockAt(today);
+        Trimester statusless = futureTrimester(today).status(null);
+
+        assertThat(trimesterService.classify(statusless)).isEqualTo(StateTrimester.FUTURO);
+    }
+
     private Trimester activeTrimester(LocalDate today) {
         return new Trimester()
             .id("t-1")

@@ -13,15 +13,21 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring")
 public interface ApprenticeMapper extends EntityMapper<ApprenticeDTO, Apprentice> {
-    @Mapping(target = "student", source = "student", qualifiedByName = "userProfileDocumentNumber")
+    @Mapping(target = "student", source = "student", qualifiedByName = "userProfileSummary")
     @Mapping(target = "grade", source = "grade", qualifiedByName = "gradeCode")
     ApprenticeDTO toDto(Apprentice s);
 
-    @Named("userProfileDocumentNumber")
+    /**
+     * Summary of the student shown by the apprentice list (UC008, A2): the document number and
+     * the name that identify the apprentice, plus the id of the profile.
+     */
+    @Named("userProfileSummary")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     @Mapping(target = "documentNumber", source = "documentNumber")
-    UserProfileDTO toDtoUserProfileDocumentNumber(UserProfile userProfile);
+    @Mapping(target = "firstName", source = "firstName")
+    @Mapping(target = "firstLastName", source = "firstLastName")
+    UserProfileDTO toDtoUserProfileSummary(UserProfile userProfile);
 
     @Named("gradeCode")
     @BeanMapping(ignoreByDefault = true)

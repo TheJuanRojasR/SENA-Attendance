@@ -67,6 +67,11 @@ class UserResourceIT {
     private static final String DEFAULT_PHONE = "3001234567";
     private static final String UPDATED_PHONE = "3007654321";
 
+    /**
+     * A role that is neither seeded nor assignable, used to verify the role guard.
+     */
+    private static final String UNKNOWN_ROLE = "ROLE_UNKNOWN";
+
     @Autowired
     private ObjectMapper om;
 
@@ -274,16 +279,16 @@ class UserResourceIT {
     }
 
     @Test
-    void createUserWithCoordinatorRoleReturnsBadRequest() throws Exception {
+    void createUserWithUnknownRoleReturnsBadRequest() throws Exception {
         AdminCreateUserVM userVM = new AdminCreateUserVM();
-        userVM.setEmail("coord.rejected@example.com");
+        userVM.setEmail("unknown.role.rejected@example.com");
         userVM.setPassword("Passw0rd!");
         userVM.setFirstName("John");
         userVM.setFirstLastName("Doe");
-        userVM.setDocumentNumber("COORDREJ01");
+        userVM.setDocumentNumber("UNKNOWNREJ01");
         userVM.setPhoneNumber("3001234567");
         userVM.setDocumentTypeId(seededDocumentTypeId());
-        userVM.setRole(AuthoritiesConstants.COORDINATOR);
+        userVM.setRole(UNKNOWN_ROLE);
 
         restUserMockMvc
             .perform(post("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userVM)))
@@ -515,12 +520,12 @@ class UserResourceIT {
     }
 
     @Test
-    void updateUserCoordinatorRoleRejected() throws Exception {
+    void updateUserUnknownRoleRejected() throws Exception {
         User target = persistedUserWithProfile(DEFAULT_DOCUMENT, DEFAULT_EMAIL);
 
         AdminUpdateUserVM vm = new AdminUpdateUserVM();
         vm.setId(target.getId());
-        vm.setRole(AuthoritiesConstants.COORDINATOR);
+        vm.setRole(UNKNOWN_ROLE);
 
         restUserMockMvc
             .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
@@ -984,6 +989,32 @@ class UserResourceIT {
     }
 
     @Test
+    void updateUserOnlyInstructorOfPendingGradeRoleChangeBlocked() throws Exception {
+        User instructor = instructorUser("pend.role.instr", "pend.role.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "E5PEND01");
+        Grade pendingGrade = persistedGrade("E5-ROL-FICHA-PEND", StateGrade.PENDIENTE);
+        classSectionRepository.save(
+            new ClassSection().subjectName("E5 Rol Materia Pendiente").isActive(true).instructor(profile).grade(pendingGrade)
+        );
+
+        AdminUpdateUserVM vm = buildUpdateVM(
+            instructor.getId(),
+            "E5PEND01",
+            "pend.role.instr@example.com",
+            AuthoritiesConstants.APPRENTICE,
+            null,
+            null
+        );
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(hasAuthority(userRepository.findById(instructor.getId()).orElseThrow(), AuthoritiesConstants.INSTRUCTOR)).isTrue();
+    }
+
+    @Test
     void setUserActivatedLastAdminBlocked() throws Exception {
         // Make the target the ONLY active admin by deactivating every other active admin first.
         User target = freshAdmin("last.admin", "last.admin@example.com");
@@ -1038,10 +1069,10 @@ class UserResourceIT {
         User instructor = instructorUser("noact.instr", "noact.instr@example.com");
         UserProfile profile = persistedProfile(instructor, "E5OK01");
 
-        // A section on a non-active ficha does not trigger the E5 rule.
-        Grade inactiveGrade = persistedGrade("E5-FICHA-INACTIVA", StateGrade.INACTIVA);
-        ClassSection inactiveSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(inactiveGrade);
-        classSectionRepository.save(inactiveSection);
+        // A section on a manually paused ficha does not trigger the E5 rule.
+        Grade pausedGrade = persistedGrade("E5-FICHA-APLAZADA", StateGrade.APLAZADA);
+        ClassSection pausedSection = new ClassSection().subjectName("E5 Materia").isActive(true).instructor(profile).grade(pausedGrade);
+        classSectionRepository.save(pausedSection);
 
         SetUserActivatedVM vm = new SetUserActivatedVM();
         vm.setDocumentNumber("E5OK01");
@@ -1054,6 +1085,28 @@ class UserResourceIT {
             .andExpect(jsonPath("$.activated").value(false));
 
         assertThat(userRepository.findById(instructor.getId()).orElseThrow().isActivated()).isFalse();
+    }
+
+    @Test
+    void setUserActivatedOnlyInstructorOfPendingGradeBlocked() throws Exception {
+        User instructor = instructorUser("pend.instr", "pend.instr@example.com");
+        UserProfile profile = persistedProfile(instructor, "E5PEND02");
+
+        Grade pendingGrade = persistedGrade("E5-FICHA-PENDIENTE", StateGrade.PENDIENTE);
+        classSectionRepository.save(
+            new ClassSection().subjectName("E5 Materia Pendiente").isActive(true).instructor(profile).grade(pendingGrade)
+        );
+
+        SetUserActivatedVM vm = new SetUserActivatedVM();
+        vm.setDocumentNumber("E5PEND02");
+        vm.setActivated(false);
+
+        restUserMockMvc
+            .perform(patch("/api/admin/users/activated").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(vm)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("error.lastInstructor"));
+
+        assertThat(userRepository.findById(instructor.getId()).orElseThrow().isActivated()).isTrue();
     }
 
     @Test

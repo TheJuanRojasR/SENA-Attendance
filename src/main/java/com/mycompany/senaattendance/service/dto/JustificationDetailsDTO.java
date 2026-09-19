@@ -31,6 +31,26 @@ public class JustificationDetailsDTO implements Serializable {
     @NotNull
     private Instant responseDate;
 
+    /**
+     * Request date of the justification that owns the part, read from the header auditing
+     * (UC010, A1). The server exposes it so the instructor tray can show it; a client never
+     * sets it.
+     */
+    private Instant requestDate;
+
+    /**
+     * Reason registered by the instructor to approve an out-of-time part (UC010, A2); the
+     * decision endpoint sets it and no other flow accepts it.
+     */
+    @Size(max = 300)
+    private String outOfTimeReason;
+
+    /**
+     * Whether the decision arrived after the configured instructor response deadline (UC010).
+     * The server computes it on the decision and exposes it; a client never sets it.
+     */
+    private Boolean lateDecision;
+
     @NotNull
     private ClassSectionDTO classSection;
 
@@ -93,6 +113,30 @@ public class JustificationDetailsDTO implements Serializable {
         this.responseDate = responseDate;
     }
 
+    public Instant getRequestDate() {
+        return requestDate;
+    }
+
+    public void setRequestDate(Instant requestDate) {
+        this.requestDate = requestDate;
+    }
+
+    public String getOutOfTimeReason() {
+        return outOfTimeReason;
+    }
+
+    public void setOutOfTimeReason(String outOfTimeReason) {
+        this.outOfTimeReason = outOfTimeReason;
+    }
+
+    public Boolean getLateDecision() {
+        return lateDecision;
+    }
+
+    public void setLateDecision(Boolean lateDecision) {
+        this.lateDecision = lateDecision;
+    }
+
     public ClassSectionDTO getClassSection() {
         return classSection;
     }
@@ -140,6 +184,9 @@ public class JustificationDetailsDTO implements Serializable {
             ", correctionText='" + getCorrectionText() + "'" +
             ", correctionFileUrl='" + getCorrectionFileUrl() + "'" +
             ", responseDate='" + getResponseDate() + "'" +
+            ", requestDate='" + getRequestDate() + "'" +
+            ", outOfTimeReason='" + getOutOfTimeReason() + "'" +
+            ", lateDecision='" + getLateDecision() + "'" +
             ", classSection=" + getClassSection() +
             ", justification=" + getJustification() +
             "}";

@@ -44,9 +44,28 @@ public class JustificationDetails implements Serializable {
     @Field("correction_file_url_content_type")
     private String correctionFileUrlContentType;
 
-    @NotNull
+    /**
+     * Instant of the instructor decision, or {@code null} while the part is pending (UC011).
+     * Correcting a rejected part (A5) clears it: the part reopens with no response yet.
+     */
     @Field("response_date")
     private Instant responseDate;
+
+    /**
+     * Reason the instructor registered to approve an out-of-time part (UC010, A2), or
+     * {@code null} when the approval was in time or the part was rejected.
+     */
+    @Size(max = 300)
+    @Field("out_of_time_reason")
+    private String outOfTimeReason;
+
+    /**
+     * Whether the decision arrived after the instructor response deadline (UC010): the deadline
+     * is the request date of the header plus the configured {@code instructorResponseDays}
+     * business days. {@code null} while the part has no decision.
+     */
+    @Field("late_decision")
+    private Boolean lateDecision;
 
     @DBRef
     @Field("classSection")
@@ -151,6 +170,32 @@ public class JustificationDetails implements Serializable {
         this.responseDate = responseDate;
     }
 
+    public String getOutOfTimeReason() {
+        return this.outOfTimeReason;
+    }
+
+    public JustificationDetails outOfTimeReason(String outOfTimeReason) {
+        this.setOutOfTimeReason(outOfTimeReason);
+        return this;
+    }
+
+    public void setOutOfTimeReason(String outOfTimeReason) {
+        this.outOfTimeReason = outOfTimeReason;
+    }
+
+    public Boolean getLateDecision() {
+        return this.lateDecision;
+    }
+
+    public JustificationDetails lateDecision(Boolean lateDecision) {
+        this.setLateDecision(lateDecision);
+        return this;
+    }
+
+    public void setLateDecision(Boolean lateDecision) {
+        this.lateDecision = lateDecision;
+    }
+
     public ClassSection getClassSection() {
         return this.classSection;
     }
@@ -207,6 +252,8 @@ public class JustificationDetails implements Serializable {
             ", correctionFileUrl='" + getCorrectionFileUrl() + "'" +
             ", correctionFileUrlContentType='" + getCorrectionFileUrlContentType() + "'" +
             ", responseDate='" + getResponseDate() + "'" +
+            ", outOfTimeReason='" + getOutOfTimeReason() + "'" +
+            ", lateDecision='" + getLateDecision() + "'" +
             "}";
     }
 }

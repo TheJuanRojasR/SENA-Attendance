@@ -58,6 +58,32 @@ public interface ClassExceptionService {
     Optional<ClassExceptionDTO> findOne(String id);
 
     /**
+     * Get all the classExceptions the current user can read. An administrator reads every
+     * exception and an instructor only the exceptions of the class sections assigned to them.
+     *
+     * @param pageable the pagination information.
+     * @return the page of readable entities.
+     */
+    Page<ClassExceptionDTO> findAllForCurrentUser(Pageable pageable);
+
+    /**
+     * Get all the readable classExceptions with eager load of many-to-many relationships.
+     *
+     * @param pageable the pagination information.
+     * @return the page of readable entities.
+     */
+    Page<ClassExceptionDTO> findAllWithEagerRelationshipsForCurrentUser(Pageable pageable);
+
+    /**
+     * Get the "id" classException when the current user can read it: an administrator reads every
+     * exception and an instructor only the exceptions of the class sections assigned to them.
+     *
+     * @param id the id of the entity.
+     * @return the entity, or empty when it does not exist or is outside the readable scope.
+     */
+    Optional<ClassExceptionDTO> findOneForCurrentUser(String id);
+
+    /**
      * Delete the "id" classException.
      *
      * @param id the id of the entity.

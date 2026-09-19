@@ -30,11 +30,9 @@ public class InitialSetupMigration {
         adminAuthority = template.save(adminAuthority);
         Authority instructorAuthority = createInstructorAuthority();
         instructorAuthority = template.save(instructorAuthority);
-        Authority coordinatorAuthority = createCoordinatorAuthority();
-        coordinatorAuthority = template.save(coordinatorAuthority);
         Authority apprenticeAuthority = createApprenticeAuthority();
         apprenticeAuthority = template.save(apprenticeAuthority);
-        addUsers(userAuthority, adminAuthority, instructorAuthority, coordinatorAuthority, apprenticeAuthority);
+        addUsers(userAuthority, adminAuthority, instructorAuthority, apprenticeAuthority);
     }
 
     @RollbackExecution
@@ -56,11 +54,6 @@ public class InitialSetupMigration {
         return userAuthority;
     }
 
-    private Authority createCoordinatorAuthority() {
-        Authority coordinatorAuthority = createAuthority(AuthoritiesConstants.COORDINATOR);
-        return coordinatorAuthority;
-    }
-
     private Authority createInstructorAuthority() {
         Authority instructorAuthority = createAuthority(AuthoritiesConstants.INSTRUCTOR);
         return instructorAuthority;
@@ -71,21 +64,13 @@ public class InitialSetupMigration {
         return studentAuthority;
     }
 
-    private void addUsers(
-        Authority userAuthority,
-        Authority adminAuthority,
-        Authority instructorAuthority,
-        Authority coordinatorAuthority,
-        Authority apprenticeAuthority
-    ) {
+    private void addUsers(Authority userAuthority, Authority adminAuthority, Authority instructorAuthority, Authority apprenticeAuthority) {
         User user = createUser(userAuthority);
         template.save(user);
         User admin = createAdmin(adminAuthority, userAuthority);
         template.save(admin);
         User instructor = createInstructor(instructorAuthority, userAuthority);
         template.save(instructor);
-        User coordinator = createCoordinator(coordinatorAuthority, userAuthority);
-        template.save(coordinator);
         User apprentice = createApprentice(apprenticeAuthority, userAuthority);
         template.save(apprentice);
     }
@@ -129,20 +114,6 @@ public class InitialSetupMigration {
         instructorUser.getAuthorities().add(instructorAuthority);
         instructorUser.getAuthorities().add(userAuthority);
         return instructorUser;
-    }
-
-    private User createCoordinator(Authority coordinatorAuthority, Authority userAuthority) {
-        User coordinatorUser = new User();
-        coordinatorUser.setLogin("coordinator");
-        coordinatorUser.setPassword("$2a$10$qlNJJfrZe4UgUtvg88vf0O7cin4vRz/iBzG9io695hhhqF8.Kf3Hi");
-        coordinatorUser.setEmail("coordinator@example.com");
-        coordinatorUser.setActivated(true);
-        coordinatorUser.setLangKey("es");
-        coordinatorUser.setCreatedBy(Constants.SYSTEM);
-        coordinatorUser.setCreatedDate(Instant.now());
-        coordinatorUser.getAuthorities().add(coordinatorAuthority);
-        coordinatorUser.getAuthorities().add(userAuthority);
-        return coordinatorUser;
     }
 
     private User createApprentice(Authority apprenticeAuthority, Authority userAuthority) {

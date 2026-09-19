@@ -17,7 +17,7 @@
 3. **Rol único por cuenta:** un usuario tiene un solo rol. El Administrador puede cambiar el rol (por ejemplo, Aprendiz → Instructor) conservando toda la historia, porque los registros cuelgan del perfil y no del rol. El rol Coordinador no se usa.
 4. **Política de contraseñas (los tres roles):** 8 a 20 caracteres, con al menos una mayúscula, una minúscula, un número y un carácter especial. El cambio exige la contraseña actual y la nueva debe ser distinta de la actual.
 5. **Inicio de sesión:** por tipo y número de documento + contraseña. El nombre de usuario interno se deriva del documento (`<iniciales>_<número>`).
-6. **Sesión:** token válido por 24 horas. No hay bloqueo por intentos fallidos ni cierre por inactividad. El cierre es manual o al expirar el token.
+6. **Sesión:** token válido por 24 horas; con la opción "mantener sesión" del login (UC002) dura 30 días. No hay bloqueo por intentos fallidos ni cierre por inactividad. El cierre es manual o al expirar el token.
 7. **Eliminación de datos:** cuando un registro no tiene datos asociados se puede **eliminar definitivamente**; cuando los tiene, **nunca se elimina**: cambia de estado (desactivar, cancelar, retirar) para conservar auditoría e integridad. No existe soft-delete general. Los usuarios nunca se eliminan.
 8. **Estados de ficha (UC007):** Pendiente, Activa y Finalizada se calculan por fechas; Aplazada y Cancelada son decisiones manuales del Administrador. Cada estado define qué se puede modificar y si admite materias y asistencia.
 9. **Materias (competencia = class section):** pertenecen a una única ficha (UC015). Tienen un instructor (opcional al crear) y horarios por trimestre. Los horarios deben caer dentro de la **jornada** de la ficha, no cruzar la medianoche y no solaparse con otros de la ficha en el mismo trimestre.
@@ -134,7 +134,8 @@ El aprendiz cuenta con una cuenta activa con rol Aprendiz. Si no tiene fichas as
 - La cuenta debe existir y estar **Activa**.
 - El sistema maneja **un solo rol por cuenta**.
 - **Cambio obligatorio de contraseña:** si la cuenta tiene activo el indicador `mustChangePassword`, después de validar las credenciales el sistema **obliga** al usuario a cambiar la contraseña antes de permitir cualquier otra pantalla.
-- **Vigencia de la sesión:** el token dura **24 horas**. Al expirar, el sistema pide iniciar sesión nuevamente.
+- **Vigencia de la sesión:** el token dura **24 horas** por defecto y **30 días** si el usuario marca "mantener sesión". Al expirar, el sistema pide iniciar sesión nuevamente.
+- **"Mantener sesión" (opcional):** el formulario de login ofrece esta opción (recordarme), **desmarcada por defecto**. Solo cambia la vigencia del token: **no modifica ninguna otra regla** del inicio de sesión (credenciales, cuenta Activa y `mustChangePassword` siguen igual).
 - **No hay bloqueo por intentos fallidos** ni **cierre de sesión por inactividad**. El cierre de sesión es manual (UC004); una cuenta desactivada no puede volver a iniciar sesión y su sesión ya abierta deja de ser válida al expirar el token.
 - Las cuentas creadas por el Administrador nacen con `mustChangePassword` activo; el autorregistro (UC001) y el reset autoservicio (UC005) **no** lo activan, y el reset además **limpia** el indicador si estaba activo, porque en esos casos la contraseña la eligió el propio usuario.
 
@@ -145,11 +146,11 @@ El aprendiz cuenta con una cuenta activa con rol Aprendiz. Si no tiene fichas as
 #### Flujo básico — Inicio de sesión
 
 1. El Usuario entra a la página de inicio de sesión.
-2. El sistema muestra el formulario: tipo de documento, número de documento y contraseña.
+2. El sistema muestra el formulario: tipo de documento, número de documento, contraseña y la opción "mantener sesión" (opcional, desmarcada por defecto).
 3. El Usuario completa el formulario y hace click en "Iniciar sesión".
 4. El sistema valida que el documento exista, que la contraseña sea correcta y que la cuenta esté Activa.
 5. Si la cuenta tiene `mustChangePassword` activo, el sistema redirige **obligatoriamente** al cambio de contraseña (UC003) y no permite usar otra pantalla hasta completarlo.
-6. Si no, el sistema establece la sesión (validez de 24 horas) y redirige al menú principal correspondiente al rol del usuario.
+6. Si no, el sistema establece la sesión —validez de **24 horas**, o de **30 días** si el usuario marcó "mantener sesión"— y redirige al menú principal correspondiente al rol del usuario.
 
 #### Flujos alternativos
 
@@ -159,12 +160,12 @@ El aprendiz cuenta con una cuenta activa con rol Aprendiz. Si no tiene fichas as
 
 - **E1 — Credenciales incorrectas:** si el documento o la contraseña no coinciden, el sistema muestra **"Usuario o contraseña incorrecta"** (mensaje genérico, sin revelar cuál de los dos falló) y permanece en la página de inicio de sesión.
 - **E2 — Cuenta inactiva:** si la cuenta existe pero fue desactivada por el Administrador (UC006), el sistema muestra **"Tu cuenta se encuentra inactiva, contacta al administrador"** y no permite el acceso.
-- **E3 — Sesión expirada:** cuando el token cumple las 24 horas, el sistema redirige al inicio de sesión con **"Tu sesión ha expirado, inicia sesión nuevamente"**.
+- **E3 — Sesión expirada:** cuando el token cumple su vigencia (24 horas, o 30 días con "mantener sesión"), el sistema redirige al inicio de sesión con **"Tu sesión ha expirado, inicia sesión nuevamente"**.
 - **Nota explícita:** no existe bloqueo por intentos fallidos ni cierre de sesión por inactividad.
 
 #### Postcondiciones
 
-El usuario queda autenticado con un token válido por 24 horas y accede al menú principal de su rol. Si debía cambiar la contraseña, la cambió antes de acceder.
+El usuario queda autenticado con un token válido por **24 horas** (o **30 días** si marcó "mantener sesión") y accede al menú principal de su rol. Si debía cambiar la contraseña, la cambió antes de acceder.
 
 ### UC003 — Modificar datos
 
@@ -227,7 +228,7 @@ Los datos del usuario quedan actualizados. Si cambió la contraseña de forma vo
 - Aplica únicamente al dispositivo o navegador actual; las otras sesiones del usuario siguen activas.
 - Al cerrar, el sistema descarta el token de la sesión actual y redirige al inicio de sesión.
 - Una vez cerrada, el usuario debe autenticarse de nuevo para acceder (UC002).
-- **Nota de alcance:** si una cuenta es desactivada mientras tiene una sesión abierta, esa sesión no se corta al instante; deja de ser válida cuando el token expira (máximo 24 horas) y, en cualquier caso, la cuenta desactivada ya no puede iniciar sesión de nuevo. *(La invalidación inmediata queda como mejora futura.)*
+- **Nota de alcance:** si una cuenta es desactivada mientras tiene una sesión abierta, esa sesión no se corta al instante; deja de ser válida cuando el token expira (máximo 30 días si la sesión se abrió con "mantener sesión"; 24 horas en caso contrario) y, en cualquier caso, la cuenta desactivada ya no puede iniciar sesión de nuevo. *(La invalidación inmediata queda como mejora futura.)*
 
 #### Precondiciones
 
@@ -1291,14 +1292,5 @@ Documenta únicamente **dependencias de datos y precondiciones**, no relaciones 
 
 Estos cambios acompañan las reglas nuevas y aún no están implementados:
 
-- Entidad **`Alerta`** nueva (dos tipos, estados, trazabilidad) y **descarte** de `DesertionCounter`.
-- `Notificacion`: estado de **lectura**, **referencia** al objeto de origen y nuevos **tipos** (alertas, justificaciones).
-- `GlobalConfiguration`: **dos umbrales** de alerta (consecutivas y acumuladas).
-- `StateJustification`: agregar **CANCELADA** y la marca de plazo separada.
-- `StateGrade`: los **cinco estados** (Pendiente, Activa, Finalizada, Aplazada, Cancelada).
-- `DocumentType`: agregar **estado** (activo/inactivo).
 - Utilidad de **días hábiles** (lunes a viernes) para los plazos.
-- Validación del **código numérico** de programa.
-- Indicador **`mustChangePassword`**.
 - Lógica de negocio de asistencia, justificaciones y alertas (hoy son CRUD sin reglas).
-- Cambio obligatorio de contraseña y complejidad completa en todos los flujos.

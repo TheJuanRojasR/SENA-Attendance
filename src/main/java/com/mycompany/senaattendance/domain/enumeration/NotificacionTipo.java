@@ -5,4 +5,6 @@ package com.mycompany.senaattendance.domain.enumeration;
  */
 public enum NotificacionTipo {
     CREDENTIALS,
+    JUSTIFICACION,
+    ALERTA,
 }

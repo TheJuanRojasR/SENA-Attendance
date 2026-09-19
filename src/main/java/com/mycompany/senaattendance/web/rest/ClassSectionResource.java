@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +56,7 @@ public class ClassSectionResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassSectionDTO> createClassSection(@Valid @RequestBody ClassSectionDTO classSectionDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassSection : {}", classSectionDTO);
@@ -71,27 +70,22 @@ public class ClassSectionResource {
     }
 
     /**
-     * {@code PUT  /class-sections/:id} : Updates an existing classSection.
+     * {@code PUT  /class-sections} : Updates an existing classSection; the id is taken from the request body.
      *
-     * @param id the id of the classSectionDTO to save.
      * @param classSectionDTO the classSectionDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classSectionDTO,
      * or with status {@code 400 (Bad Request)} if the classSectionDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the classSectionDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassSectionDTO> updateClassSection(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ClassSectionDTO classSectionDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update ClassSection : {}, {}", id, classSectionDTO);
-        if (classSectionDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ClassSectionDTO> updateClassSection(@Valid @RequestBody ClassSectionDTO classSectionDTO)
+        throws URISyntaxException {
+        String id = classSectionDTO.getId();
+        LOG.debug("REST request to update ClassSection : {}", classSectionDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classSectionDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classSectionRepository.existsById(id)) {
@@ -105,9 +99,9 @@ public class ClassSectionResource {
     }
 
     /**
-     * {@code PATCH  /class-sections/:id} : Partial updates given fields of an existing classSection, field will ignore if it is null
+     * {@code PATCH  /class-sections} : Partial updates given fields of an existing classSection, field will ignore if it is null.
+     * The id is taken from the request body.
      *
-     * @param id the id of the classSectionDTO to save.
      * @param classSectionDTO the classSectionDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classSectionDTO,
      * or with status {@code 400 (Bad Request)} if the classSectionDTO is not valid,
@@ -115,18 +109,14 @@ public class ClassSectionResource {
      * or with status {@code 500 (Internal Server Error)} if the classSectionDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassSectionDTO> partialUpdateClassSection(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ClassSectionDTO classSectionDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update ClassSection partially : {}, {}", id, classSectionDTO);
-        if (classSectionDTO.getId() == null) {
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ClassSectionDTO> partialUpdateClassSection(@NotNull @RequestBody ClassSectionDTO classSectionDTO)
+        throws URISyntaxException {
+        String id = classSectionDTO.getId();
+        LOG.debug("REST request to partial update ClassSection partially : {}", classSectionDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classSectionDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classSectionRepository.existsById(id)) {
@@ -149,6 +139,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Sections in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<List<ClassSectionDTO>> getAllClassSections(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -171,6 +162,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the classSectionDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassSectionDTO> getClassSection(@PathVariable("id") String id) {
         LOG.debug("REST request to get ClassSection : {}", id);
         Optional<ClassSectionDTO> classSectionDTO = classSectionService.findOne(id);
@@ -180,21 +172,14 @@ public class ClassSectionResource {
     /**
      * {@code GET  /class-sections/mine} : get all the Class Sections for the current instructor.
      *
+     * @param gradeCode optional partial ficha number to search among the instructor's own class sections by.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Sections in body.
      */
     @GetMapping("/mine")
-    @PreAuthorize(
-        "hasAuthority('" +
-            AuthoritiesConstants.INSTRUCTOR +
-            "') or hasAuthority('" +
-            AuthoritiesConstants.COORDINATOR +
-            "') or hasAuthority('" +
-            AuthoritiesConstants.ADMIN +
-            "')"
-    )
-    public ResponseEntity<List<ClassSectionDTO>> getMyClassSections() {
+    @PreAuthorize("hasAuthority('" + AuthoritiesConstants.INSTRUCTOR + "') or hasAuthority('" + AuthoritiesConstants.ADMIN + "')")
+    public ResponseEntity<List<ClassSectionDTO>> getMyClassSections(@RequestParam(name = "gradeCode", required = false) String gradeCode) {
         LOG.debug("REST request to get ClassSections for the current instructor");
-        List<ClassSectionDTO> classSections = classSectionService.findAllForCurrentInstructor();
+        List<ClassSectionDTO> classSections = classSectionService.findAllForCurrentInstructor(gradeCode);
         return ResponseEntity.ok().body(classSections);
     }
 
@@ -205,7 +190,7 @@ public class ClassSectionResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteClassSection(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassSection : {}", id);
         classSectionService.delete(id);

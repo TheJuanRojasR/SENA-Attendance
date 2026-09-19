@@ -59,4 +59,23 @@ public interface GradeRepository extends MongoRepository<Grade, String> {
      * @return {@code true} if at least one grade references this program.
      */
     boolean existsByProgramId(String programId);
+
+    /**
+     * Returns whether a ficha with the given code already exists. Used to keep
+     * the ficha code unique.
+     *
+     * @param code the code to check.
+     * @return {@code true} if a ficha with this code exists.
+     */
+    boolean existsByCode(String code);
+
+    /**
+     * Returns whether a ficha with the given code exists, excluding a specific id.
+     * Used so an update that keeps the same code does not collide with itself.
+     *
+     * @param code the code to check.
+     * @param id the id to exclude.
+     * @return {@code true} if another ficha with this code exists.
+     */
+    boolean existsByCodeAndIdNot(String code, String id);
 }

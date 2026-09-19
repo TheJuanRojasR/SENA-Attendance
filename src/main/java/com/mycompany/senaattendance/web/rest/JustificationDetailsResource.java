@@ -1,13 +1,17 @@
 package com.mycompany.senaattendance.web.rest;
 
+import com.mycompany.senaattendance.domain.enumeration.StateJustification;
 import com.mycompany.senaattendance.repository.JustificationDetailsRepository;
+import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationDetailsService;
 import com.mycompany.senaattendance.service.dto.JustificationDetailsDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.JustificationDecisionVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,8 +20,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
@@ -26,6 +34,12 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.mycompany.senaattendance.domain.JustificationDetails}.
+ *
+ * <p>The administrator and the owning apprentice reach the generic operations, and every
+ * operation is scoped in the service, so an apprentice only reads and writes the parts of their
+ * own justifications. The instructor reads the detail of a part of their own materias, with the
+ * evidence of the header included, so the support is available before deciding (UC010, flow step
+ * 4), and manages the tray and the decision through their own endpoints (UC010, A1).
  */
 @RestController
 @RequestMapping("/api/justification-details")
@@ -58,6 +72,7 @@ public class JustificationDetailsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> createJustificationDetails(
         @Valid @RequestBody JustificationDetailsDTO justificationDetailsDTO
     ) throws URISyntaxException {
@@ -72,7 +87,11 @@ public class JustificationDetailsResource {
     }
 
     /**
-     * {@code PUT  /justification-details/:id} : Updates an existing justificationDetails.
+     * {@code PUT  /justification-details/:id} : updates an existing justificationDetails with the
+     * apprentice correction contract (UC011, A5). Only the correction fields are copied; the
+     * state, the rejection reason, the response date and the relationships are server-owned and
+     * keep their persisted values, so a payload that tries to decide the part is ignored instead
+     * of applied.
      *
      * @param id the id of the justificationDetailsDTO to save.
      * @param justificationDetailsDTO the justificationDetailsDTO to update.
@@ -82,6 +101,7 @@ public class JustificationDetailsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> updateJustificationDetails(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody JustificationDetailsDTO justificationDetailsDTO
@@ -105,7 +125,10 @@ public class JustificationDetailsResource {
     }
 
     /**
-     * {@code PATCH  /justification-details/:id} : Partial updates given fields of an existing justificationDetails, field will ignore if it is null
+     * {@code PATCH  /justification-details/:id} : partial updates given fields of an existing
+     * justificationDetails with the same apprentice correction contract as the PUT (UC011, A5):
+     * only the correction fields are copied, the decision fields are server-owned and a rejected
+     * part reopens as pending inside its correction window.
      *
      * @param id the id of the justificationDetailsDTO to save.
      * @param justificationDetailsDTO the justificationDetailsDTO to update.
@@ -116,6 +139,7 @@ public class JustificationDetailsResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDetailsDTO> partialUpdateJustificationDetails(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody JustificationDetailsDTO justificationDetailsDTO
@@ -148,6 +172,7 @@ public class JustificationDetailsResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Justification Details in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<List<JustificationDetailsDTO>> getAllJustificationDetailses(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -164,16 +189,96 @@ public class JustificationDetailsResource {
     }
 
     /**
+     * {@code GET  /justification-details/pending} : gets the parts the current instructor must
+     * decide, and the decision history of their materias when the state filter asks for another
+     * state (UC010, A1). An administrator reads every part. The parts come sorted by creation
+     * order, newest first, which is the order of the justification request, and the response of
+     * each part exposes the request date, the apprentice identity, the justified period and the
+     * deadline mark. The optional filters are combined with AND.
+     *
+     * @param pageable the pagination information, 20 parts per page by default.
+     * @param stateJustification the state to include (optional; defaults to pending parts).
+     * @param classSectionId the materia to filter by (optional).
+     * @param createdFrom the first request date to include (optional).
+     * @param createdTo the last request date to include (optional).
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the page of parts.
+     */
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    public ResponseEntity<List<JustificationDetailsDTO>> getPendingJustificationDetailses(
+        @org.springdoc.core.annotations.ParameterObject @PageableDefault(
+            size = 20,
+            sort = "id",
+            direction = Sort.Direction.DESC
+        ) Pageable pageable,
+        @RequestParam(name = "stateJustification", required = false) StateJustification stateJustification,
+        @RequestParam(name = "classSectionId", required = false) String classSectionId,
+        @RequestParam(name = "createdFrom", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
+        @RequestParam(name = "createdTo", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo
+    ) {
+        LOG.debug("REST request to get the page of pending JustificationDetailses of the instructor");
+        Page<JustificationDetailsDTO> page = justificationDetailsService.findPendingForCurrentUser(
+            stateJustification,
+            classSectionId,
+            createdFrom,
+            createdTo,
+            pageable
+        );
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /**
      * {@code GET  /justification-details/:id} : get the "id" justificationDetails.
+     *
+     * <p>The detail carries the evidence of its header and the type, so the instructor reviews the
+     * support before deciding (UC010, flow step 4). An instructor reads the parts of their own
+     * materias; a part of another materia resolves as {@code 404}, the same as a part outside the
+     * apprentice scope, so the read never leaks the existence of a foreign part. An administrator
+     * reads every part.
      *
      * @param id the id of the justificationDetailsDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the justificationDetailsDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize(
+        "hasAnyAuthority(\"" +
+            AuthoritiesConstants.ADMIN +
+            "\", \"" +
+            AuthoritiesConstants.INSTRUCTOR +
+            "\", \"" +
+            AuthoritiesConstants.APPRENTICE +
+            "\")"
+    )
     public ResponseEntity<JustificationDetailsDTO> getJustificationDetails(@PathVariable("id") String id) {
         LOG.debug("REST request to get JustificationDetails : {}", id);
         Optional<JustificationDetailsDTO> justificationDetailsDTO = justificationDetailsService.findOne(id);
         return ResponseUtil.wrapOrNotFound(justificationDetailsDTO);
+    }
+
+    /**
+     * {@code PATCH  /justification-details/:id/decision} : applies the decision of the instructor
+     * over one part (UC010, flow step 5). Only the instructor currently assigned to the materia of
+     * the part can decide it, and an administrator can decide any part. The body only carries the
+     * decision state and the reasons the rules require: approving a part marked out of time
+     * demands the additional exception reason, and rejecting always demands the rejection reason.
+     * Approving converts the covered failures to {@code JUSTIFICADA}; the response date, the
+     * late-decision mark and the deadline mark are server-owned.
+     *
+     * @param id the id of the part to decide.
+     * @param decision the state and the reasons of the decision.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the decided
+     *         part, with status {@code 400 (Bad Request)} when a decision rule is violated, or with
+     *         status {@code 404 (Not Found)} when the part does not exist.
+     */
+    @PatchMapping(value = "/{id}/decision", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
+    public ResponseEntity<JustificationDetailsDTO> decideJustificationDetails(
+        @PathVariable("id") String id,
+        @Valid @RequestBody JustificationDecisionVM decision
+    ) {
+        LOG.debug("REST request to decide JustificationDetails : {}, {}", id, decision);
+        return ResponseUtil.wrapOrNotFound(justificationDetailsService.decide(id, decision));
     }
 
     /**
@@ -183,6 +288,7 @@ public class JustificationDetailsResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<Void> deleteJustificationDetails(@PathVariable("id") String id) {
         LOG.debug("REST request to delete JustificationDetails : {}", id);
         justificationDetailsService.delete(id);

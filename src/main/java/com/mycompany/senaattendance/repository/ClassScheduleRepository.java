@@ -1,8 +1,10 @@
 package com.mycompany.senaattendance.repository;
 
 import com.mycompany.senaattendance.domain.ClassSchedule;
+import com.mycompany.senaattendance.domain.enumeration.DayOfWeek;
 import java.util.List;
 import java.util.Optional;
+import org.bson.types.ObjectId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -34,4 +36,67 @@ public interface ClassScheduleRepository extends MongoRepository<ClassSchedule, 
     // ------- SEARCH CLASS SECTION BY TRIMESTER ID -------
     @Query("{ 'trimester._id': ?0 }")
     List<ClassSchedule> findByTrimesterId(String trimesterId);
+
+    /**
+     * Finds the schedules that reference the given class section. Used to cascade the
+     * deletion of a ficha onto the schedules of its class sections.
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @return the schedules whose {@code classSection} reference matches {@code classSectionId}.
+     */
+    // ------- SEARCH CLASS SCHEDULES BY CLASS SECTION ID -------
+    @Query("{ 'classSection._id': ?0 }")
+    List<ClassSchedule> findByClassSectionId(String classSectionId);
+
+    /**
+     * Finds the schedules of a class section on a given weekday inside a trimester. Used to
+     * detect overlapping sessions of the same ficha, because the overlap check must consider
+     * both the schedule's own subject and every other subject of the ficha.
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @param dayOfWeek the weekday the schedule must match.
+     * @return the schedules of that class section, trimester and weekday.
+     */
+    @Query("{ 'classSection._id': ?0, 'trimester._id': ?1, 'day_of_week': ?2 }")
+    List<ClassSchedule> findByClassSectionIdAndTrimesterIdAndDayOfWeek(String classSectionId, String trimesterId, DayOfWeek dayOfWeek);
+
+    /**
+     * Finds the schedules of a class section inside a trimester. Used to derive the programmed
+     * sessions of a materia when measuring its consecutive failures (UC013).
+     *
+     * @param classSectionId the class section id to match against the {@code classSection} DBRef.
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @return the schedules of that class section and trimester.
+     */
+    // ------- SEARCH CLASS SCHEDULES BY CLASS SECTION AND TRIMESTER -------
+    @Query("{ 'classSection._id': ?0, 'trimester._id': ?1 }")
+    List<ClassSchedule> findByClassSectionIdAndTrimesterId(String classSectionId, String trimesterId);
+
+    /**
+     * Finds the schedules of several class sections inside one trimester. Used by the role
+     * dashboards to expand the weekly schedule of every materia into the concrete sessions of
+     * the day (UC023). The class section list is matched through the DBRef id ({@code $id}),
+     * which needs explicit ObjectIds, unlike the scalar {@code _id} lookups where a String
+     * resolves to the referenced id.
+     *
+     * @param classSectionIds the ObjectId values of the class sections.
+     * @param trimesterId the trimester id to match against the {@code trimester} DBRef.
+     * @return the schedules of those class sections and trimester, possibly empty.
+     */
+    @Query("{ 'classSection.$id': { $in: ?0 }, 'trimester._id': ?1 }")
+    List<ClassSchedule> findByClassSectionIdInAndTrimesterId(List<ObjectId> classSectionIds, String trimesterId);
+
+    /**
+     * Finds the schedules of the given class sections. Used to read only the schedules of the
+     * materias assigned to the current instructor. The class sections are matched through the
+     * DBRef id ({@code $id}), which needs explicit ObjectIds, unlike the scalar {@code _id}
+     * lookups where a String resolves to the referenced id.
+     *
+     * @param classSectionIds the ObjectId values of the class sections.
+     * @param pageable the pagination information.
+     * @return the page of schedules of those class sections.
+     */
+    @Query("{ 'classSection.$id': { $in: ?0 } }")
+    Page<ClassSchedule> findByClassSectionIdIn(List<ObjectId> classSectionIds, Pageable pageable);
 }

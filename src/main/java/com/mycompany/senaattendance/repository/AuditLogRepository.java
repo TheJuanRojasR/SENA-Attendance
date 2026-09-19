@@ -22,4 +22,14 @@ public interface AuditLogRepository extends MongoRepository<AuditLog, String> {
 
     @Query("{'id': ?0}")
     Optional<AuditLog> findOneWithEagerRelationships(String id);
+
+    /**
+     * Finds the audit entries of one attendance record. The record is matched through the scalar
+     * {@code attendance._id}, where a String resolves to the referenced id.
+     *
+     * @param attendanceId the attendance record id.
+     * @return the audit entries of that record, possibly empty.
+     */
+    @Query("{ 'attendance._id': ?0 }")
+    List<AuditLog> findByAttendanceId(String attendanceId);
 }

@@ -1,6 +1,10 @@
 package com.mycompany.senaattendance.service;
 
+import com.mycompany.senaattendance.domain.enumeration.StateAttendance;
 import com.mycompany.senaattendance.service.dto.AttendanceDTO;
+import com.mycompany.senaattendance.service.dto.AttendanceSessionDTO;
+import com.mycompany.senaattendance.web.rest.vm.AttendanceSessionVM;
+import java.time.LocalDate;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,57 +14,54 @@ import org.springframework.data.domain.Pageable;
  */
 public interface AttendanceService {
     /**
-     * Save a attendance.
+     * Registers the attendance session of a class section on a session date (UC009). Every
+     * confirmation is upserted by materia, aprendiz and fecha, and the apprentices left out of
+     * the payload keep no record for that date, so the session may come back incomplete.
      *
-     * @param attendanceDTO the entity to save.
-     * @return the persisted entity.
+     * @param attendanceSessionVM the materia, the session date and the confirmed marks.
+     * @return the persisted session with its records and the derived completeness.
      */
-    AttendanceDTO save(AttendanceDTO attendanceDTO);
+    AttendanceSessionDTO saveSession(AttendanceSessionVM attendanceSessionVM);
 
     /**
-     * Updates a attendance.
+     * Edits the state of one attendance record (A2). Only the assigned instructor of the materia
+     * can do it, only Presente or Falla are accepted, and the trimester of the session date must
+     * be active; the materia, the apprentice and the date of the record are preserved.
      *
-     * @param attendanceDTO the entity to update.
-     * @return the persisted entity.
+     * @param id the id of the record to edit.
+     * @param stateAttendance the new state.
+     * @return the persisted record, or empty when it does not exist.
      */
-    AttendanceDTO update(AttendanceDTO attendanceDTO);
+    Optional<AttendanceDTO> updateState(String id, StateAttendance stateAttendance);
 
     /**
-     * Partially updates a attendance.
+     * Gets a page of the attendance history the current user can read (A1): every record for an
+     * administrator, only the records of the assigned materias for an instructor, and only their
+     * own records for an apprentice. The filters are optional and combine with each other and
+     * with that scope.
      *
-     * @param attendanceDTO the entity to update partially.
-     * @return the persisted entity.
-     */
-    Optional<AttendanceDTO> partialUpdate(AttendanceDTO attendanceDTO);
-
-    /**
-     * Get all the attendances.
-     *
+     * @param classSectionId the materia to filter by (may be null for every materia).
+     * @param date the session date to filter by (may be null for every date).
+     * @param studentId the apprentice profile id to filter by (may be null for every apprentice).
+     * @param stateAttendance the state to filter by (may be null for every state).
      * @param pageable the pagination information.
-     * @return the list of entities.
+     * @return the page of readable records matching the filters.
      */
-    Page<AttendanceDTO> findAll(Pageable pageable);
+    Page<AttendanceDTO> findAllForCurrentUser(
+        String classSectionId,
+        LocalDate date,
+        String studentId,
+        StateAttendance stateAttendance,
+        Pageable pageable
+    );
 
     /**
-     * Get all the attendances with eager load of many-to-many relationships.
+     * Gets one attendance record when the current user can read it: every record for an
+     * administrator, only the records of the assigned materias for an instructor, and only their
+     * own records for an apprentice.
      *
-     * @param pageable the pagination information.
-     * @return the list of entities.
+     * @param id the id of the record.
+     * @return the record, or empty when it does not exist or is outside the readable scope.
      */
-    Page<AttendanceDTO> findAllWithEagerRelationships(Pageable pageable);
-
-    /**
-     * Get the "id" attendance.
-     *
-     * @param id the id of the entity.
-     * @return the entity.
-     */
-    Optional<AttendanceDTO> findOne(String id);
-
-    /**
-     * Delete the "id" attendance.
-     *
-     * @param id the id of the entity.
-     */
-    void delete(String id);
+    Optional<AttendanceDTO> findOneForCurrentUser(String id);
 }

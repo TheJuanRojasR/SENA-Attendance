@@ -63,8 +63,7 @@ public class UserService {
     private static final long RESET_KEY_VALIDITY_MINUTES = 30;
 
     /**
-     * Roles that can be assigned to an account. {@code ROLE_COORDINATOR} is deliberately excluded:
-     * the current use cases no longer contemplate it.
+     * Roles that can be assigned to an account: Administrator, Instructor and Apprentice.
      */
     private static final Set<String> ASSIGNABLE_ROLES = Set.of(
         AuthoritiesConstants.ADMIN,
@@ -155,13 +154,70 @@ public class UserService {
             .map(UserProfile::getUser)
             .filter(User::isActivated)
             .map(user -> {
-                user.setResetKey(RandomUtil.generateResetKey());
-                user.setResetDate(Instant.now());
-                userRepository.save(user);
-                return user;
+                assignResetKey(user);
+                return userRepository.save(user);
             });
     }
 
+    /**
+     * Generates a fresh reset link for the user identified by the given document number and
+     * marks the password change as mandatory, so the Administrator can resend the access after a
+     * failed credentials email (UC006, E7). The notification lifecycle is owned by the caller.
+     *
+     * @param documentNumber the unique document number identifying the user profile.
+     * @return the user with the new reset key and the forced password change.
+     * @throws BadRequestAlertException if no profile or user matches the document number.
+     */
+    @Transactional
+    public User resendCredentials(String documentNumber) {
+        String normalized = StringUtils.trimToEmpty(documentNumber);
+
+        UserProfile profile = userProfileRepository
+            .findByDocumentNumber(normalized)
+            .orElseThrow(() ->
+                new BadRequestAlertException(
+                    "No user profile found for document number: " + normalized,
+                    "userProfile",
+                    "documentNumberNotFound"
+                )
+            );
+
+        User user = profile.getUser();
+        if (user == null) {
+            throw new BadRequestAlertException("No user found for document number: " + normalized, "userManagement", "userNotFound");
+        }
+
+        assignResetKey(user);
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+        LOG.debug("Resent credentials for User: {}", user.getLogin());
+        return user;
+    }
+
+    /**
+     * Generates a fresh reset key and stamps its request date, so a reset link stays valid for
+     * {@link #RESET_KEY_VALIDITY_MINUTES} and the templates render a non-empty link. The caller
+     * owns the write.
+     *
+     * @param user the user that receives the new reset key.
+     */
+    private void assignResetKey(User user) {
+        user.setResetKey(RandomUtil.generateResetKey());
+        user.setResetDate(Instant.now());
+    }
+
+    /**
+     * Registers an apprentice from the public sign-up flow. The user account and its profile are
+     * two writes with no transaction behind them: MongoDB standalone does not support
+     * multi-document transactions, so a failure between both saves would leave a user without a
+     * profile. That half-created account is compensated by deleting the user, because otherwise
+     * it would block every retry with the same document number. The original failure is always
+     * the one propagated to the caller.
+     *
+     * @param userVM the registration payload.
+     * @param password the raw password to encode.
+     * @return the persisted user.
+     */
     public User registerUser(ManagedUserVM userVM, String password) {
         if (userVM.getEmail() == null || userVM.getEmail().isBlank()) {
             throw new BadRequestAlertException("Email is required", "userManagement", "emailrequired");
@@ -240,10 +296,38 @@ public class UserService {
         userProfile.setUser(newUser);
         userProfile.setDocumentType(documentType);
 
-        userProfileRepository.save(userProfile);
+        try {
+            userProfileRepository.save(userProfile);
+        } catch (RuntimeException profileFailure) {
+            // Explicit compensation: the user and its profile are two separate writes and MongoDB
+            // standalone has no transaction to roll them back together. Deleting the freshly
+            // created user on a best-effort basis keeps a failed registration retryable (the
+            // document number becomes free again) instead of leaving an account without profile.
+            compensateFailedProfileCreation(newUser, profileFailure);
+        }
 
         LOG.debug("Created Information for User: {}", newUser);
         return newUser;
+    }
+
+    /**
+     * Removes the user created by a registration whose profile could not be persisted and then
+     * rethrows the original failure. The removal is best-effort: if it also fails, the cleanup
+     * failure is attached as a suppressed exception so the caller still receives the original
+     * cause and an operator can see both in the logs.
+     *
+     * @param newUser the user to remove.
+     * @param profileFailure the original failure raised while saving the profile.
+     */
+    private void compensateFailedProfileCreation(User newUser, RuntimeException profileFailure) {
+        try {
+            userRepository.delete(newUser);
+            LOG.warn("Removed the user {} after its profile could not be created", newUser.getLogin());
+        } catch (RuntimeException cleanupFailure) {
+            LOG.error("Could not remove the user {} after its profile could not be created", newUser.getLogin(), cleanupFailure);
+            profileFailure.addSuppressed(cleanupFailure);
+        }
+        throw profileFailure;
     }
 
     @Transactional
@@ -278,6 +362,9 @@ public class UserService {
         user.setLangKey(userVM.getLangKey() != null ? userVM.getLangKey() : Constants.DEFAULT_LANGUAGE);
         user.setActivated(true);
         user.setMustChangePassword(true);
+        // The creation email links to the reset page through the reset key (UC006, E7): without it
+        // the template renders an empty link. The same key is refreshed when the admin resends.
+        assignResetKey(user);
 
         user.setAuthorities(buildAuthorities(userVM.getRole()));
 
@@ -563,8 +650,10 @@ public class UserService {
     }
 
     /**
-     * An instructor who is the ONLY instructor of one or more ACTIVE class
-     * sections cannot be deactivated, since those sections would be left without an instructor.
+     * An instructor who is the ONLY instructor of one or more operable class sections cannot be
+     * deactivated or demoted, since those sections would be left without an instructor. A ficha
+     * is operable when its state is {@code PENDIENTE} or {@code ACTIVA}
+     * (see {@link StateGrade#isOperable()}).
      *
      * @param profile the user profile that identifies the instructor (its linked user carries the role).
      * @throws BadRequestAlertException with key {@code lastInstructor} when the rule is violated.
@@ -582,12 +671,12 @@ public class UserService {
             return;
         }
 
-        // Operational means the section belongs to a ficha that is still running (ACTIVA).
-        // A ficha in another state (INACTIVA / APLAZADA) does not hold the instructor.
+        // PENDIENTE and ACTIVA fichas are still operable and hold their instructor;
+        // FINALIZADA, APLAZADA and CANCELADA do not.
         List<ClassSection> operationalSections = classSectionRepository
             .findByInstructorId(profile.getId())
             .stream()
-            .filter(section -> section.getGrade() != null && section.getGrade().getState() == StateGrade.ACTIVA)
+            .filter(section -> section.getGrade() != null && section.getGrade().getState().isOperable())
             .toList();
 
         if (operationalSections.isEmpty()) {

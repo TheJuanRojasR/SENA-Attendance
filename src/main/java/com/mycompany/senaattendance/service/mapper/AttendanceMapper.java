@@ -16,7 +16,7 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring")
 public interface AttendanceMapper extends EntityMapper<AttendanceDTO, Attendance> {
     @Mapping(target = "classSection", source = "classSection", qualifiedByName = "classSectionSubjectName")
-    @Mapping(target = "student", source = "student", qualifiedByName = "userProfileDocumentNumber")
+    @Mapping(target = "student", source = "student", qualifiedByName = "userProfileSummary")
     @Mapping(target = "modifiedByJustification", source = "modifiedByJustification", qualifiedByName = "justificationId")
     AttendanceDTO toDto(Attendance s);
 
@@ -26,11 +26,13 @@ public interface AttendanceMapper extends EntityMapper<AttendanceDTO, Attendance
     @Mapping(target = "subjectName", source = "subjectName")
     ClassSectionDTO toDtoClassSectionSubjectName(ClassSection classSection);
 
-    @Named("userProfileDocumentNumber")
+    @Named("userProfileSummary")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     @Mapping(target = "documentNumber", source = "documentNumber")
-    UserProfileDTO toDtoUserProfileDocumentNumber(UserProfile userProfile);
+    @Mapping(target = "firstName", source = "firstName")
+    @Mapping(target = "firstLastName", source = "firstLastName")
+    UserProfileDTO toDtoUserProfileSummary(UserProfile userProfile);
 
     @Named("justificationId")
     @BeanMapping(ignoreByDefault = true)

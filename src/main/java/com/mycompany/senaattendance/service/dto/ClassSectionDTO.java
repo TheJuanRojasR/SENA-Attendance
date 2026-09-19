@@ -19,7 +19,6 @@ public class ClassSectionDTO implements Serializable {
     @NotNull
     private Boolean isActive;
 
-    @NotNull
     private UserProfileDTO instructor;
 
     @NotNull

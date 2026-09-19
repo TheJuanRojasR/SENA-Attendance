@@ -510,6 +510,68 @@ class AuditLogResourceIT {
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
     }
 
+    // -----------------------------------------------------------------
+    // Authorization: the whole CRUD is restricted to admins
+    // -----------------------------------------------------------------
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAllAuditLogsAsInstructorReturnsForbidden() throws Exception {
+        restAuditLogMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
+    void getAllAuditLogsAsApprenticeReturnsForbidden() throws Exception {
+        restAuditLogMockMvc.perform(get(ENTITY_API_URL)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void getAuditLogAsInstructorReturnsForbidden() throws Exception {
+        restAuditLogMockMvc.perform(get(ENTITY_API_URL_ID, UUID.randomUUID().toString())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void createAuditLogAsInstructorReturnsForbidden() throws Exception {
+        AuditLogDTO auditLogDTO = auditLogMapper.toDto(auditLog);
+
+        restAuditLogMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(auditLogDTO)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void updateAuditLogAsInstructorReturnsForbidden() throws Exception {
+        AuditLogDTO auditLogDTO = auditLogMapper.toDto(auditLog);
+
+        restAuditLogMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, UUID.randomUUID().toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(om.writeValueAsBytes(auditLogDTO))
+            )
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void partialUpdateAuditLogAsInstructorReturnsForbidden() throws Exception {
+        restAuditLogMockMvc
+            .perform(patch(ENTITY_API_URL_ID, UUID.randomUUID().toString()).contentType("application/merge-patch+json").content("{}"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = AuthoritiesConstants.INSTRUCTOR)
+    void deleteAuditLogAsInstructorReturnsForbidden() throws Exception {
+        restAuditLogMockMvc
+            .perform(delete(ENTITY_API_URL_ID, UUID.randomUUID().toString()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isForbidden());
+    }
+
     protected long getRepositoryCount() {
         return auditLogRepository.count();
     }

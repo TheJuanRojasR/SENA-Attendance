@@ -7,12 +7,14 @@ import com.mycompany.senaattendance.domain.enumeration.NotificacionEstado;
 import com.mycompany.senaattendance.domain.enumeration.NotificacionTipo;
 import com.mycompany.senaattendance.repository.NotificacionRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
+import com.mycompany.senaattendance.service.CredentialsResendService;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
+import com.mycompany.senaattendance.web.rest.vm.ResendCredentialsVM;
 import com.mycompany.senaattendance.web.rest.vm.SetUserActivatedVM;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
@@ -88,10 +90,18 @@ public class UserResource {
 
     private final NotificacionRepository notificacionRepository;
 
-    public UserResource(UserService userService, MailService mailService, NotificacionRepository notificacionRepository) {
+    private final CredentialsResendService credentialsResendService;
+
+    public UserResource(
+        UserService userService,
+        MailService mailService,
+        NotificacionRepository notificacionRepository,
+        CredentialsResendService credentialsResendService
+    ) {
         this.userService = userService;
         this.mailService = mailService;
         this.notificacionRepository = notificacionRepository;
+        this.credentialsResendService = credentialsResendService;
     }
 
     /**
@@ -238,6 +248,30 @@ public class UserResource {
                 )
             )
             .body(updatedUser);
+    }
+
+    /**
+     * {@code PATCH /admin/users/resend-credentials} : Resends the access to the user identified by
+     * the given document number. Generates a fresh reset key, forces the password change and sends
+     * the password-reset email, so the user chooses their own password (UC006, E7). When the user
+     * has an open credentials notification, it is closed as {@code ENVIADA} on a delivered email or
+     * kept as {@code REINTENTAR} when the delivery fails (UC018, E3).
+     *
+     * @param credentialsVM the request body carrying the document number of the user.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the updated user,
+     *         or {@code 400 (Bad Request)} if no profile/user matches the document number.
+     */
+    @PatchMapping("/users/resend-credentials")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<AdminUserDTO> resendCredentials(@Valid @RequestBody ResendCredentialsVM credentialsVM) {
+        String documentNumber = credentialsVM.getDocumentNumber();
+        LOG.debug("REST request to resend the access credentials to User by document number: {}", documentNumber);
+
+        User user = credentialsResendService.resend(documentNumber);
+
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "userManagement.credentialsresent", user.getLogin()))
+            .body(new AdminUserDTO(user));
     }
 
     private static boolean isPasswordLengthInvalid(String password) {

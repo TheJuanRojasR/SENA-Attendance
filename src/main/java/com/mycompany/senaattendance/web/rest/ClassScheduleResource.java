@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +56,7 @@ public class ClassScheduleResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<ClassScheduleDTO> createClassSchedule(@Valid @RequestBody ClassScheduleDTO classScheduleDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save ClassSchedule : {}", classScheduleDTO);
@@ -71,27 +70,22 @@ public class ClassScheduleResource {
     }
 
     /**
-     * {@code PUT  /class-schedules/:id} : Updates an existing classSchedule.
+     * {@code PUT  /class-schedules} : Updates an existing classSchedule; the id is taken from the request body.
      *
-     * @param id the id of the classScheduleDTO to save.
      * @param classScheduleDTO the classScheduleDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classScheduleDTO,
      * or with status {@code 400 (Bad Request)} if the classScheduleDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the classScheduleDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassScheduleDTO> updateClassSchedule(
-        @PathVariable(value = "id", required = false) final String id,
-        @Valid @RequestBody ClassScheduleDTO classScheduleDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to update ClassSchedule : {}, {}", id, classScheduleDTO);
-        if (classScheduleDTO.getId() == null) {
+    @PutMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ClassScheduleDTO> updateClassSchedule(@Valid @RequestBody ClassScheduleDTO classScheduleDTO)
+        throws URISyntaxException {
+        String id = classScheduleDTO.getId();
+        LOG.debug("REST request to update ClassSchedule : {}", classScheduleDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classScheduleDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classScheduleRepository.existsById(id)) {
@@ -105,9 +99,9 @@ public class ClassScheduleResource {
     }
 
     /**
-     * {@code PATCH  /class-schedules/:id} : Partial updates given fields of an existing classSchedule, field will ignore if it is null
+     * {@code PATCH  /class-schedules} : Partial updates given fields of an existing classSchedule, field will ignore if it is null.
+     * The id is taken from the request body.
      *
-     * @param id the id of the classScheduleDTO to save.
      * @param classScheduleDTO the classScheduleDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated classScheduleDTO,
      * or with status {@code 400 (Bad Request)} if the classScheduleDTO is not valid,
@@ -115,18 +109,14 @@ public class ClassScheduleResource {
      * or with status {@code 500 (Internal Server Error)} if the classScheduleDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
-    public ResponseEntity<ClassScheduleDTO> partialUpdateClassSchedule(
-        @PathVariable(value = "id", required = false) final String id,
-        @NotNull @RequestBody ClassScheduleDTO classScheduleDTO
-    ) throws URISyntaxException {
-        LOG.debug("REST request to partial update ClassSchedule partially : {}, {}", id, classScheduleDTO);
-        if (classScheduleDTO.getId() == null) {
+    @PatchMapping(value = "", consumes = { "application/json", "application/merge-patch+json" })
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    public ResponseEntity<ClassScheduleDTO> partialUpdateClassSchedule(@NotNull @RequestBody ClassScheduleDTO classScheduleDTO)
+        throws URISyntaxException {
+        String id = classScheduleDTO.getId();
+        LOG.debug("REST request to partial update ClassSchedule partially : {}", classScheduleDTO);
+        if (id == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, classScheduleDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
         }
 
         if (!classScheduleRepository.existsById(id)) {
@@ -142,13 +132,16 @@ public class ClassScheduleResource {
     }
 
     /**
-     * {@code GET  /class-schedules} : get all the Class Schedules.
+     * {@code GET  /class-schedules} : get all the Class Schedules the current user can read. An
+     * administrator reads every schedule and an instructor only the schedules of the class
+     * sections assigned to them.
      *
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Class Schedules in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<List<ClassScheduleDTO>> getAllClassSchedules(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -156,24 +149,27 @@ public class ClassScheduleResource {
         LOG.debug("REST request to get a page of ClassSchedules");
         Page<ClassScheduleDTO> page;
         if (eagerload) {
-            page = classScheduleService.findAllWithEagerRelationships(pageable);
+            page = classScheduleService.findAllWithEagerRelationshipsForCurrentUser(pageable);
         } else {
-            page = classScheduleService.findAll(pageable);
+            page = classScheduleService.findAllForCurrentUser(pageable);
         }
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**
-     * {@code GET  /class-schedules/:id} : get the "id" classSchedule.
+     * {@code GET  /class-schedules/:id} : get the "id" classSchedule when the current user can
+     * read it. An administrator reads every schedule and an instructor only the schedules of the
+     * class sections assigned to them, so a schedule outside that scope resolves as not found.
      *
      * @param id the id of the classScheduleDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the classScheduleDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority(\"" + AuthoritiesConstants.ADMIN + "\", \"" + AuthoritiesConstants.INSTRUCTOR + "\")")
     public ResponseEntity<ClassScheduleDTO> getClassSchedule(@PathVariable("id") String id) {
         LOG.debug("REST request to get ClassSchedule : {}", id);
-        Optional<ClassScheduleDTO> classScheduleDTO = classScheduleService.findOne(id);
+        Optional<ClassScheduleDTO> classScheduleDTO = classScheduleService.findOneForCurrentUser(id);
         return ResponseUtil.wrapOrNotFound(classScheduleDTO);
     }
 
@@ -184,7 +180,7 @@ public class ClassScheduleResource {
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.COORDINATOR + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
     public ResponseEntity<Void> deleteClassSchedule(@PathVariable("id") String id) {
         LOG.debug("REST request to delete ClassSchedule : {}", id);
         classScheduleService.delete(id);

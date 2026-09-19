@@ -188,6 +188,30 @@ class MailServiceIT {
     }
 
     @Test
+    void testCreationEmailRendersTheResetLinkFromTheResetKey() throws Exception {
+        User user = new User();
+        user.setLangKey(Constants.DEFAULT_LANGUAGE);
+        user.setLogin("john");
+        user.setEmail("john.doe@example.com");
+        user.setResetKey("abcdef1234567890");
+        mailService.sendCreationEmailSync(user);
+        verify(javaMailSender).send(messageCaptor.capture());
+        String content = messageCaptor.getValue().getContent().toString();
+        assertThat(content).contains("/account/reset/finish?key=abcdef1234567890");
+    }
+
+    @Test
+    void testSendPasswordResetMailSyncPropagatesFailure() {
+        User user = new User();
+        user.setLangKey(Constants.DEFAULT_LANGUAGE);
+        user.setLogin("john");
+        user.setEmail("john.doe@example.com");
+        doThrow(MailSendException.class).when(javaMailSender).send(any(MimeMessage.class));
+
+        assertThatThrownBy(() -> mailService.sendPasswordResetMailSync(user)).isInstanceOf(MailSendException.class);
+    }
+
+    @Test
     void testSendEmailWithException() {
         doThrow(MailSendException.class).when(javaMailSender).send(any(MimeMessage.class));
         try {

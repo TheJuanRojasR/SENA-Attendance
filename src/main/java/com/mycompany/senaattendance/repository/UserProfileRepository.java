@@ -30,6 +30,16 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // ------- SEARCH USER PROFILE BY DOCUMENT NUMBER -------
     Optional<UserProfile> findByDocumentNumber(String documentNumber);
 
+    /**
+     * Returns every profile that uses the given document number. The number alone does not
+     * identify a profile: the unique key is the (documentType, documentNumber) pair, so the same
+     * number can belong to profiles with different document types.
+     *
+     * @param documentNumber the document number to look up.
+     * @return all profiles with that document number, possibly empty.
+     */
+    List<UserProfile> findAllByDocumentNumber(String documentNumber);
+
     // ------- SEARCH USER PROFILE BY DOCUMENT TYPE AND DOCUMENT NUMBER -------
     Optional<UserProfile> findByDocumentTypeAndDocumentNumber(String documentTypeId, String documentNumber);
 
@@ -53,4 +63,25 @@ public interface UserProfileRepository extends MongoRepository<UserProfile, Stri
     // ------- SEARCH USERPROFILE BY ID -------
     @Query("{ 'user._id': { $in: ?0 } }")
     Page<UserProfile> findByUserIdIn(List<String> userIds, Pageable pageable);
+
+    /**
+     * Returns the profiles whose document number contains the given fragment, ignoring case.
+     * Used to resolve the text filters of the apprentice list (UC008, A2), because the
+     * enrollment stores the student as a {@code @DBRef} and cannot be filtered by profile
+     * fields in the same query.
+     *
+     * @param documentNumber the document number fragment to look for.
+     * @return the matching profiles, possibly empty.
+     */
+    List<UserProfile> findByDocumentNumberContainingIgnoreCase(String documentNumber);
+
+    /**
+     * Returns the profiles whose first name or first last name contains the given fragment,
+     * ignoring case.
+     *
+     * @param firstName the first name fragment to look for.
+     * @param firstLastName the first last name fragment to look for.
+     * @return the matching profiles, possibly empty.
+     */
+    List<UserProfile> findByFirstNameContainingIgnoreCaseOrFirstLastNameContainingIgnoreCase(String firstName, String firstLastName);
 }

@@ -1033,7 +1033,7 @@ class ProgramResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void createProgramAsNonAdminReturnsForbidden() throws Exception {
         long databaseSizeBeforeCreate = getRepositoryCount();
         ProgramDTO programDTO = programMapper.toDto(program);
@@ -1046,7 +1046,7 @@ class ProgramResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void updateProgramAsNonAdminReturnsForbidden() throws Exception {
         insertedProgram = programRepository.save(program);
 
@@ -1061,7 +1061,7 @@ class ProgramResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void partialUpdateProgramAsNonAdminReturnsForbidden() throws Exception {
         insertedProgram = programRepository.save(program);
 
@@ -1076,7 +1076,7 @@ class ProgramResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void setProgramActivatedAsNonAdminReturnsForbidden() throws Exception {
         insertedProgram = programRepository.save(program);
 
@@ -1092,7 +1092,7 @@ class ProgramResourceIT {
     }
 
     @Test
-    @WithMockUser(authorities = AuthoritiesConstants.COORDINATOR)
+    @WithMockUser(authorities = AuthoritiesConstants.APPRENTICE)
     void deleteProgramAsNonAdminReturnsForbidden() throws Exception {
         insertedProgram = programRepository.save(program);
 

@@ -5,6 +5,7 @@ import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.service.JustificationService;
 import com.mycompany.senaattendance.service.dto.JustificationDTO;
 import com.mycompany.senaattendance.web.rest.errors.BadRequestAlertException;
+import com.mycompany.senaattendance.web.rest.vm.JustificationIdVM;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
@@ -28,6 +29,11 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.mycompany.senaattendance.domain.Justification}.
+ *
+ * <p>Only an administrator and the owning apprentice reach this resource: the instructor
+ * decision over a justification arrives with UC010, so its authority is not granted here yet.
+ * Every operation is scoped in the service, so an apprentice only reads and writes their own
+ * justifications.
  */
 @RestController
 @RequestMapping("/api/justifications")
@@ -57,15 +63,7 @@ public class JustificationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> createJustification(@Valid @RequestBody JustificationDTO justificationDTO)
         throws URISyntaxException {
         LOG.debug("REST request to save Justification : {}", justificationDTO);
@@ -89,15 +87,7 @@ public class JustificationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> updateJustification(
         @PathVariable(value = "id", required = false) final String id,
         @Valid @RequestBody JustificationDTO justificationDTO
@@ -132,15 +122,7 @@ public class JustificationResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> partialUpdateJustification(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody JustificationDTO justificationDTO
@@ -166,13 +148,37 @@ public class JustificationResource {
     }
 
     /**
+     * {@code PATCH  /justifications/cancelled} : Cancel the pending justification identified by
+     * {@code id} (UC011, A4). Every part moves to {@code CANCELADA}, which releases the days it
+     * reserved in the per-type quota. The body must carry the justification {@code id}.
+     *
+     * @param justificationIdVM the request body carrying the justification id.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and body the cancelled
+     *         justification, {@code 400 (Bad Request)} when the justification is unknown, already
+     *         processed or owned by another apprentice.
+     */
+    @PatchMapping("/cancelled")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
+    public ResponseEntity<JustificationDTO> cancelJustification(@Valid @RequestBody JustificationIdVM justificationIdVM) {
+        String id = justificationIdVM.getId();
+        LOG.debug("REST request to cancel Justification : {}", id);
+        JustificationDTO justificationDTO = justificationService.cancel(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createAlert(applicationName, "justification.cancelled", id))
+            .body(justificationDTO);
+    }
+
+    /**
      * {@code GET  /justifications} : get all the Justifications.
+     *
+     * <p>An administrator reads every justification; an apprentice reads only their own.
      *
      * @param pageable the pagination information.
      * @param eagerload flag to eager load entities from relationships (This is applicable for many-to-many).
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of Justifications in body.
      */
     @GetMapping("")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<List<JustificationDTO>> getAllJustifications(
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "eagerload", required = false, defaultValue = "true") boolean eagerload
@@ -191,37 +197,17 @@ public class JustificationResource {
     /**
      * {@code GET  /justifications/:id} : get the "id" justification.
      *
+     * <p>An administrator reads any justification; a justification of another apprentice
+     * resolves as not found for an apprentice, so its existence is not disclosed.
+     *
      * @param id the id of the justificationDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the justificationDTO, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\") or hasAuthority(\"" + AuthoritiesConstants.APPRENTICE + "\")")
     public ResponseEntity<JustificationDTO> getJustification(@PathVariable("id") String id) {
         LOG.debug("REST request to get Justification : {}", id);
         Optional<JustificationDTO> justificationDTO = justificationService.findOne(id);
         return ResponseUtil.wrapOrNotFound(justificationDTO);
-    }
-
-    /**
-     * {@code DELETE  /justifications/:id} : delete the "id" justification.
-     *
-     * @param id the id of the justificationDTO to delete.
-     * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
-     */
-    @DeleteMapping("/{id}")
-    @PreAuthorize(
-        "hasAuthority(\"" +
-            AuthoritiesConstants.ADMIN +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.COORDINATOR +
-            "\") or hasAuthority(\"" +
-            AuthoritiesConstants.APPRENTICE +
-            "\")"
-    )
-    public ResponseEntity<Void> deleteJustification(@PathVariable("id") String id) {
-        LOG.debug("REST request to delete Justification : {}", id);
-        justificationService.delete(id);
-        return ResponseEntity.noContent()
-            .headers(HeaderUtil.createEntityDeletionAlert(applicationName, true, ENTITY_NAME, id))
-            .build();
     }
 }

@@ -53,7 +53,8 @@ public class JustificationAsserts {
             .satisfies(a -> assertThat(a.getEvidence()).as("check evidence").isEqualTo(expected.getEvidence()))
             .satisfies(a ->
                 assertThat(a.getEvidenceContentType()).as("check evidence content type").isEqualTo(expected.getEvidenceContentType())
-            );
+            )
+            .satisfies(a -> assertThat(a.getOnTime()).as("check onTime").isEqualTo(expected.getOnTime()));
     }
 
     /**

@@ -16,9 +16,9 @@ public class GradeDTO implements Serializable {
 
     @NotNull
     @Size(max = 20)
+    @Pattern(regexp = "\\d+", message = "El código debe contener solo números")
     private String code;
 
-    @NotNull
     private StateGrade state;
 
     @NotNull

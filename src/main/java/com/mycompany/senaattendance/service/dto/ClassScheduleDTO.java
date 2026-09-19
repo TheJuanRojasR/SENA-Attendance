@@ -14,6 +14,7 @@ public class ClassScheduleDTO implements Serializable {
 
     private String id;
 
+    @NotNull
     private DayOfWeek dayOfWeek;
 
     @NotNull

@@ -7,5 +7,4 @@ public enum StateAttendance {
     PRESENTE,
     FALLA,
     JUSTIFICADA,
-    TARDE,
 }

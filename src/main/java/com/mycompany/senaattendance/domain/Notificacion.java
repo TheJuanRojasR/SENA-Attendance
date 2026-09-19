@@ -10,7 +10,10 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 /**
- * A Notificacion.
+ * A notification of one user (UC018). The delivery state ({@code estado}) and the read state
+ * ({@code read}) are independent: a delivered notification can still be unread. The optional
+ * reference points to the object that originated the notification (a justification, an alert),
+ * so the inbox can link back to its detail.
  */
 @Document(collection = "notificacion")
 @SuppressWarnings("common-java:DuplicatedBlocks")
@@ -35,6 +38,15 @@ public class Notificacion extends AbstractAuditingEntity<String> {
     @Size(max = 500)
     @Field("mensaje")
     private String mensaje;
+
+    @Field("read")
+    private Boolean read;
+
+    @Field("reference_type")
+    private String referenceType;
+
+    @Field("reference_id")
+    private String referenceId;
 
     public String getId() {
         return this.id;
@@ -101,6 +113,45 @@ public class Notificacion extends AbstractAuditingEntity<String> {
         this.mensaje = mensaje;
     }
 
+    public Boolean getRead() {
+        return this.read;
+    }
+
+    public Notificacion read(Boolean read) {
+        this.setRead(read);
+        return this;
+    }
+
+    public void setRead(Boolean read) {
+        this.read = read;
+    }
+
+    public String getReferenceType() {
+        return this.referenceType;
+    }
+
+    public Notificacion referenceType(String referenceType) {
+        this.setReferenceType(referenceType);
+        return this;
+    }
+
+    public void setReferenceType(String referenceType) {
+        this.referenceType = referenceType;
+    }
+
+    public String getReferenceId() {
+        return this.referenceId;
+    }
+
+    public Notificacion referenceId(String referenceId) {
+        this.setReferenceId(referenceId);
+        return this;
+    }
+
+    public void setReferenceId(String referenceId) {
+        this.referenceId = referenceId;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -126,6 +177,9 @@ public class Notificacion extends AbstractAuditingEntity<String> {
             ", tipo='" + getTipo() + "'" +
             ", estado='" + getEstado() + "'" +
             ", mensaje='" + getMensaje() + "'" +
+            ", read='" + getRead() + "'" +
+            ", referenceType='" + getReferenceType() + "'" +
+            ", referenceId='" + getReferenceId() + "'" +
             "}";
     }
 }
