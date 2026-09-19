@@ -8,6 +8,7 @@ import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.List;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +22,9 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 class MigrateTrimesterStatusToStateIT {
 
     private static final String COLLECTION = "trimester";
-    private static final String CLOSED_ID = "legacy-trimester-migration-closed";
-    private static final String ACTIVE_ID = "legacy-trimester-migration-active";
-    private static final String FUTURE_ID = "legacy-trimester-migration-future";
+    private static final ObjectId CLOSED_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e571");
+    private static final ObjectId ACTIVE_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e572");
+    private static final ObjectId FUTURE_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e573");
 
     @Autowired
     private MongoTemplate template;
@@ -47,7 +48,7 @@ class MigrateTrimesterStatusToStateIT {
         assertThat(statusOf(FUTURE_ID)).isEqualTo("FUTURO");
     }
 
-    private void insertLegacy(String id, LocalDate start, LocalDate end, boolean status) {
+    private void insertLegacy(ObjectId id, LocalDate start, LocalDate end, boolean status) {
         template
             .getCollection(COLLECTION)
             .insertOne(
@@ -59,7 +60,7 @@ class MigrateTrimesterStatusToStateIT {
             );
     }
 
-    private String statusOf(String id) {
+    private String statusOf(ObjectId id) {
         Document document = template.getCollection(COLLECTION).find(new Document("_id", id)).first();
         assertThat(document).isNotNull();
         return document.getString("status");

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.mycompany.senaattendance.IntegrationTest;
 import java.util.List;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +19,8 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 class MigrateGradeInactivaToAplazadaIT {
 
     private static final String COLLECTION = "grade";
-    private static final String LEGACY_ID = "legacy-grade-migration-inactiva";
-    private static final String PAUSED_ID = "legacy-grade-migration-aplazada";
+    private static final ObjectId LEGACY_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e541");
+    private static final ObjectId PAUSED_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e542");
 
     @Autowired
     private MongoTemplate template;
@@ -40,7 +41,7 @@ class MigrateGradeInactivaToAplazadaIT {
         assertThat(stateOf(PAUSED_ID)).isEqualTo("APLAZADA");
     }
 
-    private String stateOf(String id) {
+    private String stateOf(ObjectId id) {
         Document document = template.getCollection(COLLECTION).find(new Document("_id", id)).first();
         assertThat(document).isNotNull();
         return document.getString("state");

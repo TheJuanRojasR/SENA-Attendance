@@ -181,12 +181,16 @@ class ApprenticeResourceIT {
     }
 
     /**
-     * Persists a document type so a profile can reference a real one.
+     * Persists a document type with the given name so a profile can reference a real one. The
+     * caller supplies the name, so two types can coexist under the unique name index.
      *
+     * @param name the document type name.
      * @return the persisted document type.
      */
-    private DocumentType persistDocumentType() {
-        DocumentType documentType = documentTypeRepository.save(DocumentTypeResourceIT.createEntity());
+    private DocumentType persistDocumentType(String name) {
+        DocumentType documentType = DocumentTypeResourceIT.createEntity();
+        documentType.setName(name);
+        documentType = documentTypeRepository.save(documentType);
         insertedDocumentTypes.add(documentType);
         return documentType;
     }
@@ -349,8 +353,8 @@ class ApprenticeResourceIT {
     void enrollWithAmbiguousDocumentNumberIsRejected() throws Exception {
         // The same number is valid across document types, so it does not identify a single
         // apprentice: the enrollment must reject it instead of failing with a server error.
-        persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true, persistDocumentType());
-        persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true, persistDocumentType());
+        persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true, persistDocumentType("DOC_TYPE_ONE"));
+        persistApprenticeProfile(DEFAULT_DOCUMENT_NUMBER, true, persistDocumentType("DOC_TYPE_TWO"));
         Grade grade = persistGrade("UC00810", StateGrade.ACTIVA);
 
         long databaseSizeBeforeCreate = apprenticeRepository.count();

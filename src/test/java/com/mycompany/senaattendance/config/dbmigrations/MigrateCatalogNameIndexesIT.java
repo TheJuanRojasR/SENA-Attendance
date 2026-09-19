@@ -8,6 +8,7 @@ import com.mongodb.client.MongoCollection;
 import com.mycompany.senaattendance.IntegrationTest;
 import java.util.List;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,9 +35,9 @@ class MigrateCatalogNameIndexesIT {
 
     private static final String INDEX_NAME = "uk_modality_name_ci";
 
-    private static final String FIRST_ID = "catalog-name-indexes-first";
+    private static final ObjectId FIRST_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e511");
 
-    private static final String SECOND_ID = "catalog-name-indexes-second";
+    private static final ObjectId SECOND_ID = new ObjectId("64b7a1f2e4b0a1b2c3d4e512");
 
     private static final String FIRST_NAME = "Catalog index migration";
 
