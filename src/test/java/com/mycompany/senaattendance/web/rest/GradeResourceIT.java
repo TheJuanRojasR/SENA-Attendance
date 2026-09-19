@@ -759,6 +759,9 @@ class GradeResourceIT {
     @Test
     void putGradeWithInactiveModalityReturnsBadRequest() throws Exception {
         Modality inactiveModality = ModalityResourceIT.createEntity();
+        // The modality persisted by persistCatalogRefs() uses the default name, so the inactive
+        // fixture needs its own to satisfy the unique name index.
+        inactiveModality.setName("Inactive modality");
         inactiveModality.setIsActive(false);
         inactiveModality = modalityRepository.save(inactiveModality);
 
@@ -783,6 +786,9 @@ class GradeResourceIT {
     @Test
     void putGradeWithInactiveTimeSlotReturnsBadRequest() throws Exception {
         TimeSlot inactiveTimeSlot = TimeSlotResourceIT.createEntity();
+        // The time slot persisted by persistCatalogRefs() uses the default name, so the inactive
+        // fixture needs its own to satisfy the unique name index.
+        inactiveTimeSlot.setName("Inactive time slot");
         inactiveTimeSlot.setIsActive(false);
         inactiveTimeSlot = timeSlotRepository.save(inactiveTimeSlot);
 

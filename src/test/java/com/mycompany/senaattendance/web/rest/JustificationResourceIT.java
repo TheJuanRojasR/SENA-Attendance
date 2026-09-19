@@ -1424,9 +1424,17 @@ class JustificationResourceIT {
     }
 
     private Grade persistGrade(String code, LocalDate startDate, LocalDate endDate) {
-        Program program = programRepository.save(ProgramResourceIT.createEntity());
-        Modality modality = modalityRepository.save(ModalityResourceIT.createEntity());
-        TimeSlot timeSlot = timeSlotRepository.save(TimeSlotResourceIT.createEntity());
+        // The catalog names derive from the ficha code so two calls never collide on the unique
+        // name index of the catalogs.
+        Program program = ProgramResourceIT.createEntity();
+        program.setName("Program " + code);
+        program = programRepository.save(program);
+        Modality modality = ModalityResourceIT.createEntity();
+        modality.setName("Modality " + code);
+        modality = modalityRepository.save(modality);
+        TimeSlot timeSlot = TimeSlotResourceIT.createEntity();
+        timeSlot.setName("Time slot " + code);
+        timeSlot = timeSlotRepository.save(timeSlot);
 
         Grade grade = GradeResourceIT.createEntity();
         grade.setCode(code);
