@@ -19,8 +19,8 @@
       },
       "id": "ID",
       "name": "Nombre",
-      "limitPerTrimester": "Límite Por Trimestre",
-      "state": "Estado"
+      "limitPerTrimester": "Límite Dias por Trimestre",
+      "status": "Estado"
     }
   }
 }

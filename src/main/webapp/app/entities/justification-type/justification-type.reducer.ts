@@ -28,6 +28,15 @@ export const getEntities = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const getActiveEntities = createAsyncThunk(
+  'justificationType/fetch_active_entity_list',
+  async () => {
+    const requestUrl = `${apiUrl}/active`;
+    return axios.get<IJustificationType[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
 export const getEntity = createAsyncThunk(
   'justificationType/fetch_entity',
   async (id: string | number) => {
@@ -50,7 +59,7 @@ export const createEntity = createAsyncThunk(
 export const updateEntity = createAsyncThunk(
   'justificationType/update_entity',
   async (entity: IJustificationType, thunkAPI) => {
-    const result = await axios.put<IJustificationType>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.put<IJustificationType>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -60,7 +69,7 @@ export const updateEntity = createAsyncThunk(
 export const partialUpdateEntity = createAsyncThunk(
   'justificationType/partial_update_entity',
   async (entity: IJustificationType, thunkAPI) => {
-    const result = await axios.patch<IJustificationType>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.patch<IJustificationType>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -94,7 +103,7 @@ export const JustificationTypeSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = {};
       })
-      .addMatcher(isFulfilled(getEntities), (state, action) => {
+      .addMatcher(isFulfilled(getEntities, getActiveEntities), (state, action) => {
         const { data } = action.payload;
 
         return {
@@ -115,7 +124,7 @@ export const JustificationTypeSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = action.payload.data;
       })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addMatcher(isPending(getEntities, getEntity, getActiveEntities), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;

@@ -15,7 +15,7 @@ const JustificationTypeRoutes = () => (
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <JustificationType />
         </PrivateRoute>
       }
@@ -23,7 +23,7 @@ const JustificationTypeRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <JustificationTypeUpdate />
         </PrivateRoute>
       }
@@ -32,7 +32,7 @@ const JustificationTypeRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <JustificationTypeDetail />
           </PrivateRoute>
         }
@@ -40,7 +40,7 @@ const JustificationTypeRoutes = () => (
       <Route
         path="edit"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <JustificationTypeUpdate />
           </PrivateRoute>
         }
@@ -48,7 +48,7 @@ const JustificationTypeRoutes = () => (
       <Route
         path="delete"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <JustificationTypeDeleteDialog />
           </PrivateRoute>
         }

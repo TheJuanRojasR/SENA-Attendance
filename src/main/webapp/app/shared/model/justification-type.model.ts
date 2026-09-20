@@ -4,7 +4,7 @@ export interface IJustificationType {
   id?: string;
   name?: string;
   limitPerTrimester?: number | null;
-  state?: keyof typeof State;
+  status?: keyof typeof State;
 }
 
 export const defaultValue: Readonly<IJustificationType> = {};
