@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { Translate, getSortState } from 'react-jhipster';
+import { Button, Card, Col, Table } from 'react-bootstrap';
+import { Translate, getSortState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
+import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overrideSortStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC } from 'app/shared/util/pagination.constants';
 
-import { getEntities } from './modality.reducer';
+import { getEntities, getActiveEntities } from './modality.reducer';
+import LinkButton from 'app/shared/components/link-button';
 
 export const Modality = () => {
   const dispatch = useAppDispatch();
@@ -19,16 +20,22 @@ export const Modality = () => {
   const navigate = useNavigate();
 
   const [sortState, setSortState] = useState(overrideSortStateWithQueryParams(getSortState(pageLocation, 'id'), pageLocation.search));
+  const [search, setSearch] = useState('');
+  const [stateFilter, setStateFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
 
   const modalityList = useAppSelector(state => state.modality.entities);
   const loading = useAppSelector(state => state.modality.loading);
 
+  const filteredModalityList = modalityList
+    ?.filter(modality => modality.name?.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter(modality => (stateFilter === 'INACTIVE' ? !modality.isActive : true));
+
   const getAllEntities = () => {
-    dispatch(
-      getEntities({
-        sort: `${sortState.sort},${sortState.order}`,
-      }),
-    );
+    if (stateFilter === 'ACTIVE') {
+      dispatch(getActiveEntities({ sort: `${sortState.sort},${sortState.order}` }));
+    } else {
+      dispatch(getEntities({ sort: `${sortState.sort},${sortState.order}` }));
+    }
   };
 
   const sortEntities = () => {
@@ -41,7 +48,7 @@ export const Modality = () => {
 
   useEffect(() => {
     sortEntities();
-  }, [sortState.order, sortState.sort]);
+  }, [sortState.order, sortState.sort, stateFilter]);
 
   const sort = p => () => {
     setSortState({
@@ -51,96 +58,84 @@ export const Modality = () => {
     });
   };
 
-  const handleSyncList = () => {
-    sortEntities();
-  };
-
-  const getSortIconByFieldName = (fieldName: string) => {
-    const sortFieldName = sortState.sort;
-    const { order } = sortState;
-    if (sortFieldName !== fieldName) {
-      return faSort;
-    }
-    return order === ASC ? faSortUp : faSortDown;
-  };
-
   return (
     <div>
       <h2 id="modality-heading" data-cy="ModalityHeading">
         <Translate contentKey="senaAttendanceApp.modality.home.title">Modalities</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon="sync" spin={loading} />{' '}
-            <Translate contentKey="senaAttendanceApp.modality.home.refreshListLabel">Refresh List</Translate>
-          </Button>
-          <Link to="/modality/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.modality.home.createLabel">Create new Modality</Translate>
-          </Link>
-        </div>
       </h2>
+      <p>
+        Administre los tipos y modalidades de formacion ofertadas en el centro institucional (Presencial, Virtual, Mixta, etc.). Configure
+        disponibilidad y estados según los programas formativos
+      </p>
+      <Col className="d-flex justify-content-between align-items-center" md="12">
+        <div className="d-flex align-items-center entitiesSearchBar">
+          <div className="d-flex align-items-center w-50">
+            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+            <ValidatedInput name="search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
+            <option value="ALL">Todas</option>
+            <option value="ACTIVE">Activas</option>
+            <option value="INACTIVE">Inactivas</option>
+          </ValidatedInput>
+        </div>
+        <LinkButton to="/modality/new" data-cy="entityCreateButton">
+          <FontAwesomeIcon icon="plus" />{' '}
+          <Translate contentKey="senaAttendanceApp.modality.home.createLabel">Create new Modality</Translate>
+        </LinkButton>
+      </Col>
       <div className="table-responsive">
-        {modalityList?.length > 0 ? (
-          <Table responsive>
-            <thead>
-              <tr>
-                <th className="hand" onClick={sort('id')}>
-                  <Translate contentKey="senaAttendanceApp.modality.id">ID</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
-                </th>
-                <th className="hand" onClick={sort('name')}>
-                  <Translate contentKey="senaAttendanceApp.modality.name">Name</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
-                </th>
-                <th className="hand" onClick={sort('isActive')}>
-                  <Translate contentKey="senaAttendanceApp.modality.isActive">Is Active</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('isActive')} />
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {modalityList.map(modality => (
-                <tr key={`entity-${modality.id}`} data-cy="entityTable">
-                  <td>
-                    <Button as={Link as any} to={`/modality/${modality.id}`} variant="link" size="sm">
-                      {modality.id}
-                    </Button>
-                  </td>
-                  <td>{modality.name}</td>
-                  <td>{modality.isActive ? 'true' : 'false'}</td>
-                  <td className="text-end">
-                    <div className="btn-group flex-btn-group-container">
-                      <Button as={Link as any} to={`/modality/${modality.id}`} variant="info" size="sm" data-cy="entityDetailsButton">
-                        <FontAwesomeIcon icon="eye" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
-                      </Button>
-                      <Button as={Link as any} to={`/modality/${modality.id}/edit`} variant="primary" size="sm" data-cy="entityEditButton">
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() => (globalThis.location.href = `/modality/${modality.id}/delete`)}
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
-                    </div>
-                  </td>
+        {filteredModalityList?.length > 0 ? (
+          <Card>
+            <Table responsive>
+              <thead>
+                <tr>
+                  <th className="hand" onClick={sort('name')}>
+                    <Translate contentKey="senaAttendanceApp.modality.name">Name</Translate>{' '}
+                  </th>
+                  <th className="hand" onClick={sort('isActive')}>
+                    <Translate contentKey="senaAttendanceApp.modality.isActive">Is Active</Translate>{' '}
+                  </th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {filteredModalityList.map(modality => (
+                  <tr key={`entity-${modality.id}`} data-cy="entityTable">
+                    <td>{modality.name}</td>
+                    <td>{modality.isActive ? 'true' : 'false'}</td>
+                    <td className="text-end">
+                      <div className="btn-group flex-btn-group-container">
+                        <Button
+                          as={Link as any}
+                          to={`/modality/${modality.id}/edit`}
+                          variant="primary"
+                          size="sm"
+                          data-cy="entityEditButton"
+                        >
+                          <FontAwesomeIcon icon="pencil-alt" />{' '}
+                          <span className="d-none d-md-inline">
+                            <Translate contentKey="entity.action.edit">Edit</Translate>
+                          </span>
+                        </Button>
+                        <Button
+                          onClick={() => (globalThis.location.href = `/modality/${modality.id}/delete`)}
+                          variant="danger"
+                          size="sm"
+                          data-cy="entityDeleteButton"
+                        >
+                          <FontAwesomeIcon icon="trash" />{' '}
+                          <span className="d-none d-md-inline">
+                            <Translate contentKey="entity.action.delete">Delete</Translate>
+                          </span>
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card>
         ) : (
           !loading && (
             <div className="alert alert-success">

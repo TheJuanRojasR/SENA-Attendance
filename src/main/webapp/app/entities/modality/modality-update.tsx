@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Button, Col, Row } from 'react-bootstrap';
+import { Button, Card, Col, Row } from 'react-bootstrap';
 import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 
-import { createEntity, getEntity, reset, updateEntity } from './modality.reducer';
+import { createEntity, getEntity, reset, partialUpdateEntity } from './modality.reducer';
 
 export const ModalityUpdate = () => {
   const dispatch = useAppDispatch();
@@ -49,7 +49,7 @@ export const ModalityUpdate = () => {
     if (isNew) {
       dispatch(createEntity(entity));
     } else {
-      dispatch(updateEntity(entity));
+      dispatch(partialUpdateEntity(entity));
     }
   };
 
@@ -63,61 +63,63 @@ export const ModalityUpdate = () => {
   return (
     <div>
       <Row className="justify-content-center">
-        <Col md="8">
-          <h2 id="senaAttendanceApp.modality.home.createOrEditLabel" data-cy="ModalityCreateUpdateHeading">
-            <Translate contentKey="senaAttendanceApp.modality.home.createOrEditLabel">Create or edit a Modality</Translate>
-          </h2>
+        <Col md="12">
+          {!isNew && (
+            <h2 id="senaAttendanceApp.modality.home.createOrEditLabel" data-cy="ModalityCreateUpdateHeading">
+              Editar Modalidad
+            </h2>
+          )}
+          {isNew && (
+            <div>
+              <h2 id="senaAttendanceApp.modality.home.createOrEditLabel" data-cy="ModalityCreateUpdateHeading">
+                Crear Modalidad
+              </h2>
+              <p>Complete el siguiente formulario para registrar una nueva modalidad formativa instucional en el centro de formacion</p>
+            </div>
+          )}
         </Col>
       </Row>
       <Row className="justify-content-center">
-        <Col md="8">
+        <Col md="12">
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
-              {!isNew && (
+            <Card>
+              <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
                 <ValidatedField
-                  name="id"
-                  required
-                  readOnly
-                  id="modality-id"
-                  label={translate('global.field.id')}
-                  validate={{ required: true }}
+                  label={translate('senaAttendanceApp.modality.name')}
+                  id="modality-name"
+                  name="name"
+                  data-cy="name"
+                  type="text"
+                  validate={{
+                    required: { value: true, message: translate('entity.validation.required') },
+                    maxLength: { value: 50, message: translate('entity.validation.maxlength', { max: 50 }) },
+                  }}
                 />
-              )}
-              <ValidatedField
-                label={translate('senaAttendanceApp.modality.name')}
-                id="modality-name"
-                name="name"
-                data-cy="name"
-                type="text"
-                validate={{
-                  required: { value: true, message: translate('entity.validation.required') },
-                  maxLength: { value: 50, message: translate('entity.validation.maxlength', { max: 50 }) },
-                }}
-              />
-              <ValidatedField
-                label={translate('senaAttendanceApp.modality.isActive')}
-                id="modality-isActive"
-                name="isActive"
-                data-cy="isActive"
-                check
-                type="checkbox"
-              />
-              <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/modality" replace variant="info">
-                <FontAwesomeIcon icon="arrow-left" />
+                {!isNew && (
+                  <ValidatedField
+                    label={translate('senaAttendanceApp.modality.isActive')}
+                    id="modality-isActive"
+                    name="isActive"
+                    data-cy="isActive"
+                    check
+                    type="checkbox"
+                  />
+                )}
+                <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/modality" replace variant="info">
+                  <FontAwesomeIcon icon="arrow-left" />
+                  &nbsp;
+                  <span className="d-none d-md-inline">Canelar</span>
+                </Button>
                 &nbsp;
-                <span className="d-none d-md-inline">
-                  <Translate contentKey="entity.action.back">Back</Translate>
-                </span>
-              </Button>
-              &nbsp;
-              <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
-                <FontAwesomeIcon icon="save" />
-                &nbsp;
-                <Translate contentKey="entity.action.save">Save</Translate>
-              </Button>
-            </ValidatedForm>
+                <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
+                  <FontAwesomeIcon icon="save" />
+                  &nbsp;
+                  <Translate contentKey="entity.action.save">Save</Translate>
+                </Button>
+              </ValidatedForm>
+            </Card>
           )}
         </Col>
       </Row>

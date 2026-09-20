@@ -15,7 +15,7 @@ const ModalityRoutes = () => (
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <Modality />
         </PrivateRoute>
       }
@@ -23,7 +23,7 @@ const ModalityRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <ModalityUpdate />
         </PrivateRoute>
       }
@@ -32,7 +32,7 @@ const ModalityRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <ModalityDetail />
           </PrivateRoute>
         }
@@ -40,7 +40,7 @@ const ModalityRoutes = () => (
       <Route
         path="edit"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <ModalityUpdate />
           </PrivateRoute>
         }
@@ -48,7 +48,7 @@ const ModalityRoutes = () => (
       <Route
         path="delete"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <ModalityDeleteDialog />
           </PrivateRoute>
         }
