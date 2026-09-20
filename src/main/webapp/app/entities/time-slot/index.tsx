@@ -4,7 +4,6 @@ import { Route } from 'react-router';
 import ErrorBoundaryRoutes from 'app/shared/error/error-boundary-routes';
 
 import TimeSlot from './time-slot';
-import TimeSlotDeleteDialog from './time-slot-delete-dialog';
 import TimeSlotDetail from './time-slot-detail';
 import TimeSlotUpdate from './time-slot-update';
 import PrivateRoute from 'app/shared/auth/private-route';
@@ -15,7 +14,7 @@ const TimeSlotRoutes = () => (
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <TimeSlot />
         </PrivateRoute>
       }
@@ -23,7 +22,7 @@ const TimeSlotRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <TimeSlotUpdate />
         </PrivateRoute>
       }
@@ -32,7 +31,7 @@ const TimeSlotRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <TimeSlotDetail />
           </PrivateRoute>
         }
@@ -40,16 +39,8 @@ const TimeSlotRoutes = () => (
       <Route
         path="edit"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <TimeSlotUpdate />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="delete"
-        element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
-            <TimeSlotDeleteDialog />
           </PrivateRoute>
         }
       />

@@ -59,7 +59,7 @@ export const createEntity = createAsyncThunk(
 export const updateEntity = createAsyncThunk(
   'timeSlot/update_entity',
   async (entity: ITimeSlot, thunkAPI) => {
-    const result = await axios.put<ITimeSlot>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.put<ITimeSlot>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -69,18 +69,7 @@ export const updateEntity = createAsyncThunk(
 export const partialUpdateEntity = createAsyncThunk(
   'timeSlot/partial_update_entity',
   async (entity: ITimeSlot, thunkAPI) => {
-    const result = await axios.patch<ITimeSlot>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
-
-export const deleteEntity = createAsyncThunk(
-  'timeSlot/delete_entity',
-  async (id: string | number, thunkAPI) => {
-    const requestUrl = `${apiUrl}/${id}`;
-    const result = await axios.delete<ITimeSlot>(requestUrl);
+    const result = await axios.patch<ITimeSlot>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -97,11 +86,6 @@ export const TimeSlotSlice = createEntitySlice({
       .addCase(getEntity.fulfilled, (state, action) => {
         state.loading = false;
         state.entity = action.payload.data;
-      })
-      .addCase(deleteEntity.fulfilled, state => {
-        state.updating = false;
-        state.updateSuccess = true;
-        state.entity = {};
       })
       .addMatcher(isFulfilled(getEntities, getActiveEntities), (state, action) => {
         const { data } = action.payload;
@@ -129,7 +113,7 @@ export const TimeSlotSlice = createEntitySlice({
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
