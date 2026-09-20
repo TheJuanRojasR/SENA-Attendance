@@ -18,8 +18,10 @@
         "title": "Tipo de Documento"
       },
       "id": "ID",
-      "name": "Nombre",
-      "initials": "Iniciales"
+      "name": "Nombre del Documento",
+      "initials": "Iniciales/Siglas",
+      "isActive": "Estado",
+      "Active": "Activo"
     }
   }
 }

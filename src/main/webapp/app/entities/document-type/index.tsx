@@ -15,7 +15,7 @@ const DocumentTypeRoutes = () => (
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <DocumentType />
         </PrivateRoute>
       }
@@ -23,7 +23,7 @@ const DocumentTypeRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <DocumentTypeUpdate />
         </PrivateRoute>
       }
@@ -32,7 +32,7 @@ const DocumentTypeRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <DocumentTypeDetail />
           </PrivateRoute>
         }
@@ -40,7 +40,7 @@ const DocumentTypeRoutes = () => (
       <Route
         path="edit"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <DocumentTypeUpdate />
           </PrivateRoute>
         }
@@ -48,7 +48,7 @@ const DocumentTypeRoutes = () => (
       <Route
         path="delete"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <DocumentTypeDeleteDialog />
           </PrivateRoute>
         }
