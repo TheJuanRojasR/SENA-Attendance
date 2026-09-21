@@ -28,6 +28,31 @@ export const getEntities = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const getActiveEntities = createAsyncThunk(
+  'program/fetch_active_entity_list',
+  async () => {
+    const requestUrl = `${apiUrl}/active`;
+    return axios.get<IProgram[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
+export const searchEntities = createAsyncThunk(
+  'program/search_entity_list',
+  async ({ search, status, page, size, sort }: { search?: string; status?: boolean; page?: number; size?: number; sort?: string }) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status !== undefined) params.set('status', String(status));
+    if (page !== undefined) params.set('page', String(page));
+    if (size !== undefined) params.set('size', String(size));
+    if (sort) params.set('sort', sort);
+    params.set('cacheBuster', String(Date.now()));
+    const requestUrl = `${apiUrl}/search?${params.toString()}`;
+    return axios.get<IProgram[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
 export const getEntity = createAsyncThunk(
   'program/fetch_entity',
   async (id: string | number) => {
@@ -50,7 +75,7 @@ export const createEntity = createAsyncThunk(
 export const updateEntity = createAsyncThunk(
   'program/update_entity',
   async (entity: IProgram, thunkAPI) => {
-    const result = await axios.put<IProgram>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.put<IProgram>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -60,7 +85,7 @@ export const updateEntity = createAsyncThunk(
 export const partialUpdateEntity = createAsyncThunk(
   'program/partial_update_entity',
   async (entity: IProgram, thunkAPI) => {
-    const result = await axios.patch<IProgram>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.patch<IProgram>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -94,7 +119,7 @@ export const ProgramSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = {};
       })
-      .addMatcher(isFulfilled(getEntities), (state, action) => {
+      .addMatcher(isFulfilled(getEntities, searchEntities), (state, action) => {
         const { data, headers } = action.payload;
 
         return {
@@ -104,13 +129,17 @@ export const ProgramSlice = createEntitySlice({
           totalItems: parseInt(headers['x-total-count'], 10),
         };
       })
+      .addMatcher(isFulfilled(getActiveEntities), (state, action) => {
+        state.loading = false;
+        state.entities = action.payload.data;
+      })
       .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
         state.updating = false;
         state.loading = false;
         state.updateSuccess = true;
         state.entity = action.payload.data;
       })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addMatcher(isPending(getEntities, getEntity, getActiveEntities, searchEntities), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;

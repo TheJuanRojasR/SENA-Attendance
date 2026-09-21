@@ -18,10 +18,11 @@
         "title": "Programa de Formacion"
       },
       "id": "ID",
-      "name": "Nombre",
-      "initials": "Iniciales",
+      "name": "Nombre del Programa",
+      "initials": "Iniciales/Siglas",
       "code": "Código",
-      "trimesters": "Trimestres"
+      "trimesters": "Trimestres",
+      "status": "Estado"
     }
   }
 }

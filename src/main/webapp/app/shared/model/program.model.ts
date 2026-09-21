@@ -4,6 +4,7 @@ export interface IProgram {
   initials?: string;
   code?: string;
   trimesters?: number;
+  status?: boolean;
 }
 
 export const defaultValue: Readonly<IProgram> = {};

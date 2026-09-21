@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, Translate, getPaginationState } from 'react-jhipster';
+import { Button, Card, Col, Table } from 'react-bootstrap';
+import { JhiItemCount, JhiPagination, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
-import { getEntities } from './program.reducer';
+import { getActiveEntities, getEntities, searchEntities } from './program.reducer';
+import LinkButton from 'app/shared/components/link-button';
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export const Program = () => {
   const dispatch = useAppDispatch();
@@ -21,19 +24,54 @@ export const Program = () => {
   const [paginationState, setPaginationState] = useState(
     overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
   );
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [stateFilter, setStateFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
 
   const programList = useAppSelector(state => state.program.entities);
   const loading = useAppSelector(state => state.program.loading);
   const totalItems = useAppSelector(state => state.program.totalItems);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  // Vuelve a la primera página cuando cambian los filtros, para no quedar en una página vacía.
+  useEffect(() => {
+    if (paginationState.activePage !== 1) {
+      setPaginationState({ ...paginationState, activePage: 1 });
+    }
+  }, [debouncedSearch, stateFilter]);
+
+  const filteredProgramList = programList
+    ?.filter(program => program.name?.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter(program => (stateFilter === 'INACTIVE' ? program.status === false : true));
+
+  const statusParam = stateFilter === 'ACTIVE' ? true : stateFilter === 'INACTIVE' ? false : undefined;
+
   const getAllEntities = () => {
-    dispatch(
-      getEntities({
-        page: paginationState.activePage - 1,
-        size: paginationState.itemsPerPage,
-        sort: `${paginationState.sort},${paginationState.order}`,
-      }),
-    );
+    if (debouncedSearch) {
+      dispatch(
+        searchEntities({
+          search: debouncedSearch,
+          status: statusParam,
+          page: paginationState.activePage - 1,
+          size: paginationState.itemsPerPage,
+          sort: `${paginationState.sort},${paginationState.order}`,
+        }),
+      );
+    } else if (stateFilter === 'ACTIVE') {
+      dispatch(getActiveEntities());
+    } else {
+      dispatch(
+        getEntities({
+          page: paginationState.activePage - 1,
+          size: paginationState.itemsPerPage,
+          sort: `${paginationState.sort},${paginationState.order}`,
+        }),
+      );
+    }
   };
 
   const sortEntities = () => {
@@ -46,7 +84,7 @@ export const Program = () => {
 
   useEffect(() => {
     sortEntities();
-  }, [paginationState.activePage, paginationState.order, paginationState.sort]);
+  }, [paginationState.activePage, paginationState.order, paginationState.sort, stateFilter, debouncedSearch]);
 
   useEffect(() => {
     const params = new URLSearchParams(pageLocation.search);
@@ -77,10 +115,6 @@ export const Program = () => {
       activePage: currentPage,
     });
 
-  const handleSyncList = () => {
-    sortEntities();
-  };
-
   const getSortIconByFieldName = (fieldName: string) => {
     const sortFieldName = paginationState.sort;
     const { order } = paginationState;
@@ -94,97 +128,90 @@ export const Program = () => {
     <div>
       <h2 id="program-heading" data-cy="ProgramHeading">
         <Translate contentKey="senaAttendanceApp.program.home.title">Programs</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon="sync" spin={loading} />{' '}
-            <Translate contentKey="senaAttendanceApp.program.home.refreshListLabel">Refresh List</Translate>
-          </Button>
-          <Link to="/program/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.program.home.createLabel">Create new Program</Translate>
-          </Link>
-        </div>
       </h2>
+      <p>
+        Administre el catálogo de programas ofrecidos. Puede crear nuevos programas, modificar sus caracteristicas o gestionar su estado de
+        disponibilidad.{' '}
+      </p>
+      <Col className="d-flex justify-content-between align-items-center" md="12">
+        <div className="d-flex align-items-center entitiesSearchBar">
+          <div className="d-flex align-items-center w-50">
+            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+            <ValidatedInput name="search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
+            <option value="ALL">Todas</option>
+            <option value="ACTIVE">Activas</option>
+            <option value="INACTIVE">Inactivas</option>
+          </ValidatedInput>
+        </div>
+        <LinkButton to="/program/new" data-cy="entityCreateButton">
+          <FontAwesomeIcon icon="plus" />
+          &nbsp;
+          <Translate contentKey="senaAttendanceApp.program.home.createLabel">Create new Program</Translate>
+        </LinkButton>
+      </Col>
       <div className="table-responsive">
-        {programList?.length > 0 ? (
-          <Table responsive>
-            <thead>
-              <tr>
-                <th className="hand" onClick={sort('id')}>
-                  <Translate contentKey="senaAttendanceApp.program.id">ID</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
-                </th>
-                <th className="hand" onClick={sort('name')}>
-                  <Translate contentKey="senaAttendanceApp.program.name">Name</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
-                </th>
-                <th className="hand" onClick={sort('initials')}>
-                  <Translate contentKey="senaAttendanceApp.program.initials">Initials</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('initials')} />
-                </th>
-                <th className="hand" onClick={sort('code')}>
-                  <Translate contentKey="senaAttendanceApp.program.code">Code</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
-                </th>
-                <th className="hand" onClick={sort('trimesters')}>
-                  <Translate contentKey="senaAttendanceApp.program.trimesters">Trimesters</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('trimesters')} />
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {programList.map(program => (
-                <tr key={`entity-${program.id}`} data-cy="entityTable">
-                  <td>
-                    <Button as={Link as any} to={`/program/${program.id}`} variant="link" size="sm">
-                      {program.id}
-                    </Button>
-                  </td>
-                  <td>{program.name}</td>
-                  <td>{program.initials}</td>
-                  <td>{program.code}</td>
-                  <td>{program.trimesters}</td>
-                  <td className="text-end">
-                    <div className="btn-group flex-btn-group-container">
-                      <Button as={Link as any} to={`/program/${program.id}`} variant="info" size="sm" data-cy="entityDetailsButton">
-                        <FontAwesomeIcon icon="eye" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/program/${program.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          (globalThis.location.href = `/program/${program.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                        }
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
-                    </div>
-                  </td>
+        {filteredProgramList?.length > 0 ? (
+          <Card>
+            <Table responsive>
+              <thead>
+                <tr>
+                  <th className="hand" onClick={sort('code')}>
+                    <Translate contentKey="senaAttendanceApp.program.code">Code</Translate>{' '}
+                    <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
+                  </th>
+                  <th className="hand" onClick={sort('name')}>
+                    <Translate contentKey="senaAttendanceApp.program.name">Name</Translate>{' '}
+                    <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
+                  </th>
+                  <th className="hand" onClick={sort('status')}>
+                    <Translate contentKey="senaAttendanceApp.program.status">Code</Translate>{' '}
+                    <FontAwesomeIcon icon={getSortIconByFieldName('status')} />
+                  </th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </Table>
+              </thead>
+              <tbody>
+                {filteredProgramList.map(program => (
+                  <tr key={`entity-${program.id}`} data-cy="entityTable">
+                    <td>{program.code}</td>
+                    <td>{program.name}</td>
+                    <td>{program.status ? 'Activo' : 'Inactivo'}</td>
+                    <td className="text-end">
+                      <div className="btn-group flex-btn-group-container">
+                        <Button
+                          as={Link as any}
+                          to={`/program/${program.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
+                          variant="primary"
+                          size="sm"
+                          data-cy="entityEditButton"
+                        >
+                          <FontAwesomeIcon icon="pencil-alt" />{' '}
+                          <span className="d-none d-md-inline">
+                            <Translate contentKey="entity.action.edit">Edit</Translate>
+                          </span>
+                        </Button>
+                        <Button
+                          onClick={() =>
+                            (globalThis.location.href = `/program/${program.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
+                          }
+                          variant="danger"
+                          size="sm"
+                          data-cy="entityDeleteButton"
+                        >
+                          <FontAwesomeIcon icon="trash" />{' '}
+                          <span className="d-none d-md-inline">
+                            <Translate contentKey="entity.action.delete">Delete</Translate>
+                          </span>
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </Card>
         ) : (
           !loading && (
             <div className="alert alert-success">
@@ -194,7 +221,7 @@ export const Program = () => {
         )}
       </div>
       {totalItems ? (
-        <div className={programList && programList.length > 0 ? '' : 'd-none'}>
+        <div className={filteredProgramList && filteredProgramList.length > 0 ? '' : 'd-none'}>
           <div className="justify-content-center d-flex">
             <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
           </div>

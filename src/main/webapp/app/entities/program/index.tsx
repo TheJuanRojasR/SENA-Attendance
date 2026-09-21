@@ -15,7 +15,7 @@ const ProgramRoutes = () => (
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <Program />
         </PrivateRoute>
       }
@@ -23,7 +23,7 @@ const ProgramRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <ProgramUpdate />
         </PrivateRoute>
       }
@@ -32,7 +32,7 @@ const ProgramRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <ProgramDetail />
           </PrivateRoute>
         }
@@ -40,7 +40,7 @@ const ProgramRoutes = () => (
       <Route
         path="edit"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <ProgramUpdate />
           </PrivateRoute>
         }
@@ -48,7 +48,7 @@ const ProgramRoutes = () => (
       <Route
         path="delete"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <ProgramDeleteDialog />
           </PrivateRoute>
         }
