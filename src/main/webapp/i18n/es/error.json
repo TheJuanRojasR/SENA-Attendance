@@ -25,9 +25,19 @@
     "enddateinpast": "La fecha de fin no puede ser anterior a la fecha actual.",
     "startdatemustbefuture": "La nueva fecha de inicio debe ser posterior a la fecha actual.",
     "datesoverlap": "Las fechas se solapan con otro trimestre.",
-    "noteditable": "No se puede modificar un trimestre cerrado.",
+    "noteditable": "No se puede modificar este registro en su estado actual.",
     "startdatelocked": "No se puede modificar la fecha de inicio de un trimestre activo.",
     "attendancestartdate": "No se puede modificar la fecha de inicio de un trimestre que ya tiene asistencia registrada.",
-    "trimesterInUse": "No es posible eliminar el trimestre: tiene horarios o asistencias registradas."
+    "trimesterInUse": "No es posible eliminar el trimestre: tiene horarios o asistencias registradas.",
+    "startdateinpast": "La fecha de inicio no puede ser anterior a hoy.",
+    "gradeCodeAlreadyUsed": "El código de ficha ya está en uso.",
+    "codenotnumeric": "El código debe contener solo números.",
+    "programInactive": "El programa seleccionado ya no está disponible, selecciona otro.",
+    "modalityInactive": "La modalidad seleccionada ya no está disponible, selecciona otro.",
+    "timeSlotInactive": "La jornada seleccionada ya no está disponible, selecciona otro.",
+    "fieldlocked": "El campo no se puede modificar en el estado actual de la ficha.",
+    "gradeCodeLocked": "El código solo puede cambiarse mientras la ficha no tenga materias ni aprendices.",
+    "invalidtransition": "La acción no aplica al estado actual de la ficha.",
+    "gradeInUse": "No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha."
   }
 }

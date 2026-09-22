@@ -37,6 +37,15 @@ export const getEntity = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const getActiveEntities = createAsyncThunk(
+  'grade/fetch_active_entities',
+  async () => {
+    const requestUrl = `${apiUrl}/active`;
+    return axios.get<IGrade[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
 export const createEntity = createAsyncThunk(
   'grade/create_entity',
   async (entity: IGrade, thunkAPI) => {
@@ -50,7 +59,7 @@ export const createEntity = createAsyncThunk(
 export const updateEntity = createAsyncThunk(
   'grade/update_entity',
   async (entity: IGrade, thunkAPI) => {
-    const result = await axios.put<IGrade>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.put<IGrade>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -60,7 +69,7 @@ export const updateEntity = createAsyncThunk(
 export const partialUpdateEntity = createAsyncThunk(
   'grade/partial_update_entity',
   async (entity: IGrade, thunkAPI) => {
-    const result = await axios.patch<IGrade>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.patch<IGrade>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -72,6 +81,36 @@ export const deleteEntity = createAsyncThunk(
   async (id: string | number, thunkAPI) => {
     const requestUrl = `${apiUrl}/${id}`;
     const result = await axios.delete<IGrade>(requestUrl);
+    thunkAPI.dispatch(getEntities({}));
+    return result;
+  },
+  { serializeError: serializeAxiosError },
+);
+
+export const postponeGrade = createAsyncThunk(
+  'grade/postpone_entity',
+  async (id: string, thunkAPI) => {
+    const result = await axios.patch<IGrade>(`${apiUrl}/postponed`, { id });
+    thunkAPI.dispatch(getEntities({}));
+    return result;
+  },
+  { serializeError: serializeAxiosError },
+);
+
+export const resumeGrade = createAsyncThunk(
+  'grade/resume_entity',
+  async (id: string, thunkAPI) => {
+    const result = await axios.patch<IGrade>(`${apiUrl}/resumed`, { id });
+    thunkAPI.dispatch(getEntities({}));
+    return result;
+  },
+  { serializeError: serializeAxiosError },
+);
+
+export const cancelGrade = createAsyncThunk(
+  'grade/cancel_entity',
+  async (id: string, thunkAPI) => {
+    const result = await axios.patch<IGrade>(`${apiUrl}/cancelled`, { id });
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -104,22 +143,32 @@ export const GradeSlice = createEntitySlice({
           totalItems: parseInt(headers['x-total-count'], 10),
         };
       })
-      .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
-        state.updating = false;
+      .addMatcher(isFulfilled(getActiveEntities), (state, action) => {
         state.loading = false;
-        state.updateSuccess = true;
-        state.entity = action.payload.data;
+        state.entities = action.payload.data;
       })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addMatcher(
+        isFulfilled(createEntity, updateEntity, partialUpdateEntity, postponeGrade, resumeGrade, cancelGrade),
+        (state, action) => {
+          state.updating = false;
+          state.loading = false;
+          state.updateSuccess = true;
+          state.entity = action.payload.data;
+        },
+      )
+      .addMatcher(isPending(getEntities, getEntity, getActiveEntities), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
-        state.errorMessage = null;
-        state.updateSuccess = false;
-        state.updating = true;
-      });
+      .addMatcher(
+        isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity, postponeGrade, resumeGrade, cancelGrade),
+        state => {
+          state.errorMessage = null;
+          state.updateSuccess = false;
+          state.updating = true;
+        },
+      );
   },
 });
 

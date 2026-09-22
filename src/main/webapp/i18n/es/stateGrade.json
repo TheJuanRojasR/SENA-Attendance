@@ -2,9 +2,11 @@
   "senaAttendanceApp": {
     "StateGrade": {
       "null": "",
-      "ACTIVA": "ACTIVA",
-      "INACTIVA": "INACTIVA",
-      "APLAZADA": "APLAZADA"
+      "PENDIENTE": "Pendiente",
+      "ACTIVA": "Activa",
+      "FINALIZADA": "Finalizada",
+      "APLAZADA": "Aplazada",
+      "CANCELADA": "Cancelada"
     }
   }
 }

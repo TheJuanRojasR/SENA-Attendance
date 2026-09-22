@@ -18,11 +18,11 @@
         "title": "Ficha"
       },
       "id": "ID",
-      "code": "Código",
+      "code": "Código de la Ficha",
       "state": "Estado",
       "startDate": "Fecha de Inicio",
       "endDate": "Fecha de Finalización",
-      "program": "Programa",
+      "program": "Programa de Formación",
       "modality": "Modalidad",
       "timeSlot": "Jornada"
     }

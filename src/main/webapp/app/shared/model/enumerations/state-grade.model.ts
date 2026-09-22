@@ -1,7 +1,11 @@
 export enum StateGrade {
+  PENDIENTE = 'PENDIENTE',
+
   ACTIVA = 'ACTIVA',
 
-  INACTIVA = 'INACTIVA',
+  FINALIZADA = 'FINALIZADA',
 
   APLAZADA = 'APLAZADA',
+
+  CANCELADA = 'CANCELADA',
 }
