@@ -73,7 +73,7 @@ export const GlobalConfiguration = () => {
       <Card className="top-border-card">
         <Form className="d-flex flex-column" onSubmit={handleSubmit(handleValidSubmit)}>
           <Col md="12">
-            <h6>Tiempos y Plazos de Justificación</h6>
+            <h6 className="formTitles">Tiempos y Plazos de Justificación</h6>
             <p>Defina la vigencia legal y los tiempos hábiles para la radicacion y respuesta institucional.</p>
           </Col>
           <Col md="12" className="formbody">
@@ -107,7 +107,7 @@ export const GlobalConfiguration = () => {
             </div>
           </Col>
           <Col md="12">
-            <h6> Umbrales y Alestras de Inasistencias</h6>
+            <h6 className="formTitles"> Umbrales y Alestras de Inasistencias</h6>
             <p>Cantidad de inasistencias continuas que disparan reporte preventivo y alerta</p>
           </Col>
           <Col md="12" className="formbody">

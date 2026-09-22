@@ -355,3 +355,23 @@ http://stackoverflow.com/questions/23436430/bootstrap-3-input-group-100-width */
   border-color: #16c829;
   box-shadow: 0 0 0 0.2rem rgba(22, 200, 41, 0.15);
 }
+
+/* Card con línea superior verde, reutilizable en distintas vistas */
+.top-border-card {
+  border-top: 4px solid #16c829;
+}
+
+/* Estilos para formularios dentro de un card*/
+.formTitles {
+  color: #0e8f1a;
+  font-weight: bold;
+}
+
+.smallFormField {
+  width: 30%;
+}
+
+.entitiesSearchBar {
+  width: 75%;
+  gap: 5%;
+}

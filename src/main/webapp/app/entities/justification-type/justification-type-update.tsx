@@ -88,7 +88,7 @@ export const JustificationTypeUpdate = () => {
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <Card>
+            <Card className="top-border-card">
               <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
                 <ValidatedField
                   label={translate('senaAttendanceApp.justificationType.name')}

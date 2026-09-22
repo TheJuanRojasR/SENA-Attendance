@@ -91,7 +91,7 @@ export const DocumentTypeUpdate = () => {
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <Card>
+            <Card className="top-border-card">
               <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
                 <ValidatedField
                   label={translate('senaAttendanceApp.documentType.name')}
