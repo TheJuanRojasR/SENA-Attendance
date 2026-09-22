@@ -15,7 +15,7 @@ const TrimesterRoutes = () => (
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <Trimester />
         </PrivateRoute>
       }
@@ -23,7 +23,7 @@ const TrimesterRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <TrimesterUpdate />
         </PrivateRoute>
       }
@@ -32,7 +32,7 @@ const TrimesterRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <TrimesterDetail />
           </PrivateRoute>
         }
@@ -40,7 +40,7 @@ const TrimesterRoutes = () => (
       <Route
         path="edit"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <TrimesterUpdate />
           </PrivateRoute>
         }
@@ -48,7 +48,7 @@ const TrimesterRoutes = () => (
       <Route
         path="delete"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
             <TrimesterDeleteDialog />
           </PrivateRoute>
         }

@@ -20,6 +20,14 @@
     "accountinactive": "Tu cuenta está inactiva. Contacta al administrador.",
     "documentimmutable": "Este dato no puede modificarse.",
     "currentpasswordinvalid": "La contraseña actual es incorrecta.",
-    "samepassword": "La nueva contraseña debe ser diferente a la actual."
+    "samepassword": "La nueva contraseña debe ser diferente a la actual.",
+    "datesorder": "La fecha de inicio debe ser anterior a la fecha de fin.",
+    "enddateinpast": "La fecha de fin no puede ser anterior a la fecha actual.",
+    "startdatemustbefuture": "La nueva fecha de inicio debe ser posterior a la fecha actual.",
+    "datesoverlap": "Las fechas se solapan con otro trimestre.",
+    "noteditable": "No se puede modificar un trimestre cerrado.",
+    "startdatelocked": "No se puede modificar la fecha de inicio de un trimestre activo.",
+    "attendancestartdate": "No se puede modificar la fecha de inicio de un trimestre que ya tiene asistencia registrada.",
+    "trimesterInUse": "No es posible eliminar el trimestre: tiene horarios o asistencias registradas."
   }
 }

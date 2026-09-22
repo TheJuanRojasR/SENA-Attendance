@@ -28,6 +28,22 @@ export const getEntities = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const searchEntities = createAsyncThunk(
+  'trimester/search_entity_list',
+  async ({ search, status, page, size, sort }: { search?: string; status?: string; page?: number; size?: number; sort?: string }) => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (status) params.set('status', status);
+    if (page !== undefined) params.set('page', String(page));
+    if (size !== undefined) params.set('size', String(size));
+    if (sort) params.set('sort', sort);
+    params.set('cacheBuster', String(Date.now()));
+    const requestUrl = `${apiUrl}/search?${params.toString()}`;
+    return axios.get<ITrimester[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
 export const getEntity = createAsyncThunk(
   'trimester/fetch_entity',
   async (id: string | number) => {
@@ -50,7 +66,7 @@ export const createEntity = createAsyncThunk(
 export const updateEntity = createAsyncThunk(
   'trimester/update_entity',
   async (entity: ITrimester, thunkAPI) => {
-    const result = await axios.put<ITrimester>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.put<ITrimester>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -60,7 +76,7 @@ export const updateEntity = createAsyncThunk(
 export const partialUpdateEntity = createAsyncThunk(
   'trimester/partial_update_entity',
   async (entity: ITrimester, thunkAPI) => {
-    const result = await axios.patch<ITrimester>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.patch<ITrimester>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -94,7 +110,7 @@ export const TrimesterSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = {};
       })
-      .addMatcher(isFulfilled(getEntities), (state, action) => {
+      .addMatcher(isFulfilled(getEntities, searchEntities), (state, action) => {
         const { data, headers } = action.payload;
 
         return {
@@ -110,7 +126,7 @@ export const TrimesterSlice = createEntitySlice({
         state.updateSuccess = true;
         state.entity = action.payload.data;
       })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addMatcher(isPending(getEntities, getEntity, searchEntities), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;

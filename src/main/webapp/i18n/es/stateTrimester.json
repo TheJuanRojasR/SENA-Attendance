@@ -1,0 +1,10 @@
+{
+  "senaAttendanceApp": {
+    "StateTrimester": {
+      "null": "",
+      "FUTURO": "Futuro",
+      "ACTIVO": "Activo",
+      "CERRADO": "Cerrado"
+    }
+  }
+}

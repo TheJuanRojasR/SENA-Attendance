@@ -18,7 +18,7 @@
         "title": "Trimestre"
       },
       "id": "ID",
-      "name": "Nombre",
+      "name": "Nombre del Trimestre",
       "startDate": "Fecha de Inicio",
       "endDate": "Fecha de Fin",
       "state": "Estado"
