@@ -287,6 +287,7 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 4   | Refrescar el **login derivado** que se muestra cuando el Administrador corrige el tipo o el número de documento.                                                                                                                        | `Pendiente` |
 | 5   | La búsqueda `GET /api/admin/users/search` admite también el parámetro `role` y pagina con `X-Total-Count`/`Link` (20 por defecto).                                                                                                       | `Pendiente` |
 | 6   | En el alta no enviar estado: la cuenta nace `mustChangePassword = true`; el **reenvío de credenciales (E7)** ya tiene endpoint (`PATCH /api/admin/users/resend-credentials`, ver UC018).                                                                                                            | `Pendiente` |
+| 7   | Precargar el **formulario de edición** desde `GET /api/admin/users/{login}`: ahora devuelve también los campos del perfil (`firstName`, `middleName`, `firstLastName`, `secondLastName`, `documentNumber`, `phoneNumber`, `documentTypeId`) y `role`. El `id` que espera `PATCH /api/admin/users` es el `id` de usuario de esa misma respuesta. | `Pendiente` |
 
 ---
 

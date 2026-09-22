@@ -11,6 +11,7 @@ import com.mycompany.senaattendance.service.CredentialsResendService;
 import com.mycompany.senaattendance.service.MailService;
 import com.mycompany.senaattendance.service.UserService;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
+import com.mycompany.senaattendance.service.dto.AdminUserDetailDTO;
 import com.mycompany.senaattendance.web.rest.errors.*;
 import com.mycompany.senaattendance.web.rest.vm.AdminCreateUserVM;
 import com.mycompany.senaattendance.web.rest.vm.AdminUpdateUserVM;
@@ -211,16 +212,20 @@ public class UserResource {
     }
 
     /**
-     * {@code GET /admin/users/:login} : get the "login" user.
+     * {@code GET /admin/users/:login} : get the "login" user with its profile and role.
+     * <p>
+     * The response carries the account data, the profile fields and the assignable role, so the
+     * admin edit form (UC006) can be prefilled from it. A user without profile returns the profile
+     * fields as {@code null}.
      *
      * @param login the login of the user to find.
-     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the "login" user, or with status {@code 404 (Not Found)}.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the user detail, or with status {@code 404 (Not Found)}.
      */
     @GetMapping("/users/{login}")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<AdminUserDTO> getUser(@PathVariable("login") @Pattern(regexp = Constants.LOGIN_REGEX) String login) {
+    public ResponseEntity<AdminUserDetailDTO> getUser(@PathVariable("login") @Pattern(regexp = Constants.LOGIN_REGEX) String login) {
         LOG.debug("REST request to get User : {}", login);
-        return ResponseUtil.wrapOrNotFound(userService.getUserWithAuthoritiesByLogin(login).map(AdminUserDTO::new));
+        return ResponseUtil.wrapOrNotFound(userService.getUserDetailByLogin(login));
     }
 
     /**
