@@ -15,6 +15,7 @@ import com.mycompany.senaattendance.repository.UserRepository;
 import com.mycompany.senaattendance.security.AuthoritiesConstants;
 import com.mycompany.senaattendance.security.SecurityUtils;
 import com.mycompany.senaattendance.service.dto.AdminUserDTO;
+import com.mycompany.senaattendance.service.dto.AdminUserDetailDTO;
 import com.mycompany.senaattendance.service.dto.UserDTO;
 import com.mycompany.senaattendance.service.dto.UserProfileDTO;
 import com.mycompany.senaattendance.service.mapper.UserProfileMapper;
@@ -432,6 +433,18 @@ public class UserService {
     }
 
     /**
+     * Resolves the single assignable role carried by the given authorities
+     * (Administrator, Instructor or Apprentice), so the admin edit form (UC006) can preselect it.
+     * Authorities outside {@link #ASSIGNABLE_ROLES} (like {@code ROLE_USER}) are ignored.
+     *
+     * @param authorities the authorities of the user.
+     * @return the assignable role name, or {@code null} when none applies.
+     */
+    private static String resolveAssignableRole(Collection<Authority> authorities) {
+        return authorities.stream().map(Authority::getName).filter(ASSIGNABLE_ROLES::contains).findFirst().orElse(null);
+    }
+
+    /**
      * Update all information for a specific user (User + UserProfile), and return the
      * modified user. Login is re-derived from {@link AdminUpdateUserVM#getDocumentNumber()};
      * {@code activated} and client authorities are IGNORED.
@@ -737,6 +750,23 @@ public class UserService {
 
     public Optional<User> getUserWithAuthoritiesByLogin(String login) {
         return userRepository.findOneByLogin(login);
+    }
+
+    /**
+     * Gets the user with its profile and assignable role, so the admin edit form (UC006) can be
+     * prefilled. The profile fields are {@code null} when the user has no profile, and the role is
+     * {@code null} when the authorities carry no assignable role.
+     *
+     * @param login the login of the user to find.
+     * @return the user detail, or empty when no user matches the login.
+     */
+    @Transactional(readOnly = true)
+    public Optional<AdminUserDetailDTO> getUserDetailByLogin(String login) {
+        return userRepository.findOneByLogin(login).map(user -> {
+            UserProfile profile = userProfileRepository.findOneByUserId(user.getId()).orElse(null);
+            String role = resolveAssignableRole(user.getAuthorities());
+            return new AdminUserDetailDTO(user, profile, role);
+        });
     }
 
     public Optional<User> getUserWithAuthorities() {

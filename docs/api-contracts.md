@@ -566,7 +566,7 @@ El perfil se resuelve siempre desde el contexto de seguridad (`SecurityUtils.get
 | POST   | `/api/admin/users`                              | `ROLE_ADMIN` | Crea usuario + perfil; `201` con la entidad `User` creada.                      |
 | PATCH  | `/api/admin/users` o `/api/admin/users/{login}` | `ROLE_ADMIN` | Actualización parcial; el `id` viaja en el cuerpo. `200` con `AdminUserDTO`.    |
 | GET    | `/api/admin/users`                              | `ROLE_ADMIN` | Lista paginada de cuentas (`AdminUserDTO`).                                     |
-| GET    | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Detalle por login; `200` o `404`.                                               |
+| GET    | `/api/admin/users/{login}`                      | `ROLE_ADMIN` | Detalle por login con cuenta, perfil y rol (`AdminUserDetailDTO`); `200` o `404`. |
 | GET    | `/api/admin/users/search`                       | `ROLE_ADMIN` | Búsqueda por texto, `status` y `role`; paginada con `X-Total-Count` (`UserManagementDTO`). |
 | PATCH  | `/api/admin/users/activated`                    | `ROLE_ADMIN` | Activa/desactiva por número de documento; `200` con `AdminUserDTO`.             |
 | PATCH  | `/api/admin/users/resend-credentials`           | `ROLE_ADMIN` | Reenvía el acceso (E7) por número de documento: enlace de restablecimiento; `200` con `AdminUserDTO`. |
@@ -667,7 +667,36 @@ El reenvío **no manda la contraseña temporal**: genera un `resetKey` nuevo, ma
 }
 ```
 
-`PATCH /api/admin/users`, `PATCH /api/admin/users/activated` y `PATCH /api/admin/users/resend-credentials` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
+`PATCH /api/admin/users`, `PATCH /api/admin/users/activated` y `PATCH /api/admin/users/resend-credentials` responden `200` con un `AdminUserDTO` (`id`, `login`, `email`, `activated`, `mustChangePassword`, `langKey`, `imageUrl`, auditoría y `authorities`). `GET /api/admin/users/{login}` responde `200` con un `AdminUserDetailDTO`: los mismos campos de cuenta más los datos del perfil y `role` (ver ejemplo abajo), de modo que el formulario de edición se precargue completo. Las listas paginadas devuelven arreglos de `AdminUserDTO` / `UserManagementDTO` (`id`, `fullName`, `documentNumber`, `email`, `authorities`, `activated`) más cabeceras `X-Total-Count` y `Link`. `GET /api/admin/users` solo admite `sort` sobre `id`, `login`, `email`, `activated`, `langKey`, `createdBy`, `createdDate`, `lastModifiedBy`, `lastModifiedDate`.
+
+**Response — `GET /api/admin/users/{login}`:** `200` con el detalle de la cuenta, sus datos de perfil y su rol asignable (la fuente para precargar el formulario de edición):
+
+```json
+{
+  "id": "665f1c2a9e13b7a1f2c8d9e77",
+  "login": "cc_1029384756",
+  "email": "carlos.perez@example.com",
+  "activated": true,
+  "mustChangePassword": true,
+  "langKey": "es",
+  "imageUrl": null,
+  "createdBy": "admin",
+  "createdDate": "2026-09-11T15:04:05Z",
+  "lastModifiedBy": "admin",
+  "lastModifiedDate": "2026-09-11T15:04:05Z",
+  "authorities": ["ROLE_USER", "ROLE_INSTRUCTOR"],
+  "firstName": "Carlos",
+  "middleName": null,
+  "firstLastName": "Pérez",
+  "secondLastName": null,
+  "documentNumber": "1029384756",
+  "phoneNumber": "3001234567",
+  "documentTypeId": "64f1c2a9e13b7a1f2c8d9e01",
+  "role": "ROLE_INSTRUCTOR"
+}
+```
+
+`role` es el único rol asignable de la cuenta (`ROLE_ADMIN`, `ROLE_INSTRUCTOR` o `ROLE_APPRENTICE`) y permite preseleccionar el rol en el formulario, mientras que `authorities` conserva el arreglo completo (`ROLE_USER` + rol). El `id` de esta respuesta es el que viaja en el cuerpo del `PATCH /api/admin/users`, que exige `id` (ver más arriba). Si el usuario no tiene perfil, los campos `firstName`, `middleName`, `firstLastName`, `secondLastName`, `documentNumber`, `phoneNumber` y `documentTypeId` se devuelven `null`.
 
 **Errores:** `400 error.idexists`, `400 error.idmissing`, tipo `invalid-password`, `400 error.userexists`, `400 error.emailexists`, `400 error.documentnumberexists`, `400 error.documentTypeNotFound`, `400 error.rolenotfound`, `400 error.documentNumberNotFound` (activación/reenvío con documento inexistente), `400 error.adminprotected` (la cuenta `admin` está protegida), `400 error.lastAdmin` ("Debe existir al menos un Administrador activo"), `400 error.lastInstructor` (lista las materias afectadas); `403`; `404`.
 

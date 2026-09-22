@@ -292,6 +292,9 @@ Claves `error.*` verificadas contra los archivos actuales:
 | 5   | La búsqueda `GET /api/admin/users/search` admite también el parámetro `role` y pagina con `X-Total-Count`/`Link` (20 por defecto). Hoy `getUsersAsAdmin` ya pagina correctamente pero manda `search` siempre vacío y no soporta `role`. | `Pendiente` |
 | 6   | En el alta no enviar estado: la cuenta nace `mustChangePassword = true`; el **reenvío de credenciales (E7)** ya tiene endpoint (`PATCH /api/admin/users/resend-credentials`, ver UC018). El toggle activar/desactivar de la tabla usa el `updateUser` genérico (`PUT /api/admin/users`) en vez del endpoint dedicado `PATCH /api/admin/users/activated`. | `Pendiente` |
 | 7   | **Bug de guardado:** `user-management-update.tsx` desestructura `useForm()` sin `handleSubmit` y hace `<Form onSubmit={saveUser}>`, pasándole el `SyntheticEvent` nativo del formulario en vez de los valores tipados a `saveUser`. Usar `handleSubmit(saveUser)`. Sin este fix, crear/editar un usuario está roto en la práctica. | `Pendiente` |
+| 5   | La búsqueda `GET /api/admin/users/search` admite también el parámetro `role` y pagina con `X-Total-Count`/`Link` (20 por defecto).                                                                                                       | `Pendiente` |
+| 6   | En el alta no enviar estado: la cuenta nace `mustChangePassword = true`; el **reenvío de credenciales (E7)** ya tiene endpoint (`PATCH /api/admin/users/resend-credentials`, ver UC018).                                                                                                            | `Pendiente` |
+| 7   | Precargar el **formulario de edición** desde `GET /api/admin/users/{login}`: ahora devuelve también los campos del perfil (`firstName`, `middleName`, `firstLastName`, `secondLastName`, `documentNumber`, `phoneNumber`, `documentTypeId`) y `role`. El `id` que espera `PATCH /api/admin/users` es el `id` de usuario de esa misma respuesta. | `Pendiente` |
 
 ---
 

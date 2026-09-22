@@ -411,6 +411,29 @@ class UserResourceIT {
     }
 
     @Test
+    void getUserDetailIncludesProfileAndRole() throws Exception {
+        User instructor = instructorUser("detail.instr", "detail.instr@example.com");
+        persistedProfile(instructor, "JDETAIL01");
+
+        restUserMockMvc
+            .perform(get("/api/admin/users/{login}", instructor.getLogin()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.id").value(instructor.getId()))
+            .andExpect(jsonPath("$.login").value("detail.instr"))
+            .andExpect(jsonPath("$.email").value("detail.instr@example.com"))
+            .andExpect(jsonPath("$.firstName").value("John"))
+            .andExpect(jsonPath("$.middleName").value("M"))
+            .andExpect(jsonPath("$.firstLastName").value("Doe"))
+            .andExpect(jsonPath("$.secondLastName").value("S"))
+            .andExpect(jsonPath("$.documentNumber").value("JDETAIL01"))
+            .andExpect(jsonPath("$.phoneNumber").value(DEFAULT_PHONE))
+            .andExpect(jsonPath("$.documentTypeId").value(seededDocumentTypeId()))
+            .andExpect(jsonPath("$.role").value(AuthoritiesConstants.INSTRUCTOR))
+            .andExpect(jsonPath("$.authorities").value(containsInAnyOrder(AuthoritiesConstants.USER, AuthoritiesConstants.INSTRUCTOR)));
+    }
+
+    @Test
     void getNonExistingUser() throws Exception {
         restUserMockMvc.perform(get("/api/admin/users/unknown")).andExpect(status().isNotFound());
     }
