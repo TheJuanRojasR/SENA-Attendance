@@ -42,7 +42,7 @@ export const RegisterModal = (props: IRegisterProps) => {
     phoneNumber,
     documentTypeId,
     email,
-    password,
+    password: submittedPassword,
   }: Record<string, any>) => {
     dispatch(
       handleRegister({
@@ -54,7 +54,7 @@ export const RegisterModal = (props: IRegisterProps) => {
         phoneNumber,
         documentTypeId,
         email,
-        password: password,
+        password: submittedPassword,
         langKey: currentLocale,
       }),
     );

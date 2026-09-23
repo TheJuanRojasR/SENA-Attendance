@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Form, Col, FormText, Row, FormLabel } from 'react-bootstrap';
-import { Translate, ValidatedField, ValidatedForm, isEmail, translate } from 'react-jhipster';
+import { Button, Card, Form, Col, Row, FormLabel } from 'react-bootstrap';
+import { Translate, ValidatedField, isEmail, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { faArrowLeft, faSave } from '@fortawesome/free-solid-svg-icons';
@@ -60,7 +60,6 @@ export const UserManagementUpdate = () => {
   } = useForm({ mode: 'onTouched' });
 
   const user = useAppSelector(state => state.userManagement.user);
-  const loading = useAppSelector(state => state.userManagement.loading);
   const updating = useAppSelector(state => state.userManagement.updating);
   const documentTypes = useAppSelector(state => state.documentType.entities);
   const authorities = useAppSelector(state => state.userManagement.authorities);

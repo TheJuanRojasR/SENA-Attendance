@@ -92,10 +92,6 @@ export const UserManagement = () => {
       activePage: currentPage,
     });
 
-  const handleSyncList = () => {
-    getUsersFromProps();
-  };
-
   const toggleActive = user => () => {
     dispatch(setUserActivated({ documentNumber: user.documentNumber, activated: !user.activated }));
   };

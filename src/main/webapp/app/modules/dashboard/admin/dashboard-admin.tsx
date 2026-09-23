@@ -56,7 +56,7 @@ export const AdminDashboard = () => {
             </thead>
             <tbody>
               {recentGrades.map(grade => (
-                <tr>
+                <tr key={grade.code}>
                   <td>{grade.code}</td>
                   <td>{grade.programName}</td>
                   <td>{grade.instructorName}</td>

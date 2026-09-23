@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Card, Col, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, TextFormat, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
+import { JhiItemCount, JhiPagination, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-import { APP_LOCAL_DATE_FORMAT } from 'app/config/constants';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
@@ -88,10 +87,6 @@ export const Grade = () => {
       ...paginationState,
       activePage: currentPage,
     });
-
-  const handleSyncList = () => {
-    sortEntities();
-  };
 
   const getSortIconByFieldName = (fieldName: string) => {
     const sortFieldName = paginationState.sort;
