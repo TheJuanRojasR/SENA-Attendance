@@ -383,8 +383,14 @@ http://stackoverflow.com/questions/23436430/bootstrap-3-input-group-100-width */
 .entity-page-header {
   margin-bottom: 1.5rem;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column; /* Celular: Título arriba, botón abajo */
+  gap: 15px;
+
+  @media (min-width: 768px) {
+    flex-direction: row; /* PC: Uno a cada lado */
+    justify-content: space-between;
+    align-items: flex-start;
+  }
 
   .breadcrumb-text {
     font-size: 0.8rem;
@@ -450,7 +456,8 @@ http://stackoverflow.com/questions/23436430/bootstrap-3-input-group-100-width */
 /* Buscador con icono interno */
 .search-input-wrapper {
   position: relative;
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
 
   svg {
     position: absolute;

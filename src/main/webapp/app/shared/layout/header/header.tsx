@@ -1,6 +1,6 @@
 import './header.scss';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Nav, Navbar } from 'react-bootstrap';
 import { Storage } from 'react-jhipster';
 
@@ -9,8 +9,8 @@ import LoadingBar, { LoadingBarRef } from 'react-top-loading-bar';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { setLocale } from 'app/shared/reducers/locale';
 import LinkButton from 'app/shared/components/link-button';
-import { AccountMenu, AdminMenu, EntitiesMenu, LocaleMenu } from '../menus';
-
+import { AccountMenu, AdminMenu, EntitiesMenu, LocaleMenu, AccountMenuItemsAuthenticated } from '../menus';
+import MenuItem from '../menus/menu-item';
 import { Brand } from './header-components';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -25,6 +25,7 @@ export interface IHeaderProps {
 
 const Header = (props: IHeaderProps) => {
   const dispatch = useAppDispatch();
+  const [navExpanded, setNavExpanded] = useState(false);
 
   const handleLocaleChange = langKey => {
     Storage.session.set('locale', langKey);
@@ -53,6 +54,8 @@ const Header = (props: IHeaderProps) => {
     <div id="app-header">
       <LoadingBar ref={loadingBarRef} className="loading-bar" color="#009cd8" />
       <Navbar
+        expanded={navExpanded}
+        onToggle={expanded => setNavExpanded(expanded)}
         data-cy="navbar"
         data-bs-theme={props.isAuthenticated ? 'dark' : 'light'}
         expand="md"
@@ -71,7 +74,7 @@ const Header = (props: IHeaderProps) => {
           <Brand isAuthenticated={props.isAuthenticated} />
         )}
         <Navbar.Collapse id="header-tabs">
-          <Nav className="ms-auto d-flex align-items-center header-right-panel gap-3">
+          <Nav className="ms-auto d-flex flex-row flex-wrap align-items-center justify-content-center header-right-panel gap-3 mt-3 mt-md-0">
             {/* VISTA PARA NO LOGUEADOS */}
             {!props.isAuthenticated && (
               <>
@@ -118,9 +121,19 @@ const Header = (props: IHeaderProps) => {
               </>
             )}
 
-            {/* Selector de idioma */}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />
           </Nav>
+          {props.isAuthenticated && (
+            <Nav className="d-md-none flex-column w-100 mobile-nav-links mt-4 pt-3 border-top" onClick={() => setNavExpanded(false)}>
+              <MenuItem icon="tachometer-alt" to="/dashboard">
+                Dashboard
+              </MenuItem>
+              <EntitiesMenu />
+              <div className="mt-3 pt-2 border-top">
+                <AccountMenuItemsAuthenticated />
+              </div>
+            </Nav>
+          )}
         </Navbar.Collapse>
       </Navbar>
     </div>

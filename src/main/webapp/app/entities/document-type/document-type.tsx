@@ -98,7 +98,7 @@ export const DocumentType = () => {
       {/* 2. CONTENEDOR CARD Y TABLA */}
       <div className="entity-card">
         {/* Barra de Herramientas (Buscador y Filtro) */}
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
           <div className="search-input-wrapper">
             <FontAwesomeIcon icon="search" />
             <input

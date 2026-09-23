@@ -22,7 +22,7 @@ export const AdminDashboard = () => {
   return (
     <div className="admin-dashboard-container pt-0">
       {/* 1. SECCIÓN DE TARJETAS KPI (Limpias, sin textos estáticos inventados) */}
-      <div className="kpi-cards-container d-flex justify-content-between mb-4 gap-4">
+      <div className="kpi-cards-container d-flex flex-column flex-lg-row justify-content-between mb-4 gap-3">
         <Card className="kpi-card flex-fill">
           <div className="d-flex justify-content-between align-items-start mb-3">
             <div className="icon-wrapper green-bg">

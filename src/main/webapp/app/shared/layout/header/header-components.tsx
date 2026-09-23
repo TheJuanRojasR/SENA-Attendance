@@ -22,8 +22,8 @@ export const Brand = (props: IHomeProps) => (
     <BrandIcon />
     <div className="d-flex flex-column ms-2">
       <span className="brand-title mb-0" style={{ lineHeight: '1.2' }}>
-        <span style={{ color: '#4a4a4a', fontWeight: 'bold' }}>SENA </span>
-        <span style={{ color: '#16C829', fontWeight: 'bold' }}>Attendance</span>
+        <span className="logo-sena">SENA </span>
+        <span className="logo-attendance">Attendance</span>
       </span>
       {props.roleName && (
         <span className="text-muted" style={{ fontSize: '0.80rem' }}>
