@@ -35,11 +35,6 @@ const EntitiesMenu = () => {
           <Translate contentKey="global.menu.entities.documentType" />
         </MenuItem>
       )}
-      {isAdmin && (
-        <MenuItem icon="user" to="/user-profile">
-          <Translate contentKey="global.menu.entities.userProfile" />
-        </MenuItem>
-      )}
       {/* ══════════════════════════════════════════
           ADMIN + COORDINADOR — Estructura académica
       ══════════════════════════════════════════ */}
