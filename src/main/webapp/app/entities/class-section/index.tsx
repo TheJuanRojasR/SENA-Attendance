@@ -11,10 +11,26 @@ import ClassSectionDetail from './class-section-detail';
 import ClassSectionMine from './class-section-mine';
 import ClassSectionUpdate from './class-section-update';
 
+// UC015: el listado y el detalle genéricos de materias (fuera de /mine) quedan solo para
+// ADMIN; el instructor consulta las suyas por /class-section/mine (UC017).
 const ClassSectionRoutes = () => (
   <ErrorBoundaryRoutes>
-    <Route index element={<ClassSection />} />
-    <Route path="new" element={<ClassSectionUpdate />} />
+    <Route
+      index
+      element={
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+          <ClassSection />
+        </PrivateRoute>
+      }
+    />
+    <Route
+      path="new"
+      element={
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+          <ClassSectionUpdate />
+        </PrivateRoute>
+      }
+    />
     <Route
       path="mine"
       element={
@@ -24,9 +40,30 @@ const ClassSectionRoutes = () => (
       }
     />
     <Route path=":id">
-      <Route index element={<ClassSectionDetail />} />
-      <Route path="edit" element={<ClassSectionUpdate />} />
-      <Route path="delete" element={<ClassSectionDeleteDialog />} />
+      <Route
+        index
+        element={
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+            <ClassSectionDetail />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="edit"
+        element={
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+            <ClassSectionUpdate />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="delete"
+        element={
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+            <ClassSectionDeleteDialog />
+          </PrivateRoute>
+        }
+      />
     </Route>
   </ErrorBoundaryRoutes>
 );
