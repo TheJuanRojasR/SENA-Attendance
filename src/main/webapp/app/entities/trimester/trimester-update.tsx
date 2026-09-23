@@ -69,55 +69,61 @@ export const TrimesterUpdate = () => {
 
   return (
     <div>
-      <Row className="justify-content-center">
-        <Col md="12">
-          {!isNew && (
-            <div>
-              <h2 id="senaAttendanceApp.trimester.home.createOrEditLabel" data-cy="TrimesterCreateUpdateHeading">
-                Editar Trimestre
-              </h2>
-              <p>
-                {' '}
-                Actualice la información y el rango de frachas lectivas del trimestre académico en el canlendario formativo
-                institucional{' '}
-              </p>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> TRIMESTRES ACADÉMICOS <span className="separator">/</span>{' '}
+            <span className="current" style={{ color: '#6bc120', fontWeight: 'bold' }}>
+              {isNew ? 'CREAR NUEVO' : 'EDITAR'}
+            </span>
+          </div>
+          <h2 id="trimester-heading" data-cy="TrimesterCreateUpdateHeading" className="page-title">
+            {isNew ? 'Crear Nuevo Trimestre' : 'Editar Trimestre'}
+          </h2>
+          <p className="page-description">
+            {isNew
+              ? 'Ingrese la información requerida para registrar y programar un nuevo trimestre académico en el calendario formativo institucional.'
+              : 'Actualice la información y el rango de fechas lectivas del trimestre académico en el calendario formativo institucional.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="entity-card">
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
+            <div className="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+              <h5 className="mb-0 fw-bold" style={{ color: '#00324d' }}>
+                <FontAwesomeIcon icon="calendar-alt" className="me-2" style={{ color: '#6bc120' }} />
+                Información del Trimestre
+              </h5>
+              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                * Campos obligatorios
+              </span>
             </div>
-          )}
-          {isNew && (
-            <div>
-              <h2 id="senaAttendanceApp.trimester.home.createOrEditLabel" data-cy="TrimesterCreateUpdateHeading">
-                Crear Nuevo Trimestre
-              </h2>
-              <p>
-                {' '}
-                Ingrese la información requerida para registrar y programar un nuevo trimestre académico en el calendario formativo
-                institucional.{' '}
-              </p>
-            </div>
-          )}
-        </Col>
-      </Row>
-      <Row className="justify-content-center">
-        <Col md="12">
-          {loading ? (
-            <p>Loading...</p>
-          ) : (
-            <Card className="top-border-card">
-              <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
+
+            <ValidatedField
+              label="NOMBRE DEL TRIMESTRE *"
+              id="trimester-name"
+              name="name"
+              data-cy="name"
+              disabled={!isNew && !isEditing}
+              type="text"
+              placeholder="Ej. Trimestre I - 2025"
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+                maxLength: { value: 30, message: translate('entity.validation.maxlength', { max: 30 }) },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Ingrese el nombre identificador oficial del período académico.
+            </small>
+
+            <Row>
+              <Col md={6}>
                 <ValidatedField
-                  label={translate('senaAttendanceApp.trimester.name')}
-                  id="trimester-name"
-                  name="name"
-                  data-cy="name"
-                  disabled={!isNew && !isEditing}
-                  type="text"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                    maxLength: { value: 30, message: translate('entity.validation.maxlength', { max: 30 }) },
-                  }}
-                />
-                <ValidatedField
-                  label={translate('senaAttendanceApp.trimester.startDate')}
+                  label="FECHA DE INICIO *"
                   id="trimester-startDate"
                   name="startDate"
                   data-cy="startDate"
@@ -127,8 +133,13 @@ export const TrimesterUpdate = () => {
                     required: { value: true, message: translate('entity.validation.required') },
                   }}
                 />
+                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+                  Fecha oficial de inicio de actividades lectivas.
+                </small>
+              </Col>
+              <Col md={6}>
                 <ValidatedField
-                  label={translate('senaAttendanceApp.trimester.endDate')}
+                  label="FECHA DE FIN *"
                   id="trimester-endDate"
                   name="endDate"
                   data-cy="endDate"
@@ -138,61 +149,96 @@ export const TrimesterUpdate = () => {
                     required: { value: true, message: translate('entity.validation.required') },
                   }}
                 />
-                {!isNew && (
-                  <ValidatedField
-                    label={translate('senaAttendanceApp.trimester.state')}
-                    id="trimester-status"
-                    name="status"
-                    data-cy="status"
-                    type="text"
-                    disabled
-                  />
-                )}
-                {isNew ? (
-                  <div>
-                    <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/trimester" replace variant="info">
-                      <FontAwesomeIcon icon="arrow-left" />
-                      &nbsp;
-                      <span className="d-none d-md-inline"> Cancelar </span>
-                    </Button>
-                    &nbsp;
-                    <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
-                      <FontAwesomeIcon icon="save" />
-                      &nbsp;
-                      <Translate contentKey="entity.action.save"> Save</Translate>
-                    </Button>
-                  </div>
-                ) : isEditing ? (
-                  <div>
-                    <Button type="button" variant="info" onClick={handleCancelClick} data-cy="entityCreateCancelButton">
-                      <FontAwesomeIcon icon={faArrowLeft} />
-                      &nbsp;
-                      <span className="d-none d-md-inline">Cancelar</span>
-                    </Button>
-                    &nbsp;
-                    <Button variant="primary" type="submit" disabled={updating} data-cy="entityCreateSaveButton">
-                      <FontAwesomeIcon icon={faSave} />
-                      &nbsp;
-                      <Translate contentKey="entity.action.save">Save</Translate>
-                    </Button>
-                  </div>
-                ) : (
-                  <div>
-                    <Button as={Link as any} to="/trimester" replace variant="info" data-cy="entityCreateCancelButton">
-                      <FontAwesomeIcon icon={faArrowLeft} />
-                      &nbsp;
-                      <Translate contentKey="entity.action.back">Back</Translate>
-                    </Button>
-                    <Button type="button" variant="primary" data-cy="entityCreateCancelButton" onClick={handleEditClick}>
-                      <span className="d-none d-md-inline">Editar</span>
-                    </Button>
-                  </div>
-                )}
-              </ValidatedForm>
-            </Card>
-          )}
-        </Col>
-      </Row>
+                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+                  Fecha oficial de culminación del trimestre.
+                </small>
+              </Col>
+            </Row>
+
+            {!isNew && <ValidatedField label="ESTADO" id="trimester-status" name="status" data-cy="status" type="text" disabled />}
+
+            <div className="d-flex justify-content-end mt-4 gap-2">
+              {isNew ? (
+                <>
+                  <Button
+                    as={Link as any}
+                    id="cancel-save"
+                    data-cy="entityCreateCancelButton"
+                    to="/trimester"
+                    replace
+                    variant="outline-secondary"
+                    className="fw-bold"
+                    style={{ borderRadius: '8px', padding: '10px 20px', borderColor: '#d3d3d3', color: '#4a4a4a' }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="success"
+                    id="save-entity"
+                    data-cy="entityCreateSaveButton"
+                    type="submit"
+                    disabled={updating}
+                    className="fw-bold"
+                    style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+                  >
+                    <FontAwesomeIcon icon="check" className="me-2" />
+                    Crear Trimestre
+                  </Button>
+                </>
+              ) : isEditing ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline-secondary"
+                    onClick={handleCancelClick}
+                    data-cy="entityCreateCancelButton"
+                    className="fw-bold"
+                    style={{ borderRadius: '8px', padding: '10px 20px', borderColor: '#d3d3d3', color: '#4a4a4a' }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="success"
+                    type="submit"
+                    disabled={updating}
+                    data-cy="entityCreateSaveButton"
+                    className="fw-bold"
+                    style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+                  >
+                    <FontAwesomeIcon icon="check" className="me-2" />
+                    Guardar Cambios
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    as={Link as any}
+                    to="/trimester"
+                    replace
+                    variant="outline-secondary"
+                    data-cy="entityCreateCancelButton"
+                    className="fw-bold"
+                    style={{ borderRadius: '8px', padding: '10px 20px', borderColor: '#d3d3d3', color: '#4a4a4a' }}
+                  >
+                    <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
+                    Volver
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    data-cy="entityCreateCancelButton"
+                    onClick={handleEditClick}
+                    className="fw-bold"
+                    style={{ borderRadius: '8px', padding: '10px 20px' }}
+                  >
+                    Editar
+                  </Button>
+                </>
+              )}
+            </div>
+          </ValidatedForm>
+        )}
+      </div>
     </div>
   );
 };

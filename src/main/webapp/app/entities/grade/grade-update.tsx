@@ -81,150 +81,181 @@ export const GradeUpdate = () => {
 
   return (
     <div>
-      <Row className="justify-content-center">
-        <Col md="8">
-          <h2 id="senaAttendanceApp.grade.home.createOrEditLabel" data-cy="GradeCreateUpdateHeading">
-            <Translate contentKey="senaAttendanceApp.grade.home.createOrEditLabel">Create or edit a Grade</Translate>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> FICHAS <span className="separator">/</span>{' '}
+            <span className="current" style={{ color: '#6bc120', fontWeight: 'bold' }}>
+              {isNew ? 'CREAR NUEVA FICHA' : 'EDITAR FICHA'}
+            </span>
+          </div>
+          <h2 id="grade-heading" data-cy="GradeCreateUpdateHeading" className="page-title">
+            {isNew ? 'Crear Nueva Ficha' : 'Editar Ficha'}
           </h2>
-        </Col>
-      </Row>
-      <Row className="justify-content-center">
-        <Col md="8">
-          {loading ? (
-            <p>Loading...</p>
-          ) : (
-            <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
-              {!isNew && (
+          <p className="page-description">
+            {isNew
+              ? 'Ingrese la información requerida para registrar y aperturar una nueva ficha en el sistema de gestión formativa SENA.'
+              : 'Actualice los datos generales, de programa o fechas de la ficha en el sistema de gestión.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="entity-card">
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
+            <div className="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+              <h5 className="mb-0 fw-bold" style={{ color: '#00324d' }}>
+                <FontAwesomeIcon icon="users" className="me-2" style={{ color: '#6bc120' }} />
+                Información de la Ficha
+              </h5>
+              <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                * Campos obligatorios
+              </span>
+            </div>
+
+            <ValidatedField
+              label="CÓDIGO DE FICHA *"
+              id="grade-code"
+              name="code"
+              data-cy="code"
+              type="text"
+              placeholder="Ej. 2894120"
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+                maxLength: { value: 20, message: translate('entity.validation.maxlength', { max: 20 }) },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Número identificador único de la ficha o grupo formativo.
+            </small>
+
+            <Row>
+              <Col md={6}>
                 <ValidatedField
-                  name="id"
-                  required
-                  readOnly
-                  id="grade-id"
-                  label={translate('global.field.id')}
-                  validate={{ required: true }}
+                  label="FECHA DE INICIO *"
+                  id="grade-startDate"
+                  name="startDate"
+                  data-cy="startDate"
+                  type="date"
+                  validate={{
+                    required: { value: true, message: translate('entity.validation.required') },
+                  }}
                 />
-              )}
-              <ValidatedField
-                label={translate('senaAttendanceApp.grade.code')}
-                id="grade-code"
-                name="code"
-                data-cy="code"
-                type="text"
-                validate={{
-                  required: { value: true, message: translate('entity.validation.required') },
-                  maxLength: { value: 20, message: translate('entity.validation.maxlength', { max: 20 }) },
-                }}
-              />
-              <ValidatedField
-                label={translate('senaAttendanceApp.grade.state')}
-                id="grade-state"
-                name="state"
-                data-cy="state"
-                type="select"
-              >
+                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+                  Fecha de inicio de la etapa lectiva.
+                </small>
+              </Col>
+              <Col md={6}>
+                <ValidatedField
+                  label="FECHA DE FIN *"
+                  id="grade-endDate"
+                  name="endDate"
+                  data-cy="endDate"
+                  type="date"
+                  validate={{
+                    required: { value: true, message: translate('entity.validation.required') },
+                  }}
+                />
+                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+                  Fecha estimada de culminación de formación.
+                </small>
+              </Col>
+            </Row>
+
+            <ValidatedField id="grade-program" name="program" data-cy="program" label="PROGRAMA DE FORMACIÓN *" type="select" required>
+              <option value="" key="0">
+                Seleccione un programa de formación...
+              </option>
+              {programs
+                ? programs.map(otherEntity => (
+                    <option value={otherEntity.id} key={otherEntity.id}>
+                      {otherEntity.name}
+                    </option>
+                  ))
+                : null}
+            </ValidatedField>
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Programa curricular asociado a la ficha.
+            </small>
+
+            <Row>
+              <Col md={6}>
+                <ValidatedField id="grade-timeSlot" name="timeSlot" data-cy="timeSlot" label="JORNADA *" type="select" required>
+                  <option value="" key="0">
+                    Seleccione una jornada...
+                  </option>
+                  {timeSlots
+                    ? timeSlots.map(otherEntity => (
+                        <option value={otherEntity.id} key={otherEntity.id}>
+                          {otherEntity.name}
+                        </option>
+                      ))
+                    : null}
+                </ValidatedField>
+                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+                  Horario en el que se impartirá la formación.
+                </small>
+              </Col>
+              <Col md={6}>
+                <ValidatedField id="grade-modality" name="modality" data-cy="modality" label="MODALIDAD *" type="select" required>
+                  <option value="" key="0">
+                    Seleccione una modalidad...
+                  </option>
+                  {modalities
+                    ? modalities.map(otherEntity => (
+                        <option value={otherEntity.id} key={otherEntity.id}>
+                          {otherEntity.name}
+                        </option>
+                      ))
+                    : null}
+                </ValidatedField>
+                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+                  Modalidad pedagógica de impartición.
+                </small>
+              </Col>
+            </Row>
+
+            {!isNew && (
+              <ValidatedField label="ESTADO" id="grade-state" name="state" data-cy="state" type="select">
                 {stateGradeValues.map(stateGrade => (
                   <option value={stateGrade} key={stateGrade}>
                     {translate(`senaAttendanceApp.StateGrade.${stateGrade}`)}
                   </option>
                 ))}
               </ValidatedField>
-              <ValidatedField
-                label={translate('senaAttendanceApp.grade.startDate')}
-                id="grade-startDate"
-                name="startDate"
-                data-cy="startDate"
-                type="date"
-                validate={{
-                  required: { value: true, message: translate('entity.validation.required') },
-                }}
-              />
-              <ValidatedField
-                label={translate('senaAttendanceApp.grade.endDate')}
-                id="grade-endDate"
-                name="endDate"
-                data-cy="endDate"
-                type="date"
-                validate={{
-                  required: { value: true, message: translate('entity.validation.required') },
-                }}
-              />
-              <ValidatedField
-                id="grade-program"
-                name="program"
-                data-cy="program"
-                label={translate('senaAttendanceApp.grade.program')}
-                type="select"
-                required
+            )}
+
+            <div className="d-flex justify-content-end mt-4 gap-2">
+              <Button
+                as={Link as any}
+                id="cancel-save"
+                data-cy="entityCreateCancelButton"
+                to="/grade"
+                replace
+                variant="outline-secondary"
+                className="fw-bold"
+                style={{ borderRadius: '8px', padding: '10px 20px', borderColor: '#d3d3d3', color: '#4a4a4a' }}
               >
-                <option value="" key="0" />
-                {programs
-                  ? programs.map(otherEntity => (
-                      <option value={otherEntity.id} key={otherEntity.id}>
-                        {otherEntity.name}
-                      </option>
-                    ))
-                  : null}
-              </ValidatedField>
-              <FormText>
-                <Translate contentKey="entity.validation.required">This field is required.</Translate>
-              </FormText>
-              <ValidatedField
-                id="grade-modality"
-                name="modality"
-                data-cy="modality"
-                label={translate('senaAttendanceApp.grade.modality')}
-                type="select"
-                required
-              >
-                <option value="" key="0" />
-                {modalities
-                  ? modalities.map(otherEntity => (
-                      <option value={otherEntity.id} key={otherEntity.id}>
-                        {otherEntity.name}
-                      </option>
-                    ))
-                  : null}
-              </ValidatedField>
-              <FormText>
-                <Translate contentKey="entity.validation.required">This field is required.</Translate>
-              </FormText>
-              <ValidatedField
-                id="grade-timeSlot"
-                name="timeSlot"
-                data-cy="timeSlot"
-                label={translate('senaAttendanceApp.grade.timeSlot')}
-                type="select"
-                required
-              >
-                <option value="" key="0" />
-                {timeSlots
-                  ? timeSlots.map(otherEntity => (
-                      <option value={otherEntity.id} key={otherEntity.id}>
-                        {otherEntity.name}
-                      </option>
-                    ))
-                  : null}
-              </ValidatedField>
-              <FormText>
-                <Translate contentKey="entity.validation.required">This field is required.</Translate>
-              </FormText>
-              <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/grade" replace variant="info">
-                <FontAwesomeIcon icon="arrow-left" />
-                &nbsp;
-                <span className="d-none d-md-inline">
-                  <Translate contentKey="entity.action.back">Back</Translate>
-                </span>
+                Cancelar
               </Button>
-              &nbsp;
-              <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
-                <FontAwesomeIcon icon="save" />
-                &nbsp;
-                <Translate contentKey="entity.action.save">Save</Translate>
+              <Button
+                variant="success"
+                id="save-entity"
+                data-cy="entityCreateSaveButton"
+                type="submit"
+                disabled={updating}
+                className="fw-bold"
+                style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+              >
+                <FontAwesomeIcon icon="check" className="me-2" />
+                {isNew ? 'Crear Ficha' : 'Guardar Cambios'}
               </Button>
-            </ValidatedForm>
-          )}
-        </Col>
-      </Row>
+            </div>
+          </ValidatedForm>
+        )}
+      </div>
     </div>
   );
 };
