@@ -11,7 +11,6 @@ import Attendance from './attendance';
 import AuditLog from './audit-log';
 import ClassSchedule from './class-schedule';
 import ClassSection from './class-section';
-import DesertionCounter from './desertion-counter';
 import DocumentType from './document-type';
 import GlobalConfiguration from './global-configuration';
 import Grade from './grade';
@@ -48,7 +47,6 @@ export default () => {
         <Route path="/audit-log/*" element={<AuditLog />} />
         <Route path="/justification/*" element={<Justification />} />
         <Route path="/justification-details/*" element={<JustificationDetails />} />
-        <Route path="/desertion-counter/*" element={<DesertionCounter />} />
         <Route path="/notification/*" element={<Notification />} />
         {/* jhipster-needle-add-route-path - JHipster will add routes here */}
       </ErrorBoundaryRoutes>

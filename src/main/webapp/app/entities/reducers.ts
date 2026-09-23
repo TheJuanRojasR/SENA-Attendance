@@ -6,7 +6,6 @@ import attendance from 'app/entities/attendance/attendance.reducer';
 import auditLog from 'app/entities/audit-log/audit-log.reducer';
 import classSchedule from 'app/entities/class-schedule/class-schedule.reducer';
 import classSection from 'app/entities/class-section/class-section.reducer';
-import desertionCounter from 'app/entities/desertion-counter/desertion-counter.reducer';
 import documentType from 'app/entities/document-type/document-type.reducer';
 import globalConfiguration from 'app/entities/global-configuration/global-configuration.reducer';
 import grade from 'app/entities/grade/grade.reducer';
@@ -40,7 +39,6 @@ const entitiesReducers = {
   justification,
   justificationDetails,
   notification,
-  desertionCounter,
   /* jhipster-needle-add-reducer-combine - JHipster will add reducer here */
 };
 

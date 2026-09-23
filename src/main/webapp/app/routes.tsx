@@ -25,7 +25,6 @@ export interface IDashboardProps {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isInstructor: boolean;
-  isCoordinator: boolean;
   isAprentice: boolean;
 }
 
@@ -73,11 +72,10 @@ const AppRoutes = (props: IDashboardProps) => {
           <Route
             path="/dashboard"
             element={
-              <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.INSTRUCTOR, Authority.COORDINATOR, Authority.APPRENTICE]}>
+              <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.INSTRUCTOR, Authority.APPRENTICE]}>
                 <Dashboard
                   isAuthenticated={props.isAuthenticated}
                   isAdmin={props.isAdmin}
-                  isCoordinator={props.isCoordinator}
                   isInstructor={props.isInstructor}
                   isAprentice={props.isAprentice}
                 />

@@ -4,7 +4,6 @@ import './dashboard.scss';
 import { Col, Row } from 'react-bootstrap';
 
 import { AprenticeDashboard } from './apprentice/dashboard-aprentice';
-import { CoordinatorDashboard } from './coordinator/dashboard-coordinator';
 import { DashboardDescription, WelcomeBanner } from './dashboard-components';
 import { InstructorDashboard } from './instructor/dashboard-instructor';
 import { AdminDashboard } from './admin/dashboard-admin';
@@ -13,7 +12,6 @@ import LinkButton from 'app/shared/components/link-button';
 export interface IDashboardProps {
   isAuthenticated: boolean;
   isAdmin: boolean;
-  isCoordinator: boolean;
   isInstructor: boolean;
   isAprentice: boolean;
 }
@@ -54,7 +52,6 @@ const Dashboard = (props: IDashboardProps) => {
       )}
       <Col md="12">
         {props.isAuthenticated && props.isAdmin && <AdminDashboard />}
-        {props.isAuthenticated && props.isCoordinator && <CoordinatorDashboard />}
         {props.isAuthenticated && props.isInstructor && <InstructorDashboard />}
         {props.isAuthenticated && props.isAprentice && <AprenticeDashboard />}
       </Col>

@@ -26,8 +26,7 @@
         "justification": "Mis justificaciones",
         "justificationDetails": "Justificaciones por decidir",
         "alert": "Alertas de inasistencia",
-        "notification": "Notificaciones",
-        "desertionCounter": "Contador de Deserción"
+        "notification": "Notificaciones"
       },
       "account": {
         "main": "Cuenta",
@@ -85,7 +84,7 @@
         "register": {
           "noaccount": "¿Aún no tienes acceso? Si eres Aprendiz puedes",
           "link": "regístrarte aquí",
-          "suffix": ". Si eres Instructor o Coordinador, comunícate con el administrador para la creación de tu perfil."
+          "suffix": ". Si eres Instructor, comunícate con el administrador para la creación de tu perfil."
         }
       },
       "error": {

@@ -11,14 +11,11 @@ const EntitiesMenu = () => {
   const authorities = useAppSelector(state => state.authentication.account.authorities);
 
   const isAdmin = hasAnyAuthority(authorities, [Authority.ADMIN]);
-  const isCoordinator = hasAnyAuthority(authorities, ['ROLE_COORDINATOR']);
   const isInstructor = hasAnyAuthority(authorities, ['ROLE_INSTRUCTOR']);
   const isApprentice = hasAnyAuthority(authorities, ['ROLE_APPRENTICE']);
 
-  const adminOrCoordinator = isAdmin || isCoordinator;
   const adminOrInstructor = isAdmin || isInstructor;
   const adminOrApprentice = isAdmin || isApprentice;
-  const adminOrCoordinatorOrInstructor = isAdmin || isCoordinator || isInstructor;
   return (
     <>
       {/* prettier-ignore */}
@@ -46,37 +43,44 @@ const EntitiesMenu = () => {
           <Translate contentKey="global.menu.entities.userProfile" />
         </MenuItem>
       )}
-      {/* ══════════════════════════════════════════
-          ADMIN + COORDINADOR — Estructura académica
-      ══════════════════════════════════════════ */}
-      {adminOrCoordinator && (
+      {isAdmin && (
         <MenuItem icon="cogs" to="/global-configuration">
           <Translate contentKey="global.menu.entities.globalConfiguration" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
+      {isAdmin && (
         <MenuItem icon="cloud-sun" to="/time-slot">
           <Translate contentKey="global.menu.entities.timeSlot" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
+      {isAdmin && (
         <MenuItem icon="layer-group" to="/modality">
           <Translate contentKey="global.menu.entities.modality" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
+      {isAdmin && (
         <MenuItem icon="graduation-cap" to="/program">
           <Translate contentKey="global.menu.entities.program" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
+      {isAdmin && (
         <MenuItem icon="calendar-alt" to="/trimester">
           <Translate contentKey="global.menu.entities.trimester" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
+      {isAdmin && (
         <MenuItem icon="tag" to="/justification-type">
           <Translate contentKey="global.menu.entities.justificationType" />
+        </MenuItem>
+      )}
+      {isAdmin && (
+        <MenuItem icon="th-list" to="/grade">
+          <Translate contentKey="global.menu.entities.grade" />
+        </MenuItem>
+      )}
+      {isAdmin && (
+        <MenuItem icon="book-open" to="/class-section">
+          <Translate contentKey="global.menu.entities.classSection" />
         </MenuItem>
       )}
       {adminOrInstructor && (
@@ -84,30 +88,12 @@ const EntitiesMenu = () => {
           <Translate contentKey="global.menu.entities.apprentice" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
-        <MenuItem icon="bell" to="/desertion-counter">
-          <Translate contentKey="global.menu.entities.desertionCounter" />
-        </MenuItem>
-      )}
-      {adminOrCoordinator && (
+      {adminOrInstructor && (
         <MenuItem icon="clock" to="/class-schedule">
           <Translate contentKey="global.menu.entities.classSchedule" />
         </MenuItem>
       )}
-      {/* ══════════════════════════════════════════
-          ADMIN + COORDINADOR + INSTRUCTOR — Gestión de clases
-      ══════════════════════════════════════════ */}
-      {adminOrCoordinatorOrInstructor && (
-        <MenuItem icon="th-list" to="/grade">
-          <Translate contentKey="global.menu.entities.grade" />
-        </MenuItem>
-      )}
-      {adminOrCoordinatorOrInstructor && (
-        <MenuItem icon="book-open" to="/class-section">
-          <Translate contentKey="global.menu.entities.classSection" />
-        </MenuItem>
-      )}
-      {adminOrCoordinatorOrInstructor && (
+      {adminOrInstructor && (
         <MenuItem icon="ban" to="/class-exception">
           <Translate contentKey="global.menu.entities.classException" />
         </MenuItem>
