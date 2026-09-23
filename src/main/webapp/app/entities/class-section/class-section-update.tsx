@@ -68,12 +68,18 @@ export const ClassSectionUpdate = () => {
     }
   }, [updateSuccess]);
 
+  // UC015: "toda materia nace vinculada a una única ficha y no puede moverse a otra". Al editar,
+  // la ficha siempre se conserva tal como está persistida, sin importar qué traiga el formulario.
   const saveEntity = values => {
     const entity = {
       ...classSectionEntity,
       ...values,
       instructor: userProfiles.find(it => it.id.toString() === values.instructor?.toString()),
-      grade: gradeIdParam ? { id: gradeIdParam } : grades.find(it => it.id.toString() === values.grade?.toString()),
+      grade: isNew
+        ? gradeIdParam
+          ? { id: gradeIdParam }
+          : grades.find(it => it.id.toString() === values.grade?.toString())
+        : classSectionEntity.grade,
     };
 
     if (isNew) {
@@ -160,29 +166,34 @@ export const ClassSectionUpdate = () => {
                   : null}
               </ValidatedField>
               <FormText>Instructor opcional: la materia puede crearse sin instructor y asignarlo después.</FormText>
-              {!gradeIdParam && (
-                <ValidatedField
-                  id="class-section-grade"
-                  name="grade"
-                  data-cy="grade"
-                  label={translate('senaAttendanceApp.classSection.grade')}
-                  type="select"
-                  required
-                >
-                  <option value="" key="0" />
-                  {grades
-                    ? grades.map(otherEntity => (
-                        <option value={otherEntity.id} key={otherEntity.id}>
-                          {otherEntity.code}
-                        </option>
-                      ))
-                    : null}
-                </ValidatedField>
+              {isNew && !gradeIdParam && (
+                <>
+                  <ValidatedField
+                    id="class-section-grade"
+                    name="grade"
+                    data-cy="grade"
+                    label={translate('senaAttendanceApp.classSection.grade')}
+                    type="select"
+                    required
+                  >
+                    <option value="" key="0" />
+                    {grades
+                      ? grades.map(otherEntity => (
+                          <option value={otherEntity.id} key={otherEntity.id}>
+                            {otherEntity.code}
+                          </option>
+                        ))
+                      : null}
+                  </ValidatedField>
+                  <FormText>
+                    <Translate contentKey="entity.validation.required">This field is required.</Translate>
+                  </FormText>
+                </>
               )}
-              {!gradeIdParam && (
-                <FormText>
-                  <Translate contentKey="entity.validation.required">This field is required.</Translate>
-                </FormText>
+              {!isNew && (
+                <p className="text-muted">
+                  Ficha: {classSectionEntity.grade?.code} (una materia no puede moverse a otra ficha una vez creada).
+                </p>
               )}
               <Button
                 as={Link as any}
