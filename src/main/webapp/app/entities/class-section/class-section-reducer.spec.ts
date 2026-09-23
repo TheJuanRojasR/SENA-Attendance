@@ -24,11 +24,12 @@ describe('Entities reducer tests', () => {
     return Object.keys(element).length === 0;
   }
 
-  const initialState: EntityState<IClassSection> = {
+  const initialState: EntityState<IClassSection> & { mine: IClassSection[] } = {
     loading: false,
     errorMessage: null,
     entities: [],
     entity: defaultValue,
+    mine: [],
     totalItems: 0,
     updating: false,
     updateSuccess: false,

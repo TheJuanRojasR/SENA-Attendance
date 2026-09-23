@@ -1,15 +1,20 @@
-import { createAsyncThunk, isFulfilled, isPending } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, isFulfilled, isPending, isRejected } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 import { IClassSection, defaultValue } from 'app/shared/model/class-section.model';
-import { EntityState, IQueryParams, createEntitySlice, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
+import { EntityState, IQueryParams, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 import { cleanEntity } from 'app/shared/util/entity-utils';
 
-const initialState: EntityState<IClassSection> = {
+interface IClassSectionState extends EntityState<IClassSection> {
+  mine: IClassSection[];
+}
+
+const initialState: IClassSectionState = {
   loading: false,
   errorMessage: null,
   entities: [],
   entity: defaultValue,
+  mine: [],
   updating: false,
   totalItems: 0,
   updateSuccess: false,
@@ -23,6 +28,18 @@ export const getEntities = createAsyncThunk(
   'classSection/fetch_entity_list',
   async ({ page, size, sort }: IQueryParams) => {
     const requestUrl = `${apiUrl}?${sort ? `page=${page}&size=${size}&sort=${sort}&` : ''}cacheBuster=${Date.now()}`;
+    return axios.get<IClassSection[]>(requestUrl);
+  },
+  { serializeError: serializeAxiosError },
+);
+
+// UC017: las materias del instructor autenticado; no está paginado y admite el filtro
+// opcional gradeCode (coincidencia parcial). Reutilizado hoy por UC009 (tomar asistencia)
+// para que el instructor elija una de sus materias sin esperar a que exista "Mis fichas".
+export const getMine = createAsyncThunk(
+  'classSection/fetch_mine',
+  async (gradeCode?: string) => {
+    const requestUrl = `${apiUrl}/mine${gradeCode ? `?gradeCode=${encodeURIComponent(gradeCode)}` : ''}`;
     return axios.get<IClassSection[]>(requestUrl);
   },
   { serializeError: serializeAxiosError },
@@ -80,14 +97,26 @@ export const deleteEntity = createAsyncThunk(
 
 // slice
 
-export const ClassSectionSlice = createEntitySlice({
+export const ClassSectionSlice = createSlice({
   name: 'classSection',
   initialState,
+  reducers: {
+    reset() {
+      return initialState;
+    },
+  },
   extraReducers(builder) {
     builder
       .addCase(getEntity.fulfilled, (state, action) => {
         state.loading = false;
         state.entity = action.payload.data;
+      })
+      .addCase(getMine.fulfilled, (state, action) => {
+        state.loading = false;
+        state.mine = action.payload.data;
+      })
+      .addCase(getMine.pending, state => {
+        state.loading = true;
       })
       .addCase(deleteEntity.fulfilled, state => {
         state.updating = false;
@@ -119,6 +148,12 @@ export const ClassSectionSlice = createEntitySlice({
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
+      })
+      .addMatcher(isRejected(getEntities, getEntity, getMine, createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+        state.loading = false;
+        state.updating = false;
+        state.updateSuccess = false;
+        state.errorMessage = null;
       });
   },
 });
