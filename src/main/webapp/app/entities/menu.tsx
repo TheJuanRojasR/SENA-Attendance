@@ -110,6 +110,11 @@ const EntitiesMenu = () => {
           ADMIN + INSTRUCTOR — Toma de asistencia
       ══════════════════════════════════════════ */}
       {isInstructor && (
+        <MenuItem icon="th-large" to="/class-section/mine">
+          Mis fichas
+        </MenuItem>
+      )}
+      {isInstructor && (
         <MenuItem icon="clipboard-list" to="/attendance/session">
           Tomar asistencia
         </MenuItem>
