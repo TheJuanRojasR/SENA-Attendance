@@ -54,8 +54,11 @@ describe('Header', () => {
     mountedWrapper = undefined;
   });
 
-  // All tests will go here
-  it('Renders a Header component in dev profile with LoadingBar, Navbar, Nav and dev ribbon.', () => {
+  // El ribbon de desarrollo se eliminó del header (ver comentario en header.tsx); el AccountMenu
+  // (dropdown) se movió al sidebar (mockup) y en el header solo sobrevive como los mismos
+  // MenuItem de Settings/Password/Logout dentro de un bloque 'd-md-none' (visibilidad por CSS,
+  // no por JSX), para que sigan alcanzables en móvil donde el sidebar está oculto.
+  it('Renders a Header component in dev profile with LoadingBar, Navbar, Nav and account menu items.', () => {
     const html = wrapper();
 
     // Find Navbar component
@@ -64,10 +67,8 @@ describe('Header', () => {
     expect(html).toContain('admin-menu');
     // Find EntitiesMenu component
     expect(html).toContain('entity-menu');
-    // Find AccountMenu component
-    expect(html).toContain('account-menu');
-    // Ribbon
-    expect(html).toContain('ribbon');
+    // Find the account items (Settings/Password/Logout)
+    expect(html).toContain('data-cy="logout"');
   });
 
   it('Renders a Header component in prod profile with LoadingBar, Navbar, Nav.', () => {
@@ -79,10 +80,8 @@ describe('Header', () => {
     expect(html).toContain('admin-menu');
     // Find EntitiesMenu component
     expect(html).toContain('entity-menu');
-    // Find AccountMenu component
-    expect(html).toContain('account-menu');
-    // No Ribbon
-    expect(html).not.toContain('ribbon');
+    // Find the account items (Settings/Password/Logout)
+    expect(html).toContain('data-cy="logout"');
   });
 
   it('Renders a Header component in prod profile with logged in User', () => {
@@ -94,8 +93,8 @@ describe('Header', () => {
     expect(html).not.toContain('admin-menu');
     // Find EntitiesMenu component
     expect(html).toContain('entity-menu');
-    // Find AccountMenu component
-    expect(html).toContain('account-menu');
+    // Find the account items (Settings/Password/Logout)
+    expect(html).toContain('data-cy="logout"');
   });
 
   it('Renders a Header component in prod profile with no logged in User', () => {
@@ -107,7 +106,10 @@ describe('Header', () => {
     expect(html).not.toContain('admin-menu');
     // Not find EntitiesMenu component
     expect(html).not.toContain('entity-menu');
-    // Find AccountMenu component
-    expect(html).toContain('account-menu');
+    // A guest has no session, so no account items either
+    expect(html).not.toContain('data-cy="logout"');
+    // Instead, shows the login/register entry points
+    expect(html).toContain('data-cy="login"');
+    expect(html).toContain('data-cy="register"');
   });
 });

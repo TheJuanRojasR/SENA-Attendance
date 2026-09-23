@@ -1,13 +1,27 @@
 import React from 'react';
-import { NavItem, NavLink, NavbarBrand } from 'react-bootstrap';
-import { Translate } from 'react-jhipster';
+import { NavItem, NavbarBrand } from 'react-bootstrap';
 import { NavLink as Link } from 'react-router';
 
-import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-interface IHomeProps {
+interface IHeaderProps {
   isAuthenticated: boolean;
+}
+
+interface ISearchBarProps {
+  isAuthenticated: boolean;
+  icon: any;
+  placeholder: string;
+}
+
+interface INotificationsProps {
+  isAuthenticated: boolean;
+  icon: any;
+}
+
+interface IUserInfoProps {
+  fullName: string;
+  role: string;
 }
 
 export const BrandIcon = props => (
@@ -16,7 +30,7 @@ export const BrandIcon = props => (
   </div>
 );
 
-export const Brand = (props: IHomeProps) => (
+export const Brand = (props: IHeaderProps) => (
   <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo">
     <BrandIcon />
     <span className="brand-title">
@@ -27,13 +41,27 @@ export const Brand = (props: IHomeProps) => (
   </NavbarBrand>
 );
 
-export const Home = (props: IHomeProps) => (
-  <NavItem>
-    <NavLink as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="d-flex align-items-center">
-      <FontAwesomeIcon icon={faHome} />
-      <span>
-        <Translate contentKey="global.menu.home">Home</Translate>
-      </span>
-    </NavLink>
+export const SearchBar = (props: ISearchBarProps) => (
+  <NavItem className="search-bar d-flex align-items-center">
+    <FontAwesomeIcon icon={props.icon} />
+    <input type="search" placeholder={props.placeholder} />
+  </NavItem>
+);
+
+export const Notifications = (props: INotificationsProps) => (
+  <NavItem className="notifications">
+    <FontAwesomeIcon icon={props.icon} />
+  </NavItem>
+);
+
+export const UserInfo = (props: IUserInfoProps) => (
+  <NavItem className="user-info">
+    <div className="d-flex align-items-center">
+      <div className="user-info-text">
+        <p className="user-info-name">{props.fullName}</p>
+        <p className="user-info-role">{props.role}</p>
+      </div>
+      <div className="user-info-avatar">{props.fullName?.trim().charAt(0).toUpperCase() || '?'}</div>
+    </div>
   </NavItem>
 );

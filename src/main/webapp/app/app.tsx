@@ -18,6 +18,7 @@ import Header from 'app/shared/layout/header/header';
 import Sidebar from 'app/shared/layout/sidebar/sidebar';
 import { getProfile } from 'app/shared/reducers/application-profile';
 import { getSession } from 'app/shared/reducers/authentication';
+import { getAccountProfile } from 'app/modules/account/settings/settings.reducer';
 
 const baseHref = document.querySelector('base')!.getAttribute('href')!.replace(/\/$/, '');
 
@@ -38,6 +39,15 @@ export const App = () => {
   const ribbonEnv = useAppSelector(state => state.applicationProfile.ribbonEnv);
   const isInProduction = useAppSelector(state => state.applicationProfile.inProduction);
   const isOpenAPIEnabled = useAppSelector(state => state.applicationProfile.isOpenAPIEnabled);
+
+  useEffect(() => {
+    // GET /api/account/profile exige sesión: si se pide sin estar autenticado, el 401
+    // no queda excluido por axios-interceptor.ts (solo excluye rutas que terminan en
+    // exactamente 'api/account') y dispara un cierre de sesión indebido.
+    if (isAuthenticated) {
+      dispatch(getAccountProfile());
+    }
+  }, [isAuthenticated]);
 
   // const paddingTop = '60px';
   return (

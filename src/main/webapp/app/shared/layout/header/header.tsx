@@ -9,9 +9,15 @@ import LoadingBar, { LoadingBarRef } from 'react-top-loading-bar';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { setLocale } from 'app/shared/reducers/locale';
 import LinkButton from 'app/shared/components/link-button';
-import { AccountMenu, AdminMenu, EntitiesMenu, LocaleMenu } from '../menus';
+import { AccountMenuItemsAuthenticated, AdminMenu, EntitiesMenu, LocaleMenu } from '../menus';
 
-import { Brand } from './header-components';
+import { Brand, Notifications, SearchBar, UserInfo } from './header-components';
+
+const ROLE_LABELS: Record<string, string> = {
+  ROLE_ADMIN: 'Administrador',
+  ROLE_INSTRUCTOR: 'Instructor',
+  ROLE_APPRENTICE: 'Aprendiz',
+};
 
 export interface IHeaderProps {
   isAuthenticated: boolean;
@@ -32,6 +38,13 @@ const Header = (props: IHeaderProps) => {
 
   const loadingBarRef = useRef<LoadingBarRef>(null);
   const loadingCount = useAppSelector(state => state.loadingBar.count);
+
+  const account = useAppSelector(state => state.authentication.account);
+  const profile = useAppSelector(state => state.settings.profile);
+
+  const fullName = [profile?.firstName, profile?.firstLastName].filter(Boolean).join(' ') || account?.login || '';
+  const roleKey = account?.authorities?.find(authority => authority !== 'ROLE_USER');
+  const roleLabel = roleKey ? (ROLE_LABELS[roleKey] ?? '') : '';
 
   useEffect(() => {
     if (loadingCount > 0) {
@@ -83,7 +96,16 @@ const Header = (props: IHeaderProps) => {
                 <EntitiesMenu />
               </div>
             )}
-            {props.isAuthenticated && <AccountMenu isAuthenticated={props.isAuthenticated} />}
+            {/* Settings/Password/Logout ya viven en el footer del sidebar (>= md); en móvil, donde el
+                sidebar está oculto (app.tsx: 'd-none d-md-block'), son la única forma de llegar a ellos. */}
+            {props.isAuthenticated && (
+              <div className="d-md-none">
+                <AccountMenuItemsAuthenticated />
+              </div>
+            )}
+            {props.isAuthenticated && <SearchBar icon="search" placeholder="Buscar" isAuthenticated={props.isAuthenticated} />}
+            {props.isAuthenticated && <Notifications isAuthenticated={props.isAuthenticated} icon="bell" />}
+            {props.isAuthenticated && <UserInfo fullName={fullName} role={roleLabel} />}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />
           </Nav>
         </Navbar.Collapse>

@@ -2,53 +2,20 @@ import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { MemoryRouter } from 'react-router';
 
-import { render, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 
-import { AccountMenu } from './account';
+import { AccountMenuItemsAuthenticated } from './account';
 
-describe('AccountMenu', () => {
-  let mountedWrapper: string | undefined;
+describe('AccountMenuItemsAuthenticated', () => {
+  it('renders links to settings, password and logout', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <AccountMenuItemsAuthenticated />
+      </MemoryRouter>,
+    );
 
-  const authenticatedWrapper = async () => {
-    if (!mountedWrapper) {
-      const { container } = render(
-        <MemoryRouter>
-          <AccountMenu isAuthenticated />
-        </MemoryRouter>,
-      );
-      await waitFor(() => expect(container.querySelector('.dropdown-menu')).not.toBeNull());
-      mountedWrapper = container.innerHTML;
-    }
-    return mountedWrapper;
-  };
-  const guestWrapper = async () => {
-    if (!mountedWrapper) {
-      const { container } = render(
-        <MemoryRouter>
-          <AccountMenu />
-        </MemoryRouter>,
-      );
-      await waitFor(() => expect(container.querySelector('.dropdown-menu')).not.toBeNull());
-      mountedWrapper = container.innerHTML;
-    }
-    return mountedWrapper;
-  };
-
-  beforeEach(() => {
-    mountedWrapper = undefined;
-  });
-
-  it('Renders a authenticated AccountMenu component', async () => {
-    const html = await authenticatedWrapper();
-
-    expect(html).not.toContain('/login');
-    expect(html).toContain('/logout');
-  });
-
-  it('Renders a guest AccountMenu component', async () => {
-    const html = await guestWrapper();
-
-    expect(html).toContain('/login');
-    expect(html).not.toContain('/logout');
+    expect(container.querySelector('[data-cy="settings"]')).not.toBeNull();
+    expect(container.querySelector('[data-cy="passwordItem"]')).not.toBeNull();
+    expect(container.querySelector('[data-cy="logout"]')).not.toBeNull();
   });
 });
