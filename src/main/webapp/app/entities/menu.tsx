@@ -23,6 +23,12 @@ const EntitiesMenu = () => {
     <>
       {/* prettier-ignore */}
       {/* ══════════════════════════════════════════
+          TODOS — Notificaciones
+      ══════════════════════════════════════════ */}
+      <MenuItem icon="bell" to="/notification">
+        <Translate contentKey="global.menu.entities.notification" />
+      </MenuItem>
+      {/* ══════════════════════════════════════════
           SOLO ADMIN — Configuración del sistema
       ══════════════════════════════════════════ */}
       {isAdmin && (

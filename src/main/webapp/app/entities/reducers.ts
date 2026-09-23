@@ -13,6 +13,7 @@ import grade from 'app/entities/grade/grade.reducer';
 import justification from 'app/entities/justification/justification.reducer';
 import justificationDetails from 'app/entities/justification-details/justification-details.reducer';
 import modality from 'app/entities/modality/modality.reducer';
+import notification from 'app/entities/notification/notification.reducer';
 import program from 'app/entities/program/program.reducer';
 import timeSlot from 'app/entities/time-slot/time-slot.reducer';
 import trimester from 'app/entities/trimester/trimester.reducer';
@@ -38,6 +39,7 @@ const entitiesReducers = {
   auditLog,
   justification,
   justificationDetails,
+  notification,
   desertionCounter,
   /* jhipster-needle-add-reducer-combine - JHipster will add reducer here */
 };

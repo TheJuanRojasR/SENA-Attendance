@@ -1,0 +1,7 @@
+export enum NotificacionTipo {
+  CREDENTIALS = 'CREDENTIALS',
+
+  JUSTIFICACION = 'JUSTIFICACION',
+
+  ALERTA = 'ALERTA',
+}

@@ -18,6 +18,7 @@ import Grade from './grade';
 import Justification from './justification';
 import JustificationDetails from './justification-details';
 import Modality from './modality';
+import Notification from './notification';
 import Program from './program';
 import TimeSlot from './time-slot';
 import Trimester from './trimester';
@@ -48,6 +49,7 @@ export default () => {
         <Route path="/justification/*" element={<Justification />} />
         <Route path="/justification-details/*" element={<JustificationDetails />} />
         <Route path="/desertion-counter/*" element={<DesertionCounter />} />
+        <Route path="/notification/*" element={<Notification />} />
         {/* jhipster-needle-add-route-path - JHipster will add routes here */}
       </ErrorBoundaryRoutes>
     </div>
