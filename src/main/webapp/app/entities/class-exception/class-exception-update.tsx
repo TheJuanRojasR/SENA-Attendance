@@ -6,7 +6,9 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
-import { getEntities as getClassSections } from 'app/entities/class-section/class-section.reducer';
+import { getEntities as getClassSections, getMine as getMyClassSections } from 'app/entities/class-section/class-section.reducer';
+import { hasAnyAuthority } from 'app/shared/auth/private-route';
+import { Authority } from 'app/shared/jhipster/constants';
 
 import { createEntity, getEntity, reset, updateEntity } from './class-exception.reducer';
 
@@ -18,7 +20,16 @@ export const ClassExceptionUpdate = () => {
   const { id } = useParams<'id'>();
   const isNew = id === undefined;
 
-  const classSections = useAppSelector(state => state.classSection.entities);
+  // UC015-item10: las excepciones no lectivas las gestiona el Admin (cualquier materia, vía el
+  // listado genérico /api/class-sections) o el instructor asignado (solo las suyas, vía /mine —
+  // el genérico le responde 403). El origen del selector depende de qué rol está autenticado.
+  const isAdmin = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.ADMIN]));
+  const adminClassSections = useAppSelector(state => state.classSection.entities);
+  const myClassSections = useAppSelector(state => state.classSection.mine);
+  const classSections = isAdmin ? adminClassSections : myClassSections;
+
+  const classSectionIdParam = new URLSearchParams(location.search).get('classSectionId');
+
   const classExceptionEntity = useAppSelector(state => state.classException.entity);
   const loading = useAppSelector(state => state.classException.loading);
   const updating = useAppSelector(state => state.classException.updating);
@@ -30,7 +41,11 @@ export const ClassExceptionUpdate = () => {
   const isPastException = !isNew && classExceptionEntity?.date != null && `${classExceptionEntity.date}` < todayIso;
 
   const handleClose = () => {
-    navigate(`/class-exception${location.search}`);
+    if (classSectionIdParam) {
+      navigate(`/attendance/session`);
+    } else {
+      navigate(`/class-exception${location.search}`);
+    }
   };
 
   useEffect(() => {
@@ -40,7 +55,11 @@ export const ClassExceptionUpdate = () => {
       dispatch(getEntity(id));
     }
 
-    dispatch(getClassSections({}));
+    if (isAdmin) {
+      dispatch(getClassSections({}));
+    } else {
+      dispatch(getMyClassSections());
+    }
   }, []);
 
   useEffect(() => {
@@ -65,7 +84,7 @@ export const ClassExceptionUpdate = () => {
 
   const defaultValues = () =>
     isNew
-      ? {}
+      ? { classSection: classSectionIdParam ?? '' }
       : {
           ...classExceptionEntity,
           classSection: classExceptionEntity?.classSection?.id,
@@ -125,7 +144,7 @@ export const ClassExceptionUpdate = () => {
                 data-cy="classSection"
                 label={translate('senaAttendanceApp.classException.classSection')}
                 type="select"
-                disabled={isPastException}
+                disabled={isPastException || !!classSectionIdParam}
                 required
               >
                 <option value="" key="0" />
@@ -140,7 +159,14 @@ export const ClassExceptionUpdate = () => {
               <FormText>
                 <Translate contentKey="entity.validation.required">This field is required.</Translate>
               </FormText>
-              <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/class-exception" replace variant="info">
+              <Button
+                as={Link as any}
+                id="cancel-save"
+                data-cy="entityCreateCancelButton"
+                to={classSectionIdParam ? '/attendance/session' : '/class-exception'}
+                replace
+                variant="info"
+              >
                 <FontAwesomeIcon icon="arrow-left" />
                 &nbsp;
                 <span className="d-none d-md-inline">
