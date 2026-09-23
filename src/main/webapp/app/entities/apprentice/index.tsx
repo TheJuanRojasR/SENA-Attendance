@@ -4,18 +4,20 @@ import { Route } from 'react-router';
 import ErrorBoundaryRoutes from 'app/shared/error/error-boundary-routes';
 
 import Apprentice from './apprentice';
-import ApprenticeDeleteDialog from './apprentice-delete-dialog';
 import ApprenticeDetail from './apprentice-detail';
+import ApprenticeUnlinkDialog from './apprentice-unlink-dialog';
 import ApprenticeUpdate from './apprentice-update';
 import PrivateRoute from 'app/shared/auth/private-route';
 import { Authority } from 'app/shared/jhipster/constants';
 
+// UC008: la lectura (lista y detalle) es de ROLE_ADMIN o ROLE_INSTRUCTOR; vincular y desvincular
+// son solo ROLE_ADMIN. No existe edición (no hay PUT/PATCH genérico para Apprentice).
 const ApprenticeRoutes = () => (
   <ErrorBoundaryRoutes>
     <Route
       index
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.INSTRUCTOR]}>
           <Apprentice />
         </PrivateRoute>
       }
@@ -23,7 +25,7 @@ const ApprenticeRoutes = () => (
     <Route
       path="new"
       element={
-        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+        <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
           <ApprenticeUpdate />
         </PrivateRoute>
       }
@@ -32,24 +34,16 @@ const ApprenticeRoutes = () => (
       <Route
         index
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.INSTRUCTOR]}>
             <ApprenticeDetail />
           </PrivateRoute>
         }
       />
       <Route
-        path="edit"
+        path="unlink"
         element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
-            <ApprenticeUpdate />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="delete"
-        element={
-          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN, Authority.COORDINATOR]}>
-            <ApprenticeDeleteDialog />
+          <PrivateRoute hasAnyAuthorities={[Authority.ADMIN]}>
+            <ApprenticeUnlinkDialog />
           </PrivateRoute>
         }
       />

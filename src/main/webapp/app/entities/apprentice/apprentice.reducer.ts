@@ -1,14 +1,20 @@
-import { createAsyncThunk, isFulfilled, isPending } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, isFulfilled, isPending, isRejected } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 import { IApprentice, defaultValue } from 'app/shared/model/apprentice.model';
-import { EntityState, IQueryParams, createEntitySlice, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
-import { cleanEntity } from 'app/shared/util/entity-utils';
+import { IQueryParams, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 
-const initialState: EntityState<IApprentice> = {
+export interface IApprenticeQueryParams extends IQueryParams {
+  gradeId?: string;
+  documentNumber?: string;
+  name?: string;
+  stateAcademic?: string;
+}
+
+const initialState = {
   loading: false,
-  errorMessage: null,
-  entities: [],
+  errorMessage: null as string | null,
+  entities: [] as readonly IApprentice[],
   entity: defaultValue,
   updating: false,
   totalItems: 0,
@@ -21,104 +27,109 @@ const apiUrl = 'api/apprentices';
 
 export const getEntities = createAsyncThunk(
   'apprentice/fetch_entity_list',
-  async ({ page, size, sort }: IQueryParams) => {
-    const requestUrl = `${apiUrl}?${sort ? `page=${page}&size=${size}&sort=${sort}&` : ''}cacheBuster=${Date.now()}`;
-    return axios.get<IApprentice[]>(requestUrl);
+  async ({ page, size, sort, gradeId, documentNumber, name, stateAcademic }: IApprenticeQueryParams) => {
+    const params = new URLSearchParams();
+    if (page !== undefined) {
+      params.set('page', `${page}`);
+    }
+    if (size !== undefined) {
+      params.set('size', `${size}`);
+    }
+    if (sort) {
+      params.set('sort', sort);
+    }
+    if (gradeId) {
+      params.set('gradeId', gradeId);
+    }
+    if (documentNumber) {
+      params.set('documentNumber', documentNumber);
+    }
+    if (name) {
+      params.set('name', name);
+    }
+    if (stateAcademic) {
+      params.set('stateAcademic', stateAcademic);
+    }
+    return axios.get<IApprentice[]>(`${apiUrl}?${params.toString()}`);
   },
   { serializeError: serializeAxiosError },
 );
 
 export const getEntity = createAsyncThunk(
   'apprentice/fetch_entity',
-  async (id: string | number) => {
+  async (id: string) => {
     const requestUrl = `${apiUrl}/${id}`;
     return axios.get<IApprentice>(requestUrl);
   },
   { serializeError: serializeAxiosError },
 );
 
-export const createEntity = createAsyncThunk(
-  'apprentice/create_entity',
-  async (entity: IApprentice, thunkAPI) => {
-    const result = await axios.post<IApprentice>(apiUrl, cleanEntity(entity));
+// UC008: el alta identifica al aprendiz por documento (el servidor resuelve el perfil) y siempre
+// matricula; no existe PUT/PATCH/DELETE genérico para esta entidad, solo alta, baja y consulta.
+export const enrollApprentice = createAsyncThunk(
+  'apprentice/enroll',
+  async ({ documentNumber, gradeId }: { documentNumber: string; gradeId: string }, thunkAPI) => {
+    const result = await axios.post<IApprentice>(apiUrl, { documentNumber, grade: { id: gradeId } });
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
   { serializeError: serializeAxiosError },
 );
 
-export const updateEntity = createAsyncThunk(
-  'apprentice/update_entity',
-  async (entity: IApprentice, thunkAPI) => {
-    const result = await axios.put<IApprentice>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+// El id es el del vínculo (Apprentice), no el del aprendiz. El backend responde 204 sin cuerpo
+// cuando el registro se elimina (sin asistencias) y 200 con el DTO cuando se conserva con el
+// motivo como stateAcademic (con asistencias) — ambos casos son un enroll/unlink fulfilled normal.
+export const unlinkApprentice = createAsyncThunk(
+  'apprentice/unlink',
+  async ({ id, reason }: { id: string; reason: string }, thunkAPI) => {
+    const result = await axios.patch<IApprentice | ''>(`${apiUrl}/unlinked`, { id, reason });
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
   { serializeError: serializeAxiosError },
 );
 
-export const partialUpdateEntity = createAsyncThunk(
-  'apprentice/partial_update_entity',
-  async (entity: IApprentice, thunkAPI) => {
-    const result = await axios.patch<IApprentice>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
-
-export const deleteEntity = createAsyncThunk(
-  'apprentice/delete_entity',
-  async (id: string | number, thunkAPI) => {
-    const requestUrl = `${apiUrl}/${id}`;
-    const result = await axios.delete<IApprentice>(requestUrl);
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
-
-// slice
-
-export const ApprenticeSlice = createEntitySlice({
+export const ApprenticeSlice = createSlice({
   name: 'apprentice',
   initialState,
+  reducers: {
+    reset() {
+      return initialState;
+    },
+  },
   extraReducers(builder) {
     builder
       .addCase(getEntity.fulfilled, (state, action) => {
         state.loading = false;
         state.entity = action.payload.data;
       })
-      .addCase(deleteEntity.fulfilled, state => {
-        state.updating = false;
-        state.updateSuccess = true;
-        state.entity = {};
-      })
       .addMatcher(isFulfilled(getEntities), (state, action) => {
         const { data, headers } = action.payload;
-
-        return {
-          ...state,
-          loading: false,
-          entities: data,
-          totalItems: parseInt(headers['x-total-count'], 10),
-        };
+        state.loading = false;
+        state.entities = data;
+        state.totalItems = parseInt(headers['x-total-count'], 10);
       })
-      .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
+      .addMatcher(isFulfilled(enrollApprentice, unlinkApprentice), (state, action) => {
         state.updating = false;
         state.loading = false;
         state.updateSuccess = true;
-        state.entity = action.payload.data;
+        state.entity = action.payload.data || {};
       })
       .addMatcher(isPending(getEntities, getEntity), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+      .addMatcher(isPending(enrollApprentice, unlinkApprentice), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
+      })
+      .addMatcher(isRejected(getEntities, getEntity, enrollApprentice, unlinkApprentice), (state, action) => {
+        state.loading = false;
+        state.updating = false;
+        state.updateSuccess = false;
+        state.errorMessage = action.error.message!;
       });
   },
 });

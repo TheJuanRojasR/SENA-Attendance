@@ -39,7 +39,7 @@
     "gradeCodeLocked": "El código solo puede cambiarse mientras la ficha no tenga materias ni aprendices.",
     "invalidtransition": "La acción no aplica al estado actual de la ficha.",
     "gradeInUse": "No es posible eliminar la ficha: tiene aprendices vinculados y/o registros de asistencia. Si desea retirarla de operación, use Cancelar ficha.",
-    "gradeNotOperable": "No se pueden crear ni modificar materias en una ficha en su estado actual.",
+    "gradeNotOperable": "La ficha no permite esta operación en su estado actual.",
     "classSectionNameAlreadyUsed": "Ya existe una materia con este nombre en esta ficha.",
     "instructorInactive": "El instructor seleccionado ya no está disponible, selecciona otro.",
     "classSectionInUse": "No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación.",
@@ -51,6 +51,9 @@
     "lastAdmin": "Debe existir al menos un Administrador activo.",
     "lastInstructor": "Este usuario es el único instructor asignado a materias de fichas en estado Pendiente o Activa. Reasigna esas materias antes de continuar.",
     "rolenotfound": "Rol no válido.",
-    "documentNumberNotFound": "No existe un usuario con ese número de documento."
+    "documentNumberNotFound": "No existe un usuario con ese número de documento.",
+    "apprenticeInactive": "Aprendiz no existe o no está activo.",
+    "apprenticeAlreadyEnrolled": "Este aprendiz ya tiene un registro en esta ficha.",
+    "invalidunlinkreason": "El motivo de desvinculación no es válido."
   }
 }

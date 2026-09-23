@@ -3,18 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-import { IApprentice, defaultValue } from 'app/shared/model/apprentice.model';
-import { EntityState } from 'app/shared/reducers/reducer.utils';
+import { defaultValue } from 'app/shared/model/apprentice.model';
 
-import reducer, {
-  createEntity,
-  deleteEntity,
-  getEntities,
-  getEntity,
-  partialUpdateEntity,
-  reset,
-  updateEntity,
-} from './apprentice.reducer';
+import reducer, { enrollApprentice, getEntities, getEntity, reset, unlinkApprentice } from './apprentice.reducer';
 
 describe('Entities reducer tests', () => {
   function isEmpty(element): boolean {
@@ -24,7 +15,7 @@ describe('Entities reducer tests', () => {
     return Object.keys(element).length === 0;
   }
 
-  const initialState: EntityState<IApprentice> = {
+  const initialState = {
     loading: false,
     errorMessage: null,
     entities: [],
@@ -69,17 +60,13 @@ describe('Entities reducer tests', () => {
     });
 
     it('should set state to updating', () => {
-      testMultipleTypes(
-        [createEntity.pending.type, updateEntity.pending.type, partialUpdateEntity.pending.type, deleteEntity.pending.type],
-        {},
-        state => {
-          expect(state).toMatchObject({
-            errorMessage: null,
-            updateSuccess: false,
-            updating: true,
-          });
-        },
-      );
+      testMultipleTypes([enrollApprentice.pending.type, unlinkApprentice.pending.type], {}, state => {
+        expect(state).toMatchObject({
+          errorMessage: null,
+          updateSuccess: false,
+          updating: true,
+        });
+      });
     });
 
     it('should reset the state', () => {
@@ -92,18 +79,11 @@ describe('Entities reducer tests', () => {
   describe('Failures', () => {
     it('should set a message in errorMessage', () => {
       testMultipleTypes(
-        [
-          getEntities.rejected.type,
-          getEntity.rejected.type,
-          createEntity.rejected.type,
-          updateEntity.rejected.type,
-          partialUpdateEntity.rejected.type,
-          deleteEntity.rejected.type,
-        ],
+        [getEntities.rejected.type, getEntity.rejected.type, enrollApprentice.rejected.type, unlinkApprentice.rejected.type],
         'some message',
         state => {
           expect(state).toMatchObject({
-            errorMessage: null,
+            loading: false,
             updateSuccess: false,
             updating: false,
           });
@@ -145,11 +125,11 @@ describe('Entities reducer tests', () => {
       });
     });
 
-    it('should create/update entity', () => {
+    it('should enroll an apprentice', () => {
       const payload = { data: 'fake payload' };
       expect(
         reducer(undefined, {
-          type: createEntity.fulfilled.type,
+          type: enrollApprentice.fulfilled.type,
           payload,
         }),
       ).toEqual({
@@ -160,10 +140,25 @@ describe('Entities reducer tests', () => {
       });
     });
 
-    it('should delete entity', () => {
-      const payload = 'fake payload';
+    it('should unlink an apprentice and keep the returned entity when the history is kept (200)', () => {
+      const payload = { data: { id: '1', stateAcademic: 'RETIRO_VOLUNTARIO' } };
+      expect(
+        reducer(undefined, {
+          type: unlinkApprentice.fulfilled.type,
+          payload,
+        }),
+      ).toEqual({
+        ...initialState,
+        updating: false,
+        updateSuccess: true,
+        entity: payload.data,
+      });
+    });
+
+    it('should unlink an apprentice with no body when the record was deleted (204)', () => {
+      const payload = { data: '' };
       const toTest = reducer(undefined, {
-        type: deleteEntity.fulfilled.type,
+        type: unlinkApprentice.fulfilled.type,
         payload,
       });
       expect(toTest).toMatchObject({
@@ -186,9 +181,7 @@ describe('Entities reducer tests', () => {
       });
       axios.get = vi.fn().mockResolvedValue(resolvedObject);
       axios.post = vi.fn().mockResolvedValue(resolvedObject);
-      axios.put = vi.fn().mockResolvedValue(resolvedObject);
       axios.patch = vi.fn().mockResolvedValue(resolvedObject);
-      axios.delete = vi.fn().mockResolvedValue(resolvedObject);
     });
 
     it('dispatches FETCH_APPRENTICE_LIST actions', async () => {
@@ -205,8 +198,16 @@ describe('Entities reducer tests', () => {
       expect(getEntities.fulfilled.match(result)).toBe(true);
     });
 
+    it('dispatches FETCH_APPRENTICE_LIST actions with filters', async () => {
+      const arg = { page: 0, size: 20, sort: 'id,asc', gradeId: 'g1', documentNumber: '123', name: 'ana', stateAcademic: 'MATRICULADO' };
+
+      const result = await getEntities(arg)(dispatch, getState, extra);
+
+      expect(getEntities.fulfilled.match(result)).toBe(true);
+    });
+
     it('dispatches FETCH_APPRENTICE actions', async () => {
-      const arg = 42666;
+      const arg = '42666';
 
       const result = await getEntity(arg)(dispatch, getState, extra);
 
@@ -219,60 +220,32 @@ describe('Entities reducer tests', () => {
       expect(getEntity.fulfilled.match(result)).toBe(true);
     });
 
-    it('dispatches CREATE_APPRENTICE actions', async () => {
-      const arg = { id: 'f1537a32-8765-4478-a7fa-674e3f6ae8c1' };
+    it('dispatches ENROLL_APPRENTICE actions', async () => {
+      const arg = { documentNumber: '1029384756', gradeId: 'f1537a32-8765-4478-a7fa-674e3f6ae8c1' };
 
-      const result = await createEntity(arg)(dispatch, getState, extra);
+      const result = await enrollApprentice(arg)(dispatch, getState, extra);
 
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: createEntity.pending.type,
+          type: enrollApprentice.pending.type,
           meta: expect.objectContaining({ requestStatus: 'pending' }),
         }),
       );
-      expect(createEntity.fulfilled.match(result)).toBe(true);
+      expect(enrollApprentice.fulfilled.match(result)).toBe(true);
     });
 
-    it('dispatches UPDATE_APPRENTICE actions', async () => {
-      const arg = { id: 'f1537a32-8765-4478-a7fa-674e3f6ae8c1' };
+    it('dispatches UNLINK_APPRENTICE actions', async () => {
+      const arg = { id: 'f1537a32-8765-4478-a7fa-674e3f6ae8c1', reason: 'RETIRO_VOLUNTARIO' };
 
-      const result = await updateEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: updateEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(updateEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches PARTIAL_UPDATE_APPRENTICE actions', async () => {
-      const arg = { id: 'ABC' };
-
-      const result = await partialUpdateEntity(arg)(dispatch, getState, extra);
+      const result = await unlinkApprentice(arg)(dispatch, getState, extra);
 
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: partialUpdateEntity.pending.type,
+          type: unlinkApprentice.pending.type,
           meta: expect.objectContaining({ requestStatus: 'pending' }),
         }),
       );
-      expect(partialUpdateEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches DELETE_APPRENTICE actions', async () => {
-      const arg = 42666;
-
-      const result = await deleteEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: deleteEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(deleteEntity.fulfilled.match(result)).toBe(true);
+      expect(unlinkApprentice.fulfilled.match(result)).toBe(true);
     });
 
     it('dispatches RESET actions', async () => {

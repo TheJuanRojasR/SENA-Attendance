@@ -2,11 +2,11 @@
   "senaAttendanceApp": {
     "StateAcademic": {
       "null": "",
-      "RETIRO_VOLUNTARIO": "RETIRO_VOLUNTARIO",
-      "APLAZADO": "APLAZADO",
-      "CANCELADO": "CANCELADO",
-      "MATRICULADO": "MATRICULADO",
-      "INACTIVO": "INACTIVO"
+      "RETIRO_VOLUNTARIO": "Retiro voluntario",
+      "APLAZADO": "Aplazado",
+      "CANCELADO": "Cancelado",
+      "MATRICULADO": "Matriculado",
+      "INACTIVO": "Inactivo"
     }
   }
 }

@@ -37,15 +37,25 @@ export const ApprenticeDetail = () => {
               <Translate contentKey="senaAttendanceApp.apprentice.stateAcademic">State Academic</Translate>
             </span>
           </dt>
-          <dd>{apprenticeEntity.stateAcademic}</dd>
+          <dd>
+            <Translate contentKey={`senaAttendanceApp.StateAcademic.${apprenticeEntity.stateAcademic}`} />
+          </dd>
           <dt>
             <Translate contentKey="senaAttendanceApp.apprentice.student">Student</Translate>
           </dt>
-          <dd>{apprenticeEntity.student ? apprenticeEntity.student.documentNumber : ''}</dd>
+          <dd>
+            {apprenticeEntity.student ? (
+              <Link to={`/user-profile/${apprenticeEntity.student.id}`}>
+                {apprenticeEntity.student.firstName} {apprenticeEntity.student.firstLastName} ({apprenticeEntity.student.documentNumber})
+              </Link>
+            ) : (
+              ''
+            )}
+          </dd>
           <dt>
             <Translate contentKey="senaAttendanceApp.apprentice.grade">Grade</Translate>
           </dt>
-          <dd>{apprenticeEntity.grade ? apprenticeEntity.grade.code : ''}</dd>
+          <dd>{apprenticeEntity.grade ? <Link to={`/grade/${apprenticeEntity.grade.id}`}>{apprenticeEntity.grade.code}</Link> : ''}</dd>
         </dl>
         <Button as={Link as any} to="/apprentice" replace variant="info" data-cy="entityDetailsBackButton">
           <FontAwesomeIcon icon="arrow-left" />{' '}
@@ -54,10 +64,10 @@ export const ApprenticeDetail = () => {
           </span>
         </Button>
         &nbsp;
-        <Button as={Link as any} to={`/apprentice/${apprenticeEntity.id}/edit`} replace variant="primary">
-          <FontAwesomeIcon icon="pencil-alt" />{' '}
+        <Button as={Link as any} to={`/apprentice/${apprenticeEntity.id}/unlink`} replace variant="danger">
+          <FontAwesomeIcon icon="right-from-bracket" />{' '}
           <span className="d-none d-md-inline">
-            <Translate contentKey="entity.action.edit">Edit</Translate>
+            <Translate contentKey="senaAttendanceApp.apprentice.unlink.confirm">Desvincular</Translate>
           </span>
         </Button>
       </Col>

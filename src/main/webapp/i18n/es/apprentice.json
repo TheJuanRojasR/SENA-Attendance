@@ -2,24 +2,28 @@
   "senaAttendanceApp": {
     "apprentice": {
       "home": {
-        "title": "Estado Académico del Aprendiz",
+        "title": "Aprendices",
         "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo estado académico",
-        "createOrEditLabel": "Crear o editar Estado Académico",
-        "notFound": "Ningún Estado Académico encontrado"
+        "createLabel": "Vincular aprendiz",
+        "createOrEditLabel": "Vincular aprendiz a una ficha",
+        "notFound": "No se encontraron aprendices"
       },
-      "created": "Un nuevo Estado Académico ha sido creado con el identificador {{ param }}",
-      "updated": "Un Estado Académico ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Estado Académico ha sido eliminado con el identificador {{ param }}",
-      "delete": {
-        "question": "¿Seguro que quiere eliminar Estado Académico {{ id }}?"
+      "created": "Se vinculó el aprendiz con identificador {{ param }}",
+      "unlink": {
+        "title": "Desvincular aprendiz",
+        "question": "¿Seguro que quieres desvincular a este aprendiz de la ficha?",
+        "reason": "Motivo de desvinculación",
+        "confirm": "Desvincular",
+        "success": "Aprendiz desvinculado.",
+        "successKept": "Aprendiz desvinculado. Se conservó su historial de asistencia."
       },
       "detail": {
-        "title": "Estado Académico del Aprendiz"
+        "title": "Aprendiz"
       },
       "id": "ID",
       "stateAcademic": "Estado académico",
       "student": "Aprendiz",
+      "documentNumber": "Número de documento",
       "grade": "Ficha"
     }
   }

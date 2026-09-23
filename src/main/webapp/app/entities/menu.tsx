@@ -73,7 +73,7 @@ const EntitiesMenu = () => {
           <Translate contentKey="global.menu.entities.justificationType" />
         </MenuItem>
       )}
-      {adminOrCoordinator && (
+      {adminOrInstructor && (
         <MenuItem icon="user-graduate" to="/apprentice">
           <Translate contentKey="global.menu.entities.apprentice" />
         </MenuItem>

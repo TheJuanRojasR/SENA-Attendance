@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, Translate, getPaginationState } from 'react-jhipster';
+import { Button, Col, Row, Table } from 'react-bootstrap';
+import { JhiItemCount, JhiPagination, Translate, ValidatedInput, getPaginationState } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
+import { getEntities as getGrades } from 'app/entities/grade/grade.reducer';
+import { hasAnyAuthority } from 'app/shared/auth/private-route';
+import { Authority } from 'app/shared/jhipster/constants';
+import { StateAcademic } from 'app/shared/model/enumerations/state-academic.model';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
@@ -21,8 +25,14 @@ export const Apprentice = () => {
   const [paginationState, setPaginationState] = useState(
     overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
   );
+  const [documentNumber, setDocumentNumber] = useState('');
+  const [name, setName] = useState('');
+  const [stateAcademic, setStateAcademic] = useState('');
+  const [gradeId, setGradeId] = useState('');
 
+  const isAdmin = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.ADMIN]));
   const apprenticeList = useAppSelector(state => state.apprentice.entities);
+  const grades = useAppSelector(state => state.grade.entities);
   const loading = useAppSelector(state => state.apprentice.loading);
   const totalItems = useAppSelector(state => state.apprentice.totalItems);
 
@@ -32,6 +42,10 @@ export const Apprentice = () => {
         page: paginationState.activePage - 1,
         size: paginationState.itemsPerPage,
         sort: `${paginationState.sort},${paginationState.order}`,
+        documentNumber: documentNumber || undefined,
+        name: name || undefined,
+        stateAcademic: stateAcademic || undefined,
+        gradeId: gradeId || undefined,
       }),
     );
   };
@@ -45,8 +59,12 @@ export const Apprentice = () => {
   };
 
   useEffect(() => {
+    dispatch(getGrades({}));
+  }, []);
+
+  useEffect(() => {
     sortEntities();
-  }, [paginationState.activePage, paginationState.order, paginationState.sort]);
+  }, [paginationState.activePage, paginationState.order, paginationState.sort, documentNumber, name, stateAcademic, gradeId]);
 
   useEffect(() => {
     const params = new URLSearchParams(pageLocation.search);
@@ -81,6 +99,8 @@ export const Apprentice = () => {
     sortEntities();
   };
 
+  const resetFilterPage = () => setPaginationState({ ...paginationState, activePage: 1 });
+
   const getSortIconByFieldName = (fieldName: string) => {
     const sortFieldName = paginationState.sort;
     const { order } = paginationState;
@@ -99,13 +119,75 @@ export const Apprentice = () => {
             <FontAwesomeIcon icon="sync" spin={loading} />{' '}
             <Translate contentKey="senaAttendanceApp.apprentice.home.refreshListLabel">Refresh List</Translate>
           </Button>
-          <Link to="/apprentice/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.apprentice.home.createLabel">Create new Apprentice</Translate>
-          </Link>
+          {isAdmin && (
+            <Link to="/apprentice/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
+              <FontAwesomeIcon icon="plus" />
+              &nbsp;
+              <Translate contentKey="senaAttendanceApp.apprentice.home.createLabel">Vincular aprendiz</Translate>
+            </Link>
+          )}
         </div>
       </h2>
+      <Row className="mb-3">
+        <Col md="3">
+          <ValidatedInput
+            name="documentNumber"
+            placeholder="Buscar por documento..."
+            value={documentNumber}
+            onChange={e => {
+              setDocumentNumber(e.target.value);
+              resetFilterPage();
+            }}
+          />
+        </Col>
+        <Col md="3">
+          <ValidatedInput
+            name="name"
+            placeholder="Buscar por nombre..."
+            value={name}
+            onChange={e => {
+              setName(e.target.value);
+              resetFilterPage();
+            }}
+          />
+        </Col>
+        <Col md="3">
+          <ValidatedInput
+            type="select"
+            name="stateAcademic"
+            value={stateAcademic}
+            onChange={e => {
+              setStateAcademic(e.target.value);
+              resetFilterPage();
+            }}
+          >
+            <option value="">Todos los estados</option>
+            {Object.keys(StateAcademic).map(value => (
+              <option value={value} key={value}>
+                <Translate contentKey={`senaAttendanceApp.StateAcademic.${value}`}>{value}</Translate>
+              </option>
+            ))}
+          </ValidatedInput>
+        </Col>
+        <Col md="3">
+          <ValidatedInput
+            type="select"
+            name="gradeId"
+            value={gradeId}
+            onChange={e => {
+              setGradeId(e.target.value);
+              resetFilterPage();
+            }}
+          >
+            <option value="">Todas las fichas</option>
+            {grades.map(grade => (
+              <option value={grade.id} key={grade.id}>
+                {grade.code}
+              </option>
+            ))}
+          </ValidatedInput>
+        </Col>
+      </Row>
       <div className="table-responsive">
         {apprenticeList?.length > 0 ? (
           <Table responsive>
@@ -120,10 +202,10 @@ export const Apprentice = () => {
                   <FontAwesomeIcon icon={getSortIconByFieldName('stateAcademic')} />
                 </th>
                 <th>
-                  <Translate contentKey="senaAttendanceApp.apprentice.student">Student</Translate> <FontAwesomeIcon icon="sort" />
+                  <Translate contentKey="senaAttendanceApp.apprentice.student">Student</Translate>
                 </th>
                 <th>
-                  <Translate contentKey="senaAttendanceApp.apprentice.grade">Grade</Translate> <FontAwesomeIcon icon="sort" />
+                  <Translate contentKey="senaAttendanceApp.apprentice.grade">Grade</Translate>
                 </th>
                 <th />
               </tr>
@@ -141,7 +223,9 @@ export const Apprentice = () => {
                   </td>
                   <td>
                     {apprentice.student ? (
-                      <Link to={`/user-profile/${apprentice.student.id}`}>{apprentice.student.documentNumber}</Link>
+                      <Link to={`/user-profile/${apprentice.student.id}`}>
+                        {apprentice.student.firstName} {apprentice.student.firstLastName} ({apprentice.student.documentNumber})
+                      </Link>
                     ) : (
                       ''
                     )}
@@ -155,31 +239,20 @@ export const Apprentice = () => {
                           <Translate contentKey="entity.action.view">View</Translate>
                         </span>
                       </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/apprentice/${apprentice.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          (globalThis.location.href = `/apprentice/${apprentice.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                        }
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
+                      {isAdmin && (
+                        <Button
+                          as={Link as any}
+                          to={`/apprentice/${apprentice.id}/unlink`}
+                          variant="danger"
+                          size="sm"
+                          data-cy="entityUnlinkButton"
+                        >
+                          <FontAwesomeIcon icon="right-from-bracket" />{' '}
+                          <span className="d-none d-md-inline">
+                            <Translate contentKey="senaAttendanceApp.apprentice.unlink.confirm">Desvincular</Translate>
+                          </span>
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
