@@ -45,6 +45,9 @@
     "classSectionInUse": "No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación.",
     "classSectionInUseWithJustifications": "No es posible eliminar la materia: tiene justificaciones asociadas. Puede desactivarla para retirarla de operación.",
     "notYourClassSection": "Solo el instructor asignado a la materia puede gestionar sus fechas no lectivas.",
+    "scheduleCrossesMidnight": "La sesión debe iniciar y terminar el mismo día.",
+    "scheduleOutOfTimeSlot": "El horario debe estar dentro de la jornada de la ficha.",
+    "scheduleOverlap": "El horario se solapa con otro horario de la ficha en ese trimestre.",
     "pastExceptionLocked": "Una fecha no lectiva pasada solo puede modificar su motivo: el precedente no se elimina.",
     "trimesterClosed": "No se puede modificar: el trimestre ya fue cerrado.",
     "adminprotected": "La cuenta admin está protegida y no puede desactivarse.",
@@ -54,6 +57,18 @@
     "documentNumberNotFound": "No existe un usuario con ese número de documento.",
     "apprenticeInactive": "Aprendiz no existe o no está activo.",
     "apprenticeAlreadyEnrolled": "Este aprendiz ya tiene un registro en esta ficha.",
-    "invalidunlinkreason": "El motivo de desvinculación no es válido."
+    "invalidunlinkreason": "El motivo de desvinculación no es válido.",
+    "timeSlotNameAlreadyUsed": "Ya existe una jornada con este nombre.",
+    "timeSlotSameTime": "La hora de inicio y la hora de fin no pueden ser iguales.",
+    "timeSlotInUse": "No es posible eliminar la jornada: está asignada a fichas. Puedes desactivarla.",
+    "modalityNameAlreadyUsed": "Ya existe una modalidad con este nombre.",
+    "modalityInUse": "No es posible eliminar la modalidad: está asignada a fichas. Puedes desactivarla.",
+    "documentTypeNameAlreadyUsed": "Ya existe un tipo de documento con este nombre.",
+    "documentTypeInitialsAlreadyUsed": "Ya existe un tipo de documento con estas iniciales.",
+    "documentTypeInitialsInUse": "No se pueden modificar las iniciales de un tipo de documento en uso.",
+    "documentTypeInUse": "No es posible eliminar el tipo de documento: está en uso por usuarios. Puedes desactivarlo.",
+    "justificationTypeNameAlreadyUsed": "Ya existe un tipo de justificación con este nombre.",
+    "justificationTypeInUse": "No es posible eliminar el tipo: ya fue usado en justificaciones. Puedes desactivarlo.",
+    "programInUse": "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."
   }
 }
