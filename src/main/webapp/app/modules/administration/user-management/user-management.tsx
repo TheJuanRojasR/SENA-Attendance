@@ -4,14 +4,14 @@ import { JhiItemCount, JhiPagination, Translate, getPaginationState, ValidatedIn
 import { Link, useLocation, useNavigate } from 'react-router';
 import './user-management.scss';
 
-import { faPencilAlt, faPlus, faSearch, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faEnvelope, faPencilAlt, faPlus, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
-import { getUsersAsAdmin, updateUser } from './user-management.reducer';
+import { getUsersAsAdmin, resendCredentials, setUserActivated } from './user-management.reducer';
 import LinkButton from 'app/shared/components/link-button';
 
 export const UserManagement = () => {
@@ -23,6 +23,16 @@ export const UserManagement = () => {
   const [pagination, setPagination] = useState(
     overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
   );
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+
+  // Búsqueda con debounce: el backend pagina por término (GET /api/admin/users/search),
+  // así que cada tecleo dispararía una petición si no se espera una pausa.
+  useEffect(() => {
+    const handle = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   const getUsersFromProps = () => {
     dispatch(
@@ -30,6 +40,8 @@ export const UserManagement = () => {
         page: pagination.activePage - 1,
         size: pagination.itemsPerPage,
         sort: `${pagination.sort},${pagination.order}`,
+        search,
+        role: roleFilter || undefined,
       }),
     );
     const endURL = `?page=${pagination.activePage}&sort=${pagination.sort},${pagination.order}`;
@@ -40,7 +52,17 @@ export const UserManagement = () => {
 
   useEffect(() => {
     getUsersFromProps();
-  }, [pagination.activePage, pagination.order, pagination.sort]);
+  }, [pagination.activePage, pagination.order, pagination.sort, search, roleFilter]);
+
+  const handleSearchChange = event => {
+    setSearchInput(event.target.value);
+    setPagination({ ...pagination, activePage: 1 });
+  };
+
+  const handleRoleFilterChange = event => {
+    setRoleFilter(event.target.value);
+    setPagination({ ...pagination, activePage: 1 });
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(pageLocation.search);
@@ -75,15 +97,13 @@ export const UserManagement = () => {
   };
 
   const toggleActive = user => () => {
-    dispatch(
-      updateUser({
-        ...user,
-        activated: !user.activated,
-      }),
-    );
+    dispatch(setUserActivated({ documentNumber: user.documentNumber, activated: !user.activated }));
   };
 
-  const account = useAppSelector(state => state.authentication.account);
+  const handleResendCredentials = user => () => {
+    dispatch(resendCredentials(user.documentNumber));
+  };
+
   const users = useAppSelector(state => state.userManagement.users);
   const authorities = useAppSelector(state => state.userManagement.authorities);
   const totalItems = useAppSelector(state => state.userManagement.totalItems);
@@ -109,12 +129,18 @@ export const UserManagement = () => {
         Administra el acceso y roles de los usuarios del sistema. Crea, edita o desactiva cuentas según los requerimientos institucionales.
       </p>
       <Col className="d-flex justify-content-between align-items-center" md="12">
-        <div className="d-flex align-items-center searchBar">
+        <div className="d-flex align-items-center entitiesSearchBar">
           <div className="d-flex align-items-center w-50">
             <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
-            <ValidatedInput name="search" placeholder="Buscar por nombre, email o documento..." />
+            <ValidatedInput
+              name="search"
+              placeholder="Buscar por nombre, email o documento..."
+              value={searchInput}
+              onChange={handleSearchChange}
+            />
           </div>
-          <ValidatedInput type="select" name="state" className="w-25">
+          <ValidatedInput type="select" name="role" className="w-25" value={roleFilter} onChange={handleRoleFilterChange}>
+            <option value="">Todos los roles</option>
             {authorities.map(rol => (
               <option value={rol} key={rol}>
                 {rol}
@@ -183,18 +209,8 @@ export const UserManagement = () => {
                       <Translate contentKey="entity.action.edit">Edit</Translate>
                     </span>
                   </Button>
-                  <Button
-                    as={Link as any}
-                    to={`${user.login}/delete`}
-                    variant="danger"
-                    size="sm"
-                    disabled={account.login === user.login}
-                    data-cy="entityDeleteButton"
-                  >
-                    <FontAwesomeIcon icon={faTrash} />{' '}
-                    <span className="d-none d-md-inline">
-                      <Translate contentKey="entity.action.delete">Delete</Translate>
-                    </span>
+                  <Button variant="secondary" size="sm" onClick={handleResendCredentials(user)} title="Reenviar credenciales">
+                    <FontAwesomeIcon icon={faEnvelope} /> <span className="d-none d-md-inline">Reenviar credenciales</span>
                   </Button>
                 </div>
               </td>

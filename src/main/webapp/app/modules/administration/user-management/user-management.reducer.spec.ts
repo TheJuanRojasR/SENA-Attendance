@@ -8,12 +8,13 @@ import { defaultValue } from 'app/shared/model/user.model';
 
 import userManagement, {
   createUser,
-  deleteUser,
   getRoles,
   getUser,
   getUsers,
   getUsersAsAdmin,
+  resendCredentials,
   reset,
+  setUserActivated,
   updateUser,
 } from './user-management.reducer';
 
@@ -68,13 +69,17 @@ describe('User management reducer tests', () => {
     });
 
     it('should set state to updating', () => {
-      testMultipleTypes([createUser.pending.type, updateUser.pending.type, deleteUser.pending.type], {}, state => {
-        expect(state).toMatchObject({
-          errorMessage: null,
-          updateSuccess: false,
-          updating: true,
-        });
-      });
+      testMultipleTypes(
+        [createUser.pending.type, updateUser.pending.type, setUserActivated.pending.type, resendCredentials.pending.type],
+        {},
+        state => {
+          expect(state).toMatchObject({
+            errorMessage: null,
+            updateSuccess: false,
+            updating: true,
+          });
+        },
+      );
     });
   });
 
@@ -88,7 +93,8 @@ describe('User management reducer tests', () => {
           getRoles.rejected.type,
           createUser.rejected.type,
           updateUser.rejected.type,
-          deleteUser.rejected.type,
+          setUserActivated.rejected.type,
+          resendCredentials.rejected.type,
         ],
         { message: 'something happened' },
         state => {
@@ -138,23 +144,17 @@ describe('User management reducer tests', () => {
     });
 
     it('should set state to successful update', () => {
-      testMultipleTypes([createUser.fulfilled.type, updateUser.fulfilled.type], { data: 'some handsome user' }, types => {
-        expect(types).toMatchObject({
-          updating: false,
-          updateSuccess: true,
-          user: 'some handsome user',
-        });
-      });
-    });
-
-    it('should set state to successful update with an empty user', () => {
-      const toTest = userManagement(undefined, { type: deleteUser.fulfilled.type });
-
-      expect(toTest).toMatchObject({
-        updating: false,
-        updateSuccess: true,
-      });
-      expect(isEmpty(toTest.user));
+      testMultipleTypes(
+        [createUser.fulfilled.type, updateUser.fulfilled.type, setUserActivated.fulfilled.type, resendCredentials.fulfilled.type],
+        { data: 'some handsome user' },
+        types => {
+          expect(types).toMatchObject({
+            updating: false,
+            updateSuccess: true,
+            user: 'some handsome user',
+          });
+        },
+      );
     });
   });
 
@@ -192,7 +192,7 @@ describe('User management reducer tests', () => {
       axios.get = vi.fn().mockResolvedValue(resolvedObject);
       axios.put = vi.fn().mockResolvedValue(resolvedObject);
       axios.post = vi.fn().mockResolvedValue(resolvedObject);
-      axios.delete = vi.fn().mockResolvedValue(resolvedObject);
+      axios.patch = vi.fn().mockResolvedValue(resolvedObject);
     });
 
     it('dispatches FETCH_USERS_AS_ADMIN_PENDING and FETCH_USERS_AS_ADMIN_FULFILLED actions', async () => {
@@ -303,16 +303,30 @@ describe('User management reducer tests', () => {
       expect(updateUser.fulfilled.match(result)).toBe(true);
     });
 
-    it('dispatches DELETE_USER_PENDING and DELETE_USER_FULFILLED actions', async () => {
-      const result = await deleteUser(username)(dispatch, getState, extra);
+    it('dispatches SET_USER_ACTIVATED_PENDING and SET_USER_ACTIVATED_FULFILLED actions', async () => {
+      const arg = { documentNumber: '1029384756', activated: false };
+
+      const result = await setUserActivated(arg)(dispatch, getState, extra);
 
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: deleteUser.pending.type,
+          type: setUserActivated.pending.type,
           meta: expect.objectContaining({ requestStatus: 'pending' }),
         }),
       );
-      expect(deleteUser.fulfilled.match(result)).toBe(true);
+      expect(setUserActivated.fulfilled.match(result)).toBe(true);
+    });
+
+    it('dispatches RESEND_CREDENTIALS_PENDING and RESEND_CREDENTIALS_FULFILLED actions', async () => {
+      const result = await resendCredentials('1029384756')(dispatch, getState, extra);
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: resendCredentials.pending.type,
+          meta: expect.objectContaining({ requestStatus: 'pending' }),
+        }),
+      );
+      expect(resendCredentials.fulfilled.match(result)).toBe(true);
     });
 
     it('dispatches RESET actions', async () => {

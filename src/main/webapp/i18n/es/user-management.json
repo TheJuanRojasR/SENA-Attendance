@@ -9,6 +9,7 @@
     "created": "Se creó un nuevo usuario con identificador {{ param }}",
     "updated": "Se actualizó el usuario con identificador {{ param }}",
     "deleted": "Se borró el usuario con identificador {{ param }}",
+    "credentialsresent": "Se reenviaron las credenciales al usuario con documento {{ param }}",
     "delete": {
       "question": "¿Seguro que quieres eliminar el usuario {{ login }}?"
     },

@@ -25,10 +25,31 @@ export const getUsers = createAsyncThunk('userManagement/fetch_users', async ({ 
   return axios.get<IUser[]>(requestUrl);
 });
 
-export const getUsersAsAdmin = createAsyncThunk('userManagement/fetch_users_as_admin', async ({ page, size, sort }: IQueryParams) => {
-  const requestUrl = `${adminUrl}/search${sort ? `?search=&page=${page}&size=${size}&sort=${sort}` : ''}`;
-  return axios.get<IUser[]>(requestUrl);
-});
+export interface IUserSearchParams extends IQueryParams {
+  search?: string;
+  role?: string;
+}
+
+export const getUsersAsAdmin = createAsyncThunk(
+  'userManagement/fetch_users_as_admin',
+  async ({ page, size, sort, search, role }: IUserSearchParams) => {
+    const params = new URLSearchParams();
+    params.set('search', search ?? '');
+    if (page !== undefined) {
+      params.set('page', `${page}`);
+    }
+    if (size !== undefined) {
+      params.set('size', `${size}`);
+    }
+    if (sort) {
+      params.set('sort', sort);
+    }
+    if (role) {
+      params.set('role', role);
+    }
+    return axios.get<IUser[]>(`${adminUrl}/search?${params.toString()}`);
+  },
+);
 
 export const getRoles = createAsyncThunk('userManagement/fetch_roles', async () => {
   const response = await axios.get<any[]>(`api/authorities`);
@@ -58,21 +79,26 @@ export const createUser = createAsyncThunk(
 export const updateUser = createAsyncThunk(
   'userManagement/update_user',
   async (user: IUser, thunkAPI) => {
-    const result = await axios.put<IUser>(adminUrl, user);
+    const result = await axios.patch<IUser>(adminUrl, user);
     thunkAPI.dispatch(getUsersAsAdmin({}));
     return result;
   },
   { serializeError: serializeAxiosError },
 );
 
-export const deleteUser = createAsyncThunk(
-  'userManagement/delete_user',
-  async (id: string, thunkAPI) => {
-    const requestUrl = `${adminUrl}/${id}`;
-    const result = await axios.delete<IUser>(requestUrl);
+export const setUserActivated = createAsyncThunk(
+  'userManagement/set_user_activated',
+  async ({ documentNumber, activated }: { documentNumber: string; activated: boolean }, thunkAPI) => {
+    const result = await axios.patch<IUser>(`${adminUrl}/activated`, { documentNumber, activated });
     thunkAPI.dispatch(getUsersAsAdmin({}));
     return result;
   },
+  { serializeError: serializeAxiosError },
+);
+
+export const resendCredentials = createAsyncThunk(
+  'userManagement/resend_credentials',
+  async (documentNumber: string) => axios.patch<IUser>(`${adminUrl}/resend-credentials`, { documentNumber }),
   { serializeError: serializeAxiosError },
 );
 
@@ -95,17 +121,12 @@ export const UserManagementSlice = createSlice({
         state.loading = false;
         state.user = action.payload.data;
       })
-      .addCase(deleteUser.fulfilled, state => {
-        state.updating = false;
-        state.updateSuccess = true;
-        state.user = defaultValue;
-      })
       .addMatcher(isFulfilled(getUsers, getUsersAsAdmin), (state, action) => {
         state.loading = false;
         state.users = action.payload.data;
         state.totalItems = Number.parseInt(action.payload.headers['x-total-count'], 10);
       })
-      .addMatcher(isFulfilled(createUser, updateUser), (state, action) => {
+      .addMatcher(isFulfilled(createUser, updateUser, setUserActivated, resendCredentials), (state, action) => {
         state.updating = false;
         state.loading = false;
         state.updateSuccess = true;
@@ -116,17 +137,20 @@ export const UserManagementSlice = createSlice({
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createUser, updateUser, deleteUser), state => {
+      .addMatcher(isPending(createUser, updateUser, setUserActivated, resendCredentials), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
       })
-      .addMatcher(isRejected(getUsers, getUsersAsAdmin, getUser, getRoles, createUser, updateUser, deleteUser), (state, action) => {
-        state.loading = false;
-        state.updating = false;
-        state.updateSuccess = false;
-        state.errorMessage = action.error.message!;
-      });
+      .addMatcher(
+        isRejected(getUsers, getUsersAsAdmin, getUser, getRoles, createUser, updateUser, setUserActivated, resendCredentials),
+        (state, action) => {
+          state.loading = false;
+          state.updating = false;
+          state.updateSuccess = false;
+          state.errorMessage = action.error.message!;
+        },
+      );
   },
 });
 
