@@ -30,6 +30,7 @@ describe('Entities reducer tests', () => {
     entities: [],
     entity: defaultValue,
     updating: false,
+    totalItems: 0,
     updateSuccess: false,
   };
 
@@ -116,7 +117,8 @@ describe('Entities reducer tests', () => {
 
   describe('Successes', () => {
     it('should fetch all entities', () => {
-      const payload = { data: [{ 1: 'fake1' }, { 2: 'fake2' }] };
+      const headers = { 'x-total-count': 42 };
+      const payload = { data: [{ 1: 'fake1' }, { 2: 'fake2' }], headers };
       expect(
         reducer(undefined, {
           type: getEntities.fulfilled.type,
@@ -126,6 +128,7 @@ describe('Entities reducer tests', () => {
         ...initialState,
         loading: false,
         entities: payload.data,
+        totalItems: headers['x-total-count'],
       });
     });
 

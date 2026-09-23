@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Card, Col, Table } from 'react-bootstrap';
-import { Translate, getSortState, ValidatedInput } from 'react-jhipster';
+import { JhiItemCount, JhiPagination, Translate, ValidatedInput, getPaginationState } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
-import { overrideSortStateWithQueryParams } from 'app/shared/util/entity-utils';
-import { ASC, DESC } from 'app/shared/util/pagination.constants';
+import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
+import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
 import { getEntities, getActiveEntities } from './document-type.reducer';
 import LinkButton from 'app/shared/components/link-button';
@@ -19,13 +19,18 @@ export const DocumentType = () => {
   const pageLocation = useLocation();
   const navigate = useNavigate();
 
-  const [sortState, setSortState] = useState(overrideSortStateWithQueryParams(getSortState(pageLocation, 'id'), pageLocation.search));
+  const [paginationState, setPaginationState] = useState(
+    overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
+  );
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
 
   const documentTypeList = useAppSelector(state => state.documentType.entities);
   const loading = useAppSelector(state => state.documentType.loading);
+  const totalItems = useAppSelector(state => state.documentType.totalItems);
 
+  // GET /api/document-types no admite búsqueda por servidor: el nombre se filtra sobre la
+  // página actual, ya cargada y paginada de verdad (page/size/sort van al backend).
   const filteredDocumentTypeList = documentTypeList
     ?.filter(documentType => documentType.name?.toLowerCase().includes(search.trim().toLowerCase()))
     .filter(documentType => (stateFilter === 'INACTIVE' ? !documentType.isActive : true));
@@ -34,13 +39,19 @@ export const DocumentType = () => {
     if (stateFilter === 'ACTIVE') {
       dispatch(getActiveEntities());
     } else {
-      dispatch(getEntities({ sort: `${sortState.sort},${sortState.order}` }));
+      dispatch(
+        getEntities({
+          page: paginationState.activePage - 1,
+          size: paginationState.itemsPerPage,
+          sort: `${paginationState.sort},${paginationState.order}`,
+        }),
+      );
     }
   };
 
   const sortEntities = () => {
     getAllEntities();
-    const endURL = `?sort=${sortState.sort},${sortState.order}`;
+    const endURL = `?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`;
     if (pageLocation.search !== endURL) {
       navigate(`${pageLocation.pathname}${endURL}`);
     }
@@ -48,19 +59,40 @@ export const DocumentType = () => {
 
   useEffect(() => {
     sortEntities();
-  }, [sortState.order, sortState.sort, stateFilter]);
+  }, [paginationState.activePage, paginationState.order, paginationState.sort, stateFilter]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(pageLocation.search);
+    const page = params.get('page');
+    const sort = params.get(SORT);
+    if (page && sort) {
+      const sortSplit = sort.split(',');
+      setPaginationState({
+        ...paginationState,
+        activePage: +page,
+        sort: sortSplit[0],
+        order: sortSplit[1],
+      });
+    }
+  }, [pageLocation.search]);
 
   const sort = p => () => {
-    setSortState({
-      ...sortState,
-      order: sortState.order === ASC ? DESC : ASC,
+    setPaginationState({
+      ...paginationState,
+      order: paginationState.order === ASC ? DESC : ASC,
       sort: p,
     });
   };
 
+  const handlePagination = currentPage =>
+    setPaginationState({
+      ...paginationState,
+      activePage: currentPage,
+    });
+
   const getSortIconByFieldName = (fieldName: string) => {
-    const sortFieldName = sortState.sort;
-    const { order } = sortState;
+    const sortFieldName = paginationState.sort;
+    const { order } = paginationState;
     if (sortFieldName !== fieldName) {
       return faSort;
     }
@@ -125,7 +157,7 @@ export const DocumentType = () => {
                       <div className="btn-group flex-btn-group-container">
                         <Button
                           as={Link as any}
-                          to={`/document-type/${documentType.id}/edit`}
+                          to={`/document-type/${documentType.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
                           variant="primary"
                           size="sm"
                           data-cy="entityEditButton"
@@ -136,7 +168,9 @@ export const DocumentType = () => {
                           </span>
                         </Button>
                         <Button
-                          onClick={() => (globalThis.location.href = `/document-type/${documentType.id}/delete`)}
+                          onClick={() =>
+                            (globalThis.location.href = `/document-type/${documentType.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
+                          }
                           variant="danger"
                           size="sm"
                           data-cy="entityDeleteButton"
@@ -161,6 +195,24 @@ export const DocumentType = () => {
           )
         )}
       </div>
+      {totalItems && stateFilter !== 'ACTIVE' ? (
+        <div className={filteredDocumentTypeList && filteredDocumentTypeList.length > 0 ? '' : 'd-none'}>
+          <div className="justify-content-center d-flex">
+            <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
+          </div>
+          <div className="justify-content-center d-flex">
+            <JhiPagination
+              activePage={paginationState.activePage}
+              onSelect={handlePagination}
+              maxButtons={5}
+              itemsPerPage={paginationState.itemsPerPage}
+              totalItems={totalItems}
+            />
+          </div>
+        </div>
+      ) : (
+        ''
+      )}
     </div>
   );
 };
