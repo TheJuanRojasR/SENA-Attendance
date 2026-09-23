@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, FormText, Row } from 'react-bootstrap';
+import { Badge, Button, Card, Col, FormText, Row, Tab, Tabs } from 'react-bootstrap';
 import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -10,6 +10,7 @@ import { getActiveEntities as getActiveModalities } from 'app/entities/modality/
 import { getActiveEntities as getActivePrograms } from 'app/entities/program/program.reducer';
 import { getActiveEntities as getActiveTimeSlots } from 'app/entities/time-slot/time-slot.reducer';
 
+import { GradeClassSectionsTab } from './grade-class-sections-tab';
 import { cancelGrade, createEntity, getEntity, postponeGrade, resumeGrade, reset, updateEntity } from './grade.reducer';
 
 export const GradeUpdate = () => {
@@ -17,9 +18,11 @@ export const GradeUpdate = () => {
   const dispatch = useAppDispatch();
 
   const navigate = useNavigate();
+  const pageLocation = useLocation();
 
   const { id } = useParams<'id'>();
   const isNew = id === undefined;
+  const initialTab = new URLSearchParams(pageLocation.search).get('tab') === 'competencias' ? 'competencias' : 'info';
 
   const programs = useAppSelector(state => state.program.entities);
   const modalities = useAppSelector(state => state.modality.entities);
@@ -28,6 +31,7 @@ export const GradeUpdate = () => {
   const loading = useAppSelector(state => state.grade.loading);
   const updating = useAppSelector(state => state.grade.updating);
   const updateSuccess = useAppSelector(state => state.grade.updateSuccess);
+  const classSections = useAppSelector(state => state.classSection.entities);
 
   const handleEditClick = () => setIsEditing(true);
   const handleCancelClick = () => setIsEditing(false);
@@ -45,7 +49,7 @@ export const GradeUpdate = () => {
     dispatch(getActivePrograms());
     dispatch(getActiveModalities({}));
     dispatch(getActiveTimeSlots({}));
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     if (updateSuccess) {
@@ -74,6 +78,9 @@ export const GradeUpdate = () => {
   const canPostpone = !isNew && (gradeEntity.state === 'PENDIENTE' || gradeEntity.state === 'ACTIVA');
   const canResume = !isNew && gradeEntity.state === 'APLAZADA';
   const canCancel = !isNew && gradeEntity.state !== 'CANCELADA';
+  // UC015-E1: las materias solo se crean/editan en fichas PENDIENTE o ACTIVA.
+  const canManageClassSections = !isNew && (gradeEntity.state === 'PENDIENTE' || gradeEntity.state === 'ACTIVA');
+  const classSectionsCount = (classSections ?? []).filter(classSection => classSection.grade?.id === gradeEntity.id).length;
 
   const handlePostpone = () => dispatch(postponeGrade(gradeEntity.id));
   const handleResume = () => dispatch(resumeGrade(gradeEntity.id));
@@ -112,6 +119,201 @@ export const GradeUpdate = () => {
           state: translate(`senaAttendanceApp.StateGrade.${gradeEntity.state}`),
         };
 
+  // ValidatedForm (react-jhipster) inyecta `register` recorriendo sus hijos DIRECTOS con
+  // React.Children.map; un <>fragmento</> cuenta como un único hijo opaco y rompe esa inyección,
+  // así que estos campos deben pasarse como un arreglo plano (no como fragmento).
+  const gradeFormFields = [
+    <ValidatedField
+      key="code"
+      label={translate('senaAttendanceApp.grade.code')}
+      id="grade-code"
+      name="code"
+      data-cy="code"
+      disabled={!isFieldEditable('code')}
+      type="text"
+      validate={{
+        required: { value: true, message: translate('entity.validation.required') },
+        maxLength: { value: 20, message: translate('entity.validation.maxlength', { max: 20 }) },
+        validate: v => /^\d+$/.test(v) || translate('entity.validation.number'),
+      }}
+    />,
+    <FormText key="code-help"> Número identificador único de la ficha o grupo formativo. </FormText>,
+    <ValidatedField
+      key="startDate"
+      label={translate('senaAttendanceApp.grade.startDate')}
+      id="grade-startDate"
+      name="startDate"
+      data-cy="startDate"
+      disabled={!isFieldEditable('startDate')}
+      type="date"
+      validate={{
+        required: { value: true, message: translate('entity.validation.required') },
+      }}
+    />,
+    <FormText key="startDate-help"> Fecha de inicio de la etapa lectiva. </FormText>,
+    <ValidatedField
+      key="endDate"
+      label={translate('senaAttendanceApp.grade.endDate')}
+      id="grade-endDate"
+      name="endDate"
+      data-cy="endDate"
+      disabled={!isFieldEditable('endDate')}
+      type="date"
+      validate={{
+        required: { value: true, message: translate('entity.validation.required') },
+      }}
+    />,
+    <FormText key="endDate-help"> Fecha estimada de culminación de formación. </FormText>,
+    <ValidatedField
+      key="program"
+      id="grade-program"
+      name="program"
+      data-cy="program"
+      disabled={!isFieldEditable('program')}
+      label={translate('senaAttendanceApp.grade.program')}
+      type="select"
+      required
+    >
+      <option value="" key="0" />
+      {programs
+        ? programs.map(otherEntity => (
+            <option value={otherEntity.id} key={otherEntity.id}>
+              {otherEntity.name}
+            </option>
+          ))
+        : null}
+    </ValidatedField>,
+    <FormText key="program-help"> Programa curricular asociado a la ficha. </FormText>,
+    <ValidatedField
+      key="timeSlot"
+      id="grade-timeSlot"
+      name="timeSlot"
+      data-cy="timeSlot"
+      disabled={!isFieldEditable('timeSlot')}
+      label={translate('senaAttendanceApp.grade.timeSlot')}
+      type="select"
+      required
+    >
+      <option value="" key="0" />
+      {timeSlots
+        ? timeSlots.map(otherEntity => (
+            <option value={otherEntity.id} key={otherEntity.id}>
+              {otherEntity.name}
+            </option>
+          ))
+        : null}
+    </ValidatedField>,
+    <FormText key="timeSlot-help"> Horario en el que se impartirá la formación </FormText>,
+    <ValidatedField
+      key="modality"
+      id="grade-modality"
+      name="modality"
+      data-cy="modality"
+      disabled={!isFieldEditable('modality')}
+      label={translate('senaAttendanceApp.grade.modality')}
+      type="select"
+      required
+    >
+      <option value="" key="0" />
+      {modalities
+        ? modalities.map(otherEntity => (
+            <option value={otherEntity.id} key={otherEntity.id}>
+              {otherEntity.name}
+            </option>
+          ))
+        : null}
+    </ValidatedField>,
+    <FormText key="modality-help"> Modalida pedagógica de impartición </FormText>,
+    !isNew && (
+      <ValidatedField
+        key="state"
+        label={translate('senaAttendanceApp.grade.state')}
+        id="grade-state"
+        name="state"
+        data-cy="state"
+        type="text"
+        disabled
+      />
+    ),
+    !isNew && <FormText key="state-help"> Estado de operacion académica actual. </FormText>,
+    <div key="actions" className="mb-3 d-flex justify-content-between flex-wrap">
+      {!isNew && (canPostpone || canResume || canCancel) && (
+        <div className="mb-3 d-flex gap-2">
+          {canPostpone && (
+            <Button type="button" variant="warning" onClick={handlePostpone} disabled={updating}>
+              Aplazar ficha
+            </Button>
+          )}
+          {canResume && (
+            <Button type="button" variant="success" onClick={handleResume} disabled={updating}>
+              Reanudar ficha
+            </Button>
+          )}
+          {canCancel && (
+            <Button type="button" variant="danger" onClick={handleCancelGrade} disabled={updating}>
+              Cancelar ficha
+            </Button>
+          )}
+        </div>
+      )}
+      {isNew ? (
+        <div className="mb-3 d-flex gap-2">
+          <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/grade" replace variant="info">
+            <FontAwesomeIcon icon="arrow-left" />
+            &nbsp;
+            <span className="d-none d-md-inline"> Cancelar </span>
+          </Button>
+          &nbsp;
+          <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
+            <FontAwesomeIcon icon="save" />
+            &nbsp;
+            <Translate contentKey="entity.action.save">Save</Translate>
+          </Button>
+        </div>
+      ) : isEditing ? (
+        <div className="mb-3 d-flex gap-2">
+          <Button type="button" variant="info" onClick={handleCancelClick} data-cy="entityCreateCancelButton">
+            <FontAwesomeIcon icon="arrow-left" />
+            &nbsp;
+            <span className="d-none d-md-inline"> Cancelar </span>
+          </Button>
+          &nbsp;
+          <Button variant="primary" type="submit" disabled={updating} data-cy="entityCreateSaveButton">
+            <FontAwesomeIcon icon="save" />
+            &nbsp;
+            <Translate contentKey="entity.action.save">Save</Translate>
+          </Button>
+        </div>
+      ) : (
+        <div className="mb-3 d-flex gap-2">
+          <Button as={Link as any} to="/grade" replace variant="info" data-cy="entityCreateCancelButton">
+            <FontAwesomeIcon icon="arrow-left" />
+            &nbsp;
+            <Translate contentKey="entity.action.back">Back</Translate>
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            data-cy="entityCreateEditButton"
+            onClick={handleEditClick}
+            disabled={isFinalized}
+            title={isFinalized ? translate('error.noteditable') : undefined}
+          >
+            <span className="d-none d-md-inline">Editar</span>
+          </Button>
+        </div>
+      )}
+    </div>,
+  ];
+
+  const gradeInfoCard = (
+    <Card>
+      <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
+        {gradeFormFields}
+      </ValidatedForm>
+    </Card>
+  );
+
   return (
     <div>
       <Row className="justify-content-center">
@@ -138,185 +340,31 @@ export const GradeUpdate = () => {
         <Col md="12">
           {loading ? (
             <p>Loading...</p>
+          ) : isNew ? (
+            gradeInfoCard
           ) : (
-            <Card>
-              <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
-                <ValidatedField
-                  label={translate('senaAttendanceApp.grade.code')}
-                  id="grade-code"
-                  name="code"
-                  data-cy="code"
-                  disabled={!isFieldEditable('code')}
-                  type="text"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                    maxLength: { value: 20, message: translate('entity.validation.maxlength', { max: 20 }) },
-                    validate: v => /^\d+$/.test(v) || translate('entity.validation.number'),
-                  }}
-                />
-                <FormText> Número identificador único de la ficha o grupo formativo. </FormText>
-                <ValidatedField
-                  label={translate('senaAttendanceApp.grade.startDate')}
-                  id="grade-startDate"
-                  name="startDate"
-                  data-cy="startDate"
-                  disabled={!isFieldEditable('startDate')}
-                  type="date"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                  }}
-                />
-                <FormText> Fecha de inicio de la etapa lectiva. </FormText>
-                <ValidatedField
-                  label={translate('senaAttendanceApp.grade.endDate')}
-                  id="grade-endDate"
-                  name="endDate"
-                  data-cy="endDate"
-                  disabled={!isFieldEditable('endDate')}
-                  type="date"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                  }}
-                />
-                <FormText> Fecha estimada de culminación de formación. </FormText>
-                <ValidatedField
-                  id="grade-program"
-                  name="program"
-                  data-cy="program"
-                  disabled={!isFieldEditable('program')}
-                  label={translate('senaAttendanceApp.grade.program')}
-                  type="select"
-                  required
-                >
-                  <option value="" key="0" />
-                  {programs
-                    ? programs.map(otherEntity => (
-                        <option value={otherEntity.id} key={otherEntity.id}>
-                          {otherEntity.name}
-                        </option>
-                      ))
-                    : null}
-                </ValidatedField>
-                <FormText> Programa curricular asociado a la ficha. </FormText>
-                <ValidatedField
-                  id="grade-timeSlot"
-                  name="timeSlot"
-                  data-cy="timeSlot"
-                  disabled={!isFieldEditable('timeSlot')}
-                  label={translate('senaAttendanceApp.grade.timeSlot')}
-                  type="select"
-                  required
-                >
-                  <option value="" key="0" />
-                  {timeSlots
-                    ? timeSlots.map(otherEntity => (
-                        <option value={otherEntity.id} key={otherEntity.id}>
-                          {otherEntity.name}
-                        </option>
-                      ))
-                    : null}
-                </ValidatedField>
-                <FormText> Horario en el que se impartirá la formación </FormText>
-                <ValidatedField
-                  id="grade-modality"
-                  name="modality"
-                  data-cy="modality"
-                  disabled={!isFieldEditable('modality')}
-                  label={translate('senaAttendanceApp.grade.modality')}
-                  type="select"
-                  required
-                >
-                  <option value="" key="0" />
-                  {modalities
-                    ? modalities.map(otherEntity => (
-                        <option value={otherEntity.id} key={otherEntity.id}>
-                          {otherEntity.name}
-                        </option>
-                      ))
-                    : null}
-                </ValidatedField>
-                <FormText> Modalida pedagógica de impartición </FormText>
-                {!isNew && (
-                  <ValidatedField
-                    label={translate('senaAttendanceApp.grade.state')}
-                    id="grade-state"
-                    name="state"
-                    data-cy="state"
-                    type="text"
-                    disabled
-                  />
-                )}
-                {!isNew && <FormText> Estado de operacion académica actual. </FormText>}
-                {!isNew && (canPostpone || canResume || canCancel) && (
-                  <div className="mb-3 d-flex justify-content-between">
-                    <div className="mb-3 d-flex gap-2">
-                      {canPostpone && (
-                        <Button type="button" variant="warning" onClick={handlePostpone} disabled={updating}>
-                          Aplazar ficha
-                        </Button>
-                      )}
-                      {canResume && (
-                        <Button type="button" variant="success" onClick={handleResume} disabled={updating}>
-                          Reanudar ficha
-                        </Button>
-                      )}
-                      {canCancel && (
-                        <Button type="button" variant="danger" onClick={handleCancelGrade} disabled={updating}>
-                          Cancelar ficha
-                        </Button>
-                      )}
-                    </div>
-                    {isNew ? (
-                      <div className="mb-3 d-flex gap-2">
-                        <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/grade" replace variant="info">
-                          <FontAwesomeIcon icon="arrow-left" />
-                          &nbsp;
-                          <span className="d-none d-md-inline"> Cancelar </span>
-                        </Button>
-                        &nbsp;
-                        <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
-                          <FontAwesomeIcon icon="save" />
-                          &nbsp;
-                          <Translate contentKey="entity.action.save">Save</Translate>
-                        </Button>
-                      </div>
-                    ) : isEditing ? (
-                      <div className="mb-3 d-flex gap-2">
-                        <Button type="button" variant="info" onClick={handleCancelClick} data-cy="entityCreateCancelButton">
-                          <FontAwesomeIcon icon="arrow-left" />
-                          &nbsp;
-                          <span className="d-none d-md-inline"> Cancelar </span>
-                        </Button>
-                        &nbsp;
-                        <Button variant="primary" type="submit" disabled={updating} data-cy="entityCreateSaveButton">
-                          <FontAwesomeIcon icon="save" />
-                          &nbsp;
-                          <Translate contentKey="entity.action.save">Save</Translate>
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="mb-3 d-flex gap-2">
-                        <Button as={Link as any} to="/grade" replace variant="info" data-cy="entityCreateCancelButton">
-                          <FontAwesomeIcon icon="arrow-left" />
-                          &nbsp;
-                          <Translate contentKey="entity.action.back">Back</Translate>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="primary"
-                          data-cy="entityCreateEditButton"
-                          onClick={handleEditClick}
-                          disabled={isFinalized}
-                          title={isFinalized ? translate('error.noteditable') : undefined}
-                        >
-                          <span className="d-none d-md-inline">Editar</span>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </ValidatedForm>
-            </Card>
+            <Tabs defaultActiveKey={initialTab} className="mb-3">
+              <Tab eventKey="info" title="Información General">
+                {gradeInfoCard}
+              </Tab>
+              <Tab
+                eventKey="competencias"
+                title={
+                  <span>
+                    Competencias{' '}
+                    <Badge bg="secondary" pill>
+                      {classSectionsCount}
+                    </Badge>
+                  </span>
+                }
+              >
+                <Card>
+                  <Card.Body>
+                    <GradeClassSectionsTab gradeId={gradeEntity.id} canManage={canManageClassSections} />
+                  </Card.Body>
+                </Card>
+              </Tab>
+            </Tabs>
           )}
         </Col>
       </Row>
