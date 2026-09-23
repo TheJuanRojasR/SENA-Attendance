@@ -50,7 +50,7 @@ export const createEntity = createAsyncThunk(
 export const updateEntity = createAsyncThunk(
   'classSection/update_entity',
   async (entity: IClassSection, thunkAPI) => {
-    const result = await axios.put<IClassSection>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.put<IClassSection>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
@@ -60,7 +60,7 @@ export const updateEntity = createAsyncThunk(
 export const partialUpdateEntity = createAsyncThunk(
   'classSection/partial_update_entity',
   async (entity: IClassSection, thunkAPI) => {
-    const result = await axios.patch<IClassSection>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
+    const result = await axios.patch<IClassSection>(apiUrl, cleanEntity(entity));
     thunkAPI.dispatch(getEntities({}));
     return result;
   },
