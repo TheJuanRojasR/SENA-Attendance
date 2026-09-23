@@ -1,14 +1,14 @@
-import { createAsyncThunk, isFulfilled, isPending } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, isFulfilled, isPending, isRejected } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 import { IJustification, defaultValue } from 'app/shared/model/justification.model';
-import { EntityState, IQueryParams, createEntitySlice, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
+import { IQueryParams, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 import { cleanEntity } from 'app/shared/util/entity-utils';
 
-const initialState: EntityState<IJustification> = {
+const initialState = {
   loading: false,
-  errorMessage: null,
-  entities: [],
+  errorMessage: null as string | null,
+  entities: [] as readonly IJustification[],
   entity: defaultValue,
   updating: false,
   totalItems: 0,
@@ -19,6 +19,7 @@ const apiUrl = 'api/justifications';
 
 // Actions
 
+// Acotado por rol en el propio backend: el aprendiz solo ve las suyas, el Admin ve todas.
 export const getEntities = createAsyncThunk(
   'justification/fetch_entity_list',
   async ({ page, size, sort }: IQueryParams) => {
@@ -30,81 +31,55 @@ export const getEntities = createAsyncThunk(
 
 export const getEntity = createAsyncThunk(
   'justification/fetch_entity',
-  async (id: string | number) => {
+  async (id: string) => {
     const requestUrl = `${apiUrl}/${id}`;
     return axios.get<IJustification>(requestUrl);
   },
   { serializeError: serializeAxiosError },
 );
 
+// Crea la cabecera y una parte PENDIENTE por materia afectada (flujo básico UC011).
 export const createEntity = createAsyncThunk(
   'justification/create_entity',
-  async (entity: IJustification, thunkAPI) => {
-    const result = await axios.post<IJustification>(apiUrl, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
+  async (entity: IJustification) => axios.post<IJustification>(apiUrl, cleanEntity(entity)),
   { serializeError: serializeAxiosError },
 );
 
+// A3: edición mientras todas las partes estén PENDIENTE; recalcula plazo y cupo en el servidor.
 export const updateEntity = createAsyncThunk(
   'justification/update_entity',
-  async (entity: IJustification, thunkAPI) => {
-    const result = await axios.put<IJustification>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
+  async (entity: IJustification) => axios.put<IJustification>(`${apiUrl}/${entity.id}`, cleanEntity(entity)),
   { serializeError: serializeAxiosError },
 );
 
-export const partialUpdateEntity = createAsyncThunk(
-  'justification/partial_update_entity',
-  async (entity: IJustification, thunkAPI) => {
-    const result = await axios.patch<IJustification>(`${apiUrl}/${entity.id}`, cleanEntity(entity));
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
+// A4: cancelación de una justificación pendiente; libera el cupo reservado.
+export const cancelJustification = createAsyncThunk(
+  'justification/cancel',
+  async (id: string) => axios.patch<IJustification>(`${apiUrl}/cancelled`, { id }),
   { serializeError: serializeAxiosError },
 );
 
-export const deleteEntity = createAsyncThunk(
-  'justification/delete_entity',
-  async (id: string | number, thunkAPI) => {
-    const requestUrl = `${apiUrl}/${id}`;
-    const result = await axios.delete<IJustification>(requestUrl);
-    thunkAPI.dispatch(getEntities({}));
-    return result;
-  },
-  { serializeError: serializeAxiosError },
-);
-
-// slice
-
-export const JustificationSlice = createEntitySlice({
+export const JustificationSlice = createSlice({
   name: 'justification',
   initialState,
+  reducers: {
+    reset() {
+      return initialState;
+    },
+  },
   extraReducers(builder) {
     builder
       .addCase(getEntity.fulfilled, (state, action) => {
         state.loading = false;
         state.entity = action.payload.data;
       })
-      .addCase(deleteEntity.fulfilled, state => {
-        state.updating = false;
-        state.updateSuccess = true;
-        state.entity = {};
-      })
       .addMatcher(isFulfilled(getEntities), (state, action) => {
         const { data, headers } = action.payload;
-
-        return {
-          ...state,
-          loading: false,
-          entities: data,
-          totalItems: parseInt(headers['x-total-count'], 10),
-        };
+        state.loading = false;
+        state.entities = data;
+        state.totalItems = parseInt(headers['x-total-count'], 10);
       })
-      .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
+      .addMatcher(isFulfilled(createEntity, updateEntity, cancelJustification), (state, action) => {
         state.updating = false;
         state.loading = false;
         state.updateSuccess = true;
@@ -115,10 +90,16 @@ export const JustificationSlice = createEntitySlice({
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+      .addMatcher(isPending(createEntity, updateEntity, cancelJustification), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
+      })
+      .addMatcher(isRejected(getEntities, getEntity, createEntity, updateEntity, cancelJustification), (state, action) => {
+        state.loading = false;
+        state.updating = false;
+        state.updateSuccess = false;
+        state.errorMessage = action.error.message!;
       });
   },
 });

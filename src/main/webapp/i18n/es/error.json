@@ -77,6 +77,14 @@
     "noActiveApprentices": "No hay aprendices activos en esta ficha.",
     "invalidAttendanceState": "La asistencia solo se puede registrar o editar como Presente o Falla.",
     "studentNotEnrolled": "El aprendiz no está matriculado en esta ficha.",
-    "classSectionWithoutInstructor": "Esta materia no tiene instructor asignado. Contacta al Administrador."
+    "classSectionWithoutInstructor": "Esta materia no tiene instructor asignado. Contacta al Administrador.",
+    "notYourJustification": "Solo puedes gestionar tus propias justificaciones.",
+    "alreadyProcessed": "Esta justificación ya fue procesada y no puede modificarse.",
+    "noFailuresFound": "No hay fallas para justificar en ese período y esas materias.",
+    "justificationTypeInactive": "El tipo de justificación seleccionado ya no está disponible, selecciona otro.",
+    "invalidEvidence": "Formato o tamaño de archivo no válido.",
+    "notMatriculado": "Solo puedes justificar fallas de fichas en las que estás matriculado.",
+    "quotaExceeded": "Ya alcanzaste el límite de días para este tipo de justificación en el trimestre.",
+    "correctionExpired": "El plazo para subsanar esta justificación ha vencido."
   }
 }

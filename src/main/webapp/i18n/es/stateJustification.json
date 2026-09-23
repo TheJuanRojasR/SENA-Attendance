@@ -2,9 +2,10 @@
   "senaAttendanceApp": {
     "StateJustification": {
       "null": "",
-      "ACEPTADA": "ACEPTADA",
-      "RECHAZADA": "RECHAZADA",
-      "PENDIENTE": "PENDIENTE"
+      "ACEPTADA": "Aprobada",
+      "RECHAZADA": "Rechazada",
+      "PENDIENTE": "Pendiente",
+      "CANCELADA": "Cancelada"
     }
   }
 }

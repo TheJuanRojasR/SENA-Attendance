@@ -4,4 +4,6 @@ export enum StateJustification {
   RECHAZADA = 'RECHAZADA',
 
   PENDIENTE = 'PENDIENTE',
+
+  CANCELADA = 'CANCELADA',
 }

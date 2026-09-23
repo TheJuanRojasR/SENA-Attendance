@@ -2,18 +2,13 @@
   "senaAttendanceApp": {
     "justification": {
       "home": {
-        "title": "Justificación",
-        "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nueva Justificación",
-        "createOrEditLabel": "Crear o editar Justificación",
-        "notFound": "Ninguna Justificación encontrada"
+        "title": "Mis justificaciones",
+        "createLabel": "Justificar fallas",
+        "createOrEditLabel": "Justificar fallas",
+        "notFound": "Aún no has presentado justificaciones"
       },
-      "created": "Un nueva Justificación ha sido creada con el identificador {{ param }}",
-      "updated": "Un Justificación ha sido actualizada con el identificador {{ param }}",
-      "deleted": "Un Justificación ha sido eliminada con el identificador {{ param }}",
-      "delete": {
-        "question": "¿Seguro que quiere eliminar Justificación {{ id }}?"
-      },
+      "created": "Justificación enviada con el identificador {{ param }}",
+      "updated": "Justificación actualizada con el identificador {{ param }}",
       "detail": {
         "title": "Justificación"
       },
@@ -22,7 +17,9 @@
       "startDate": "Fecha de inicio",
       "endDate": "Fecha de fin",
       "evidence": "Evidencia",
+      "onTime": "Marca de plazo",
       "details": "Detalles",
+      "detailses": "Materias afectadas",
       "justificationType": "Tipo de justificación",
       "student": "Estudiante"
     }
