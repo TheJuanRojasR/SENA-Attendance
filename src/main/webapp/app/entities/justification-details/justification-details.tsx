@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, TextFormat, Translate, byteSize, getPaginationState, openFile } from 'react-jhipster';
+import { Badge, Button, Col, Row, Table } from 'react-bootstrap';
+import { JhiItemCount, JhiPagination, TextFormat, getPaginationState } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-import { APP_DATE_FORMAT } from 'app/config/constants';
+import { APP_LOCAL_DATE_FORMAT } from 'app/config/constants';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
+import { getEntities as getClassSections, getMine as getMyClassSections } from 'app/entities/class-section/class-section.reducer';
+import { hasAnyAuthority } from 'app/shared/auth/private-route';
+import { Authority } from 'app/shared/jhipster/constants';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
-import { getEntities } from './justification-details.reducer';
+import { getPending } from './justification-details.reducer';
 
+const stateVariant: Record<string, string> = {
+  PENDIENTE: 'warning',
+  ACEPTADA: 'success',
+  RECHAZADA: 'danger',
+  CANCELADA: 'secondary',
+};
+
+// UC010, flujo básico: bandeja de partes pendientes de las materias del instructor (o de todas,
+// si es Admin). Sin filtro de estado se listan solo las PENDIENTE; con otro estado (A1) se
+// consulta el histórico de decisiones.
 export const JustificationDetails = () => {
   const dispatch = useAppDispatch();
 
@@ -22,17 +35,36 @@ export const JustificationDetails = () => {
   const [paginationState, setPaginationState] = useState(
     overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
   );
+  const [stateFilter, setStateFilter] = useState('');
+  const [classSectionId, setClassSectionId] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+
+  const isAdmin = useAppSelector(state => hasAnyAuthority(state.authentication.account.authorities, [Authority.ADMIN]));
+  const classSections = useAppSelector(state => (isAdmin ? state.classSection.entities : state.classSection.mine));
 
   const justificationDetailsList = useAppSelector(state => state.justificationDetails.entities);
   const loading = useAppSelector(state => state.justificationDetails.loading);
   const totalItems = useAppSelector(state => state.justificationDetails.totalItems);
 
+  useEffect(() => {
+    if (isAdmin) {
+      dispatch(getClassSections({}));
+    } else {
+      dispatch(getMyClassSections());
+    }
+  }, [isAdmin]);
+
   const getAllEntities = () => {
     dispatch(
-      getEntities({
+      getPending({
         page: paginationState.activePage - 1,
         size: paginationState.itemsPerPage,
         sort: `${paginationState.sort},${paginationState.order}`,
+        stateJustification: stateFilter || undefined,
+        classSectionId: classSectionId || undefined,
+        createdFrom: createdFrom || undefined,
+        createdTo: createdTo || undefined,
       }),
     );
   };
@@ -47,7 +79,7 @@ export const JustificationDetails = () => {
 
   useEffect(() => {
     sortEntities();
-  }, [paginationState.activePage, paginationState.order, paginationState.sort]);
+  }, [paginationState.activePage, paginationState.order, paginationState.sort, stateFilter, classSectionId, createdFrom, createdTo]);
 
   useEffect(() => {
     const params = new URLSearchParams(pageLocation.search);
@@ -78,10 +110,6 @@ export const JustificationDetails = () => {
       activePage: currentPage,
     });
 
-  const handleSyncList = () => {
-    sortEntities();
-  };
-
   const getSortIconByFieldName = (fieldName: string) => {
     const sortFieldName = paginationState.sort;
     const { order } = paginationState;
@@ -94,166 +122,112 @@ export const JustificationDetails = () => {
   return (
     <div>
       <h2 id="justification-details-heading" data-cy="JustificationDetailsHeading">
-        <Translate contentKey="senaAttendanceApp.justificationDetails.home.title">Justification Details</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon="sync" spin={loading} />{' '}
-            <Translate contentKey="senaAttendanceApp.justificationDetails.home.refreshListLabel">Refresh List</Translate>
-          </Button>
-          <Link
-            to="/justification-details/new"
-            className="btn btn-primary jh-create-entity"
-            id="jh-create-entity"
-            data-cy="entityCreateButton"
-          >
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.justificationDetails.home.createLabel">Create new Justification Details</Translate>
-          </Link>
-        </div>
+        Justificaciones
       </h2>
+      <p>Revisa y decide las partes de las justificaciones de las materias que dictas.</p>
+      <Row className="mb-3">
+        <Col md="3">
+          <label htmlFor="state-filter">Estado</label>
+          <select id="state-filter" className="form-select" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
+            <option value="">Pendientes</option>
+            <option value="ACEPTADA">Aprobadas</option>
+            <option value="RECHAZADA">Rechazadas</option>
+            <option value="CANCELADA">Canceladas</option>
+          </select>
+        </Col>
+        <Col md="3">
+          <label htmlFor="class-section-filter">Materia</label>
+          <select
+            id="class-section-filter"
+            className="form-select"
+            value={classSectionId}
+            onChange={e => setClassSectionId(e.target.value)}
+          >
+            <option value="">Todas</option>
+            {classSections.map(cs => (
+              <option value={cs.id} key={cs.id}>
+                {cs.subjectName}
+              </option>
+            ))}
+          </select>
+        </Col>
+        <Col md="3">
+          <label htmlFor="created-from">Solicitadas desde</label>
+          <input
+            id="created-from"
+            type="date"
+            className="form-control"
+            value={createdFrom}
+            onChange={e => setCreatedFrom(e.target.value)}
+          />
+        </Col>
+        <Col md="3">
+          <label htmlFor="created-to">Solicitadas hasta</label>
+          <input id="created-to" type="date" className="form-control" value={createdTo} onChange={e => setCreatedTo(e.target.value)} />
+        </Col>
+      </Row>
       <div className="table-responsive">
         {justificationDetailsList?.length > 0 ? (
           <Table responsive>
             <thead>
               <tr>
                 <th className="hand" onClick={sort('id')}>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.id">ID</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
+                  Solicitud <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
                 </th>
-                <th className="hand" onClick={sort('stateJustification')}>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.stateJustification">State Justification</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('stateJustification')} />
-                </th>
-                <th className="hand" onClick={sort('rejectionReason')}>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.rejectionReason">Rejection Reason</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('rejectionReason')} />
-                </th>
-                <th className="hand" onClick={sort('correctionText')}>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.correctionText">Correction Text</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('correctionText')} />
-                </th>
-                <th className="hand" onClick={sort('correctionFileUrl')}>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.correctionFileUrl">Correction File Url</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('correctionFileUrl')} />
-                </th>
-                <th className="hand" onClick={sort('responseDate')}>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.responseDate">Response Date</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('responseDate')} />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.classSection">Class Section</Translate>{' '}
-                  <FontAwesomeIcon icon="sort" />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.justificationDetails.justification">Justification</Translate>{' '}
-                  <FontAwesomeIcon icon="sort" />
-                </th>
+                <th>Aprendiz</th>
+                <th>Materia</th>
+                <th>Período</th>
+                <th>Tipo</th>
+                <th>Plazo</th>
+                <th>Estado</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {justificationDetailsList.map(justificationDetails => (
-                <tr key={`entity-${justificationDetails.id}`} data-cy="entityTable">
+              {justificationDetailsList.map(detail => (
+                <tr key={`entity-${detail.id}`} data-cy="entityTable">
                   <td>
-                    <Button as={Link as any} to={`/justification-details/${justificationDetails.id}`} variant="link" size="sm">
-                      {justificationDetails.id}
-                    </Button>
+                    {detail.requestDate ? <TextFormat type="date" value={detail.requestDate} format={APP_LOCAL_DATE_FORMAT} /> : null}
                   </td>
+                  <td>{detail.justification?.student?.documentNumber}</td>
+                  <td>{detail.classSection?.subjectName}</td>
                   <td>
-                    <Translate contentKey={`senaAttendanceApp.StateJustification.${justificationDetails.stateJustification}`} />
-                  </td>
-                  <td>{justificationDetails.rejectionReason}</td>
-                  <td>{justificationDetails.correctionText}</td>
-                  <td>
-                    {justificationDetails.correctionFileUrl ? (
-                      <div>
-                        {justificationDetails.correctionFileUrlContentType ? (
-                          <a onClick={openFile(justificationDetails.correctionFileUrlContentType, justificationDetails.correctionFileUrl)}>
-                            <Translate contentKey="entity.action.open">Open</Translate>
-                            &nbsp;
-                          </a>
-                        ) : null}
-                        <span>
-                          {justificationDetails.correctionFileUrlContentType}, {byteSize(justificationDetails.correctionFileUrl)}
-                        </span>
-                      </div>
+                    {detail.justification?.startDate ? (
+                      <TextFormat type="date" value={detail.justification.startDate} format={APP_LOCAL_DATE_FORMAT} />
+                    ) : null}
+                    {' – '}
+                    {detail.justification?.endDate ? (
+                      <TextFormat type="date" value={detail.justification.endDate} format={APP_LOCAL_DATE_FORMAT} />
                     ) : null}
                   </td>
+                  <td>{detail.justification?.justificationType?.name}</td>
                   <td>
-                    {justificationDetails.responseDate ? (
-                      <TextFormat type="date" value={justificationDetails.responseDate} format={APP_DATE_FORMAT} />
-                    ) : null}
-                  </td>
-                  <td>
-                    {justificationDetails.classSection ? (
-                      <Link to={`/class-section/${justificationDetails.classSection.id}`}>
-                        {justificationDetails.classSection.subjectName}
-                      </Link>
-                    ) : (
-                      ''
+                    {detail.justification?.onTime === undefined ? null : (
+                      <Badge bg={detail.justification.onTime ? 'success' : 'danger'}>
+                        {detail.justification.onTime ? 'En tiempo' : 'Fuera de tiempo'}
+                      </Badge>
                     )}
                   </td>
                   <td>
-                    {justificationDetails.justification ? (
-                      <Link to={`/justification/${justificationDetails.justification.id}`}>
-                        {justificationDetails.justification.description}
-                      </Link>
-                    ) : (
-                      ''
-                    )}
+                    <Badge bg={stateVariant[detail.stateJustification ?? ''] ?? 'secondary'}>{detail.stateJustification}</Badge>
                   </td>
                   <td className="text-end">
-                    <div className="btn-group flex-btn-group-container">
-                      <Button
-                        as={Link as any}
-                        to={`/justification-details/${justificationDetails.id}`}
-                        variant="info"
-                        size="sm"
-                        data-cy="entityDetailsButton"
-                      >
-                        <FontAwesomeIcon icon="eye" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/justification-details/${justificationDetails.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          (globalThis.location.href = `/justification-details/${justificationDetails.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                        }
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
-                    </div>
+                    <Button
+                      as={Link as any}
+                      to={`/justification-details/${detail.id}`}
+                      variant="info"
+                      size="sm"
+                      data-cy="entityDetailsButton"
+                    >
+                      <FontAwesomeIcon icon="eye" /> <span className="d-none d-md-inline">Revisar</span>
+                    </Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
         ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.justificationDetails.home.notFound">No Justification Details found</Translate>
-            </div>
-          )
+          !loading && <div className="alert alert-success">No hay partes que coincidan con estos filtros.</div>
         )}
       </div>
       {totalItems ? (

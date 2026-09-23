@@ -24,7 +24,7 @@
         "attendance": "Asistencia",
         "auditLog": "Registro de Auditoría",
         "justification": "Mis justificaciones",
-        "justificationDetails": "Detalles de Justificación",
+        "justificationDetails": "Justificaciones por decidir",
         "desertionCounter": "Contador de Deserción"
       },
       "account": {

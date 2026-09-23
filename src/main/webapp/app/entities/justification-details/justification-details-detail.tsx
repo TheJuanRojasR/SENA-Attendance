@@ -1,111 +1,187 @@
-import React, { useEffect } from 'react';
-import { Button, Col, Row } from 'react-bootstrap';
-import { TextFormat, Translate, byteSize, openFile } from 'react-jhipster';
-import { Link, useParams } from 'react-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Col, Row } from 'react-bootstrap';
+import { TextFormat, byteSize, openFile } from 'react-jhipster';
+import { useNavigate, useParams } from 'react-router';
+import { toast } from 'react-toastify';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-import { APP_DATE_FORMAT } from 'app/config/constants';
+import { APP_LOCAL_DATE_FORMAT } from 'app/config/constants';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 
-import { getEntity } from './justification-details.reducer';
+import { decideEntity, getEntity } from './justification-details.reducer';
 
+const stateVariant: Record<string, string> = {
+  PENDIENTE: 'warning',
+  ACEPTADA: 'success',
+  RECHAZADA: 'danger',
+  CANCELADA: 'secondary',
+};
+
+// UC010, flujo básico paso 5: el instructor aprueba o rechaza su materia. Un rechazo exige
+// motivo (E1); aprobar una justificación fuera de tiempo exige el motivo adicional (A2).
 export const JustificationDetailsDetail = () => {
   const dispatch = useAppDispatch();
-
+  const navigate = useNavigate();
   const { id } = useParams<'id'>();
+
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [outOfTimeReason, setOutOfTimeReason] = useState('');
 
   useEffect(() => {
     dispatch(getEntity(id!));
-  }, []);
+  }, [id]);
 
-  const justificationDetailsEntity = useAppSelector(state => state.justificationDetails.entity);
+  const detail = useAppSelector(state => state.justificationDetails.entity);
+  const updating = useAppSelector(state => state.justificationDetails.updating);
+  const justification = detail.justification;
+  const isPending = detail.stateJustification === 'PENDIENTE';
+  const requiresOutOfTimeReason = justification?.onTime === false;
+
+  const handleApprove = async () => {
+    if (requiresOutOfTimeReason && !outOfTimeReason.trim()) {
+      toast.error('Esta justificación quedó fuera de tiempo: registra el motivo adicional para aprobarla');
+      return;
+    }
+    const resultAction = await dispatch(
+      decideEntity({
+        id: id!,
+        stateJustification: 'ACEPTADA',
+        outOfTimeReason: requiresOutOfTimeReason ? outOfTimeReason.trim() : undefined,
+      }),
+    );
+    if (decideEntity.fulfilled.match(resultAction)) {
+      toast.success('Justificación aprobada');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Registra el motivo del rechazo');
+      return;
+    }
+    const resultAction = await dispatch(
+      decideEntity({ id: id!, stateJustification: 'RECHAZADA', rejectionReason: rejectionReason.trim() }),
+    );
+    if (decideEntity.fulfilled.match(resultAction)) {
+      toast.success('Justificación rechazada');
+    }
+  };
+
   return (
     <Row>
       <Col md="8">
-        <h2 data-cy="justificationDetailsDetailsHeading">
-          <Translate contentKey="senaAttendanceApp.justificationDetails.detail.title">JustificationDetails</Translate>
-        </h2>
+        <h2 data-cy="justificationDetailsDetailsHeading">Parte de justificación</h2>
         <dl className="jh-entity-details">
-          <dt>
-            <span id="id">
-              <Translate contentKey="global.field.id">ID</Translate>
-            </span>
-          </dt>
-          <dd>{justificationDetailsEntity.id}</dd>
-          <dt>
-            <span id="stateJustification">
-              <Translate contentKey="senaAttendanceApp.justificationDetails.stateJustification">State Justification</Translate>
-            </span>
-          </dt>
-          <dd>{justificationDetailsEntity.stateJustification}</dd>
-          <dt>
-            <span id="rejectionReason">
-              <Translate contentKey="senaAttendanceApp.justificationDetails.rejectionReason">Rejection Reason</Translate>
-            </span>
-          </dt>
-          <dd>{justificationDetailsEntity.rejectionReason}</dd>
-          <dt>
-            <span id="correctionText">
-              <Translate contentKey="senaAttendanceApp.justificationDetails.correctionText">Correction Text</Translate>
-            </span>
-          </dt>
-          <dd>{justificationDetailsEntity.correctionText}</dd>
-          <dt>
-            <span id="correctionFileUrl">
-              <Translate contentKey="senaAttendanceApp.justificationDetails.correctionFileUrl">Correction File Url</Translate>
-            </span>
-          </dt>
+          <dt>Estado</dt>
           <dd>
-            {justificationDetailsEntity.correctionFileUrl ? (
+            <Badge bg={stateVariant[detail.stateJustification ?? ''] ?? 'secondary'}>{detail.stateJustification}</Badge>
+            {detail.lateDecision && (
+              <Badge bg="dark" className="ms-1">
+                Decisión demorada
+              </Badge>
+            )}
+          </dd>
+          <dt>Aprendiz</dt>
+          <dd>{justification?.student?.documentNumber}</dd>
+          <dt>Materia</dt>
+          <dd>{detail.classSection?.subjectName}</dd>
+          <dt>Período</dt>
+          <dd>
+            {justification?.startDate ? <TextFormat value={justification.startDate} type="date" format={APP_LOCAL_DATE_FORMAT} /> : null}
+            {' – '}
+            {justification?.endDate ? <TextFormat value={justification.endDate} type="date" format={APP_LOCAL_DATE_FORMAT} /> : null}
+          </dd>
+          <dt>Marca de plazo</dt>
+          <dd>
+            {justification?.onTime === undefined ? null : (
+              <Badge bg={justification.onTime ? 'success' : 'danger'}>{justification.onTime ? 'En tiempo' : 'Fuera de tiempo'}</Badge>
+            )}
+          </dd>
+          <dt>Fecha de solicitud</dt>
+          <dd>{detail.requestDate ? <TextFormat value={detail.requestDate} type="date" format={APP_LOCAL_DATE_FORMAT} /> : null}</dd>
+          <dt>Tipo de justificación</dt>
+          <dd>{justification?.justificationType?.name}</dd>
+          <dt>Descripción</dt>
+          <dd>{justification?.description}</dd>
+          <dt>Soporte</dt>
+          <dd>
+            {justification?.evidence ? (
               <div>
-                {justificationDetailsEntity.correctionFileUrlContentType ? (
-                  <a
-                    onClick={openFile(
-                      justificationDetailsEntity.correctionFileUrlContentType,
-                      justificationDetailsEntity.correctionFileUrl,
-                    )}
-                  >
-                    <Translate contentKey="entity.action.open">Open</Translate>&nbsp;
-                  </a>
-                ) : null}
-                <span>
-                  {justificationDetailsEntity.correctionFileUrlContentType}, {byteSize(justificationDetailsEntity.correctionFileUrl)}
-                </span>
+                <a onClick={openFile(justification.evidenceContentType!, justification.evidence)}>Ver soporte</a> (
+                {justification.evidenceContentType}, {byteSize(justification.evidence)})
               </div>
-            ) : null}
+            ) : (
+              <span className="text-muted">El archivo adjunto no está disponible</span>
+            )}
           </dd>
-          <dt>
-            <span id="responseDate">
-              <Translate contentKey="senaAttendanceApp.justificationDetails.responseDate">Response Date</Translate>
-            </span>
-          </dt>
-          <dd>
-            {justificationDetailsEntity.responseDate ? (
-              <TextFormat value={justificationDetailsEntity.responseDate} type="date" format={APP_DATE_FORMAT} />
-            ) : null}
-          </dd>
-          <dt>
-            <Translate contentKey="senaAttendanceApp.justificationDetails.classSection">Class Section</Translate>
-          </dt>
-          <dd>{justificationDetailsEntity.classSection ? justificationDetailsEntity.classSection.subjectName : ''}</dd>
-          <dt>
-            <Translate contentKey="senaAttendanceApp.justificationDetails.justification">Justification</Translate>
-          </dt>
-          <dd>{justificationDetailsEntity.justification ? justificationDetailsEntity.justification.description : ''}</dd>
         </dl>
-        <Button as={Link as any} to="/justification-details" replace variant="info" data-cy="entityDetailsBackButton">
-          <FontAwesomeIcon icon="arrow-left" />{' '}
-          <span className="d-none d-md-inline">
-            <Translate contentKey="entity.action.back">Back</Translate>
-          </span>
-        </Button>
-        &nbsp;
-        <Button as={Link as any} to={`/justification-details/${justificationDetailsEntity.id}/edit`} replace variant="primary">
-          <FontAwesomeIcon icon="pencil-alt" />{' '}
-          <span className="d-none d-md-inline">
-            <Translate contentKey="entity.action.edit">Edit</Translate>
-          </span>
+
+        {isPending ? (
+          <>
+            <h3>Decisión</h3>
+            {requiresOutOfTimeReason && (
+              <Alert variant="warning">
+                Esta justificación se envió fuera de tiempo. Para aprobarla debes registrar el motivo adicional de la excepción.
+              </Alert>
+            )}
+            <Row className="mb-3">
+              <Col md="8">
+                <label htmlFor="out-of-time-reason">Motivo adicional (aprobación fuera de tiempo)</label>
+                <textarea
+                  id="out-of-time-reason"
+                  className="form-control"
+                  maxLength={300}
+                  value={outOfTimeReason}
+                  onChange={e => setOutOfTimeReason(e.target.value)}
+                  disabled={!requiresOutOfTimeReason}
+                />
+              </Col>
+            </Row>
+            <Row className="mb-3">
+              <Col md="8">
+                <label htmlFor="rejection-reason">Motivo de rechazo</label>
+                <textarea
+                  id="rejection-reason"
+                  className="form-control"
+                  maxLength={300}
+                  value={rejectionReason}
+                  onChange={e => setRejectionReason(e.target.value)}
+                />
+              </Col>
+            </Row>
+            <Button variant="success" onClick={handleApprove} disabled={updating}>
+              <FontAwesomeIcon icon="check" /> Aprobar
+            </Button>
+            &nbsp;
+            <Button variant="danger" onClick={handleReject} disabled={updating}>
+              <FontAwesomeIcon icon="ban" /> Rechazar
+            </Button>
+          </>
+        ) : (
+          <>
+            <h3>Decisión</h3>
+            <dl className="jh-entity-details">
+              <dt>Fecha de respuesta</dt>
+              <dd>{detail.responseDate ? <TextFormat value={detail.responseDate} type="date" format={APP_LOCAL_DATE_FORMAT} /> : null}</dd>
+              {detail.stateJustification === 'RECHAZADA' && (
+                <>
+                  <dt>Motivo de rechazo</dt>
+                  <dd>{detail.rejectionReason}</dd>
+                </>
+              )}
+              {detail.outOfTimeReason && (
+                <>
+                  <dt>Motivo adicional (fuera de tiempo)</dt>
+                  <dd>{detail.outOfTimeReason}</dd>
+                </>
+              )}
+            </dl>
+          </>
+        )}
+
+        <Button variant="info" onClick={() => navigate('/justification-details')} data-cy="entityDetailsBackButton">
+          <FontAwesomeIcon icon="arrow-left" /> <span className="d-none d-md-inline">Volver</span>
         </Button>
       </Col>
     </Row>

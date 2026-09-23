@@ -12,6 +12,9 @@ export interface IJustificationDetails {
   correctionFileUrlContentType?: string;
   correctionFileUrl?: string;
   responseDate?: dayjs.Dayjs;
+  requestDate?: dayjs.Dayjs;
+  outOfTimeReason?: string;
+  lateDecision?: boolean;
   classSection?: IClassSection;
   justification?: IJustification;
 }

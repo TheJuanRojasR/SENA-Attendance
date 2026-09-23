@@ -85,6 +85,9 @@
     "invalidEvidence": "Formato o tamaño de archivo no válido.",
     "notMatriculado": "Solo puedes justificar fallas de fichas en las que estás matriculado.",
     "quotaExceeded": "Ya alcanzaste el límite de días para este tipo de justificación en el trimestre.",
-    "correctionExpired": "El plazo para subsanar esta justificación ha vencido."
+    "correctionExpired": "El plazo para subsanar esta justificación ha vencido.",
+    "invalidDecisionState": "La decisión solo puede ser Aprobar o Rechazar.",
+    "rejectionReasonRequired": "Registra el motivo del rechazo.",
+    "outOfTimeReasonRequired": "Esta justificación quedó fuera de tiempo: registra el motivo adicional para aprobarla."
   }
 }

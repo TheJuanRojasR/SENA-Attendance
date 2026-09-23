@@ -2,20 +2,11 @@
   "senaAttendanceApp": {
     "justificationDetails": {
       "home": {
-        "title": "Detalles de Justificación",
-        "refreshListLabel": "Refrescar lista",
-        "createLabel": "Crear nuevo detalle de Justificación",
-        "createOrEditLabel": "Crear o editar Detalle de Justificación",
-        "notFound": "Ningún Detalle de Justificación encontrado"
-      },
-      "created": "Un nuevo Detalle de Justificación ha sido creado con el identificador {{ param }}",
-      "updated": "Un Detalle de Justificación ha sido actualizado con el identificador {{ param }}",
-      "deleted": "Un Detalle de Justificación ha sido eliminado con el identificador {{ param }}",
-      "delete": {
-        "question": "¿Seguro que quiere eliminar Detalle de Justificación {{ id }}?"
+        "title": "Justificaciones por decidir",
+        "notFound": "No hay partes que coincidan con estos filtros"
       },
       "detail": {
-        "title": "Detalles de Justificación"
+        "title": "Parte de justificación"
       },
       "id": "ID",
       "stateJustification": "Estado de la Justificación",
@@ -23,6 +14,9 @@
       "correctionText": "Indicaciones para corrección",
       "correctionFileUrl": "Documento de respuesta",
       "responseDate": "Fecha de Respuesta",
+      "requestDate": "Fecha de solicitud",
+      "outOfTimeReason": "Motivo adicional (fuera de tiempo)",
+      "lateDecision": "Decisión demorada",
       "classSection": "Sección de Clase",
       "justification": "Justificación"
     }
