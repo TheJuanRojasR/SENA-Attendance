@@ -62,67 +62,81 @@ export const ModalityUpdate = () => {
 
   return (
     <div>
-      <Row className="justify-content-center">
-        <Col md="12">
-          {!isNew && (
-            <h2 id="senaAttendanceApp.modality.home.createOrEditLabel" data-cy="ModalityCreateUpdateHeading">
-              Editar Modalidad
-            </h2>
-          )}
-          {isNew && (
-            <div>
-              <h2 id="senaAttendanceApp.modality.home.createOrEditLabel" data-cy="ModalityCreateUpdateHeading">
-                Crear Modalidad
-              </h2>
-              <p>Complete el siguiente formulario para registrar una nueva modalidad formativa instucional en el centro de formacion</p>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> MODALIDADES <span className="separator">/</span>{' '}
+            <span className="current">{isNew ? 'CREAR NUEVA' : 'EDITAR'}</span>
+          </div>
+          <h2 id="modality-heading" data-cy="ModalityCreateUpdateHeading" className="page-title">
+            {isNew ? 'Crear Nueva Modalidad' : 'Editar Modalidad'}
+          </h2>
+          <p className="page-description">
+            {isNew
+              ? 'Complete el siguiente formulario para registrar una nueva modalidad formativa institucional en el centro de formación.'
+              : 'Actualice el nombre oficial y disponibilidad de la modalidad formativa en la institución.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="entity-card">
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
+            <h5 className="mb-4 pb-2 border-bottom fw-bold" style={{ color: '#00324d' }}>
+              Información de la Modalidad
+            </h5>
+
+            <ValidatedField
+              label="Nombre de la Modalidad *"
+              id="modality-name"
+              name="name"
+              data-cy="name"
+              type="text"
+              placeholder="Ej. Presencial, Virtual, A Distancia / Mixta..."
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+                maxLength: { value: 50, message: translate('entity.validation.maxlength', { max: 50 }) },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Ingrese el nombre identificador oficial para la modalidad formativa institucional.
+            </small>
+
+            {!isNew && (
+              <ValidatedField label="Estado (Activo)" id="modality-isActive" name="isActive" data-cy="isActive" check type="checkbox" />
+            )}
+
+            <div className="d-flex justify-content-end mt-4 gap-2">
+              <Button
+                as={Link as any}
+                id="cancel-save"
+                data-cy="entityCreateCancelButton"
+                to="/modality"
+                replace
+                variant="outline-secondary"
+                className="fw-bold"
+                style={{ borderRadius: '8px', padding: '10px 20px', borderColor: '#d3d3d3', color: '#4a4a4a' }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="success"
+                id="save-entity"
+                data-cy="entityCreateSaveButton"
+                type="submit"
+                disabled={updating}
+                className="fw-bold"
+                style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+              >
+                <FontAwesomeIcon icon="save" className="me-2" />
+                {isNew ? 'Crear Modalidad' : 'Guardar Cambios'}
+              </Button>
             </div>
-          )}
-        </Col>
-      </Row>
-      <Row className="justify-content-center">
-        <Col md="12">
-          {loading ? (
-            <p>Loading...</p>
-          ) : (
-            <Card className="top-border-card">
-              <ValidatedForm defaultValues={defaultValues()} onSubmit={saveEntity}>
-                <ValidatedField
-                  label={translate('senaAttendanceApp.modality.name')}
-                  id="modality-name"
-                  name="name"
-                  data-cy="name"
-                  type="text"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                    maxLength: { value: 50, message: translate('entity.validation.maxlength', { max: 50 }) },
-                  }}
-                />
-                {!isNew && (
-                  <ValidatedField
-                    label={translate('senaAttendanceApp.modality.isActive')}
-                    id="modality-isActive"
-                    name="isActive"
-                    data-cy="isActive"
-                    check
-                    type="checkbox"
-                  />
-                )}
-                <Button as={Link as any} id="cancel-save" data-cy="entityCreateCancelButton" to="/modality" replace variant="info">
-                  <FontAwesomeIcon icon="arrow-left" />
-                  &nbsp;
-                  <span className="d-none d-md-inline">Canelar</span>
-                </Button>
-                &nbsp;
-                <Button variant="primary" id="save-entity" data-cy="entityCreateSaveButton" type="submit" disabled={updating}>
-                  <FontAwesomeIcon icon="save" />
-                  &nbsp;
-                  <Translate contentKey="entity.action.save">Save</Translate>
-                </Button>
-              </ValidatedForm>
-            </Card>
-          )}
-        </Col>
-      </Row>
+          </ValidatedForm>
+        )}
+      </div>
     </div>
   );
 };
