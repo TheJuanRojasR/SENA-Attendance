@@ -8,8 +8,10 @@ const apiUrl = 'api/dashboard';
 
 // Actions
 
-export const getAdminDashboard = createAsyncThunk(
-  'dashboard/fetch_kpis',
+// UC023: un único endpoint para los tres roles; la forma de la respuesta depende del rol
+// autenticado, así que cada panel lee de aquí solo los campos de su propio rol.
+export const getDashboard = createAsyncThunk(
+  'dashboard/fetch_dashboard',
   async () => {
     const requestUrl = `${apiUrl}`;
     return axios.get<IDashboard>(requestUrl);
@@ -37,15 +39,15 @@ export const DashboardSlice = createSlice({
   reducers: {},
   extraReducers(builder) {
     builder
-      .addCase(getAdminDashboard.pending, state => {
+      .addCase(getDashboard.pending, state => {
         state.loading = true;
         state.errorMessage = null;
       })
-      .addCase(getAdminDashboard.fulfilled, (state, action) => {
+      .addCase(getDashboard.fulfilled, (state, action) => {
         state.loading = false;
         state.dashboard = action.payload.data;
       })
-      .addCase(getAdminDashboard.rejected, (state, action) => {
+      .addCase(getDashboard.rejected, (state, action) => {
         state.loading = false;
         state.errorMessage = action.error.message ?? null;
       });

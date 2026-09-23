@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react';
 
-import './dashboard-admin.scss';
 import { Button, Card, Table } from 'react-bootstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGraduationCap, faShapes, faUserGroup, faUsers } from '@fortawesome/free-solid-svg-icons';
 
-import { getAdminDashboard as getAdminKpis } from 'app/modules/dashboard/dashboard.reducer';
+import { getDashboard as getAdminKpis } from 'app/modules/dashboard/dashboard.reducer';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 
 export const AdminDashboard = () => {
