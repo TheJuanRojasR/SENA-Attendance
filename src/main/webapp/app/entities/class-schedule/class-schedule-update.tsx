@@ -105,7 +105,12 @@ export const ClassScheduleUpdate = () => {
                 name="dayOfWeek"
                 data-cy="dayOfWeek"
                 type="select"
+                required
+                validate={{
+                  required: { value: true, message: translate('entity.validation.required') },
+                }}
               >
+                <option value="" key="placeholder" />
                 {dayOfWeekValues.map(dayOfWeek => (
                   <option value={dayOfWeek} key={dayOfWeek}>
                     {translate(`senaAttendanceApp.DayOfWeek.${dayOfWeek}`)}
