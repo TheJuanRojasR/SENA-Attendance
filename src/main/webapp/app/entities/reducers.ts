@@ -1,3 +1,4 @@
+import alert from 'app/entities/alert/alert.reducer';
 import apprentice from 'app/entities/apprentice/apprentice.reducer';
 import classException from 'app/entities/class-exception/class-exception.reducer';
 import justificationType from 'app/entities/justification-type/justification-type.reducer';
@@ -19,6 +20,7 @@ import userProfile from 'app/entities/user-profile/user-profile.reducer';
 /* jhipster-needle-add-reducer-import - JHipster will add reducer here */
 
 const entitiesReducers = {
+  alert,
   globalConfiguration,
   timeSlot,
   modality,

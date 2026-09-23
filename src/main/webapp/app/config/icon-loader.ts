@@ -8,6 +8,9 @@ import {
   faBan,
   faBell,
   faBook,
+  faCalendarTimes,
+  faCheck,
+  faClipboardList,
   faCloud,
   faCogs,
   faDatabase,
@@ -47,6 +50,8 @@ import {
   faIdCard,
   faTag,
   faBarsStaggered,
+  faThLarge,
+  faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const loadIcons = () => {
@@ -59,6 +64,9 @@ export const loadIcons = () => {
     faBan,
     faBell,
     faBook,
+    faCalendarTimes,
+    faCheck,
+    faClipboardList,
     faCloud,
     faCogs,
     faDatabase,
@@ -98,5 +106,7 @@ export const loadIcons = () => {
     faIdCard,
     faTag,
     faBarsStaggered,
+    faThLarge,
+    faTriangleExclamation,
   );
 };

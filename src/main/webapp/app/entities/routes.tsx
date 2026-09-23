@@ -3,6 +3,7 @@ import { Route } from 'react-router';
 
 import ErrorBoundaryRoutes from 'app/shared/error/error-boundary-routes';
 
+import Alert from './alert';
 import Apprentice from './apprentice';
 import ClassException from './class-exception';
 import JustificationType from './justification-type';
@@ -28,6 +29,7 @@ export default () => {
     <div>
       <ErrorBoundaryRoutes>
         {/* prettier-ignore */}
+        <Route path="/alert/*" element={<Alert />} />
         <Route path="/global-configuration/*" element={<GlobalConfiguration />} />
         <Route path="/time-slot/*" element={<TimeSlot />} />
         <Route path="/modality/*" element={<Modality />} />

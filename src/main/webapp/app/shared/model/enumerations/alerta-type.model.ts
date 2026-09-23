@@ -1,0 +1,5 @@
+export enum AlertaType {
+  CONSECUTIVAS = 'CONSECUTIVAS',
+
+  ACUMULADAS = 'ACUMULADAS',
+}

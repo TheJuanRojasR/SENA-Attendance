@@ -129,6 +129,11 @@ const EntitiesMenu = () => {
           <Translate contentKey="global.menu.entities.justificationDetails" />
         </MenuItem>
       )}
+      {adminOrInstructor && (
+        <MenuItem icon="triangle-exclamation" to="/alert">
+          <Translate contentKey="global.menu.entities.alert" />
+        </MenuItem>
+      )}
       {/* ══════════════════════════════════════════
           ADMIN + APRENDIZ — Justificaciones
       ══════════════════════════════════════════ */}

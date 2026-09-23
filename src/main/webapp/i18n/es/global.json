@@ -25,6 +25,7 @@
         "auditLog": "Registro de Auditoría",
         "justification": "Mis justificaciones",
         "justificationDetails": "Justificaciones por decidir",
+        "alert": "Alertas de inasistencia",
         "desertionCounter": "Contador de Deserción"
       },
       "account": {

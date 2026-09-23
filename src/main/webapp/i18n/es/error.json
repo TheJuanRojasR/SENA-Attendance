@@ -88,6 +88,7 @@
     "correctionExpired": "El plazo para subsanar esta justificación ha vencido.",
     "invalidDecisionState": "La decisión solo puede ser Aprobar o Rechazar.",
     "rejectionReasonRequired": "Registra el motivo del rechazo.",
-    "outOfTimeReasonRequired": "Esta justificación quedó fuera de tiempo: registra el motivo adicional para aprobarla."
+    "outOfTimeReasonRequired": "Esta justificación quedó fuera de tiempo: registra el motivo adicional para aprobarla.",
+    "alertAlreadyResolved": "La alerta fue resuelta automáticamente y no se puede atender."
   }
 }
