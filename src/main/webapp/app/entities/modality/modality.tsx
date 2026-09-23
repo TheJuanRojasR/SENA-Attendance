@@ -3,7 +3,7 @@ import { Button, Card, Col, Table } from 'react-bootstrap';
 import { Translate, getSortState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
@@ -58,43 +58,76 @@ export const Modality = () => {
     });
   };
 
+  const getSortIconByFieldName = (fieldName: string) => {
+    const sortFieldName = sortState.sort;
+    const { order } = sortState;
+    if (sortFieldName !== fieldName) {
+      return faSort;
+    }
+    return order === ASC ? faSortUp : faSortDown;
+  };
+
   return (
     <div>
-      <h2 id="modality-heading" data-cy="ModalityHeading">
-        <Translate contentKey="senaAttendanceApp.modality.home.title">Modalities</Translate>
-      </h2>
-      <p>
-        Administre los tipos y modalidades de formacion ofertadas en el centro institucional (Presencial, Virtual, Mixta, etc.). Configure
-        disponibilidad y estados según los programas formativos
-      </p>
-      <Col className="d-flex justify-content-between align-items-center" md="12">
-        <div className="d-flex align-items-center entitiesSearchBar">
-          <div className="d-flex align-items-center w-50">
-            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">MODALIDADES</span>
+          </div>
+          <h2 id="modality-heading" data-cy="ModalityHeading" className="page-title">
+            Gestión de Modalidades
+          </h2>
+          <p className="page-description">
+            Administre los tipos y modalidades de formacion ofertadas en el centro institucional (Presencial, Virtual, Mixta, etc.).
+            Configure disponibilidad y estados.
+          </p>
+        </div>
+        <div>
+          <Link
+            to="/modality/new"
+            className="btn btn-success fw-bold"
+            style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+          >
+            <FontAwesomeIcon icon="plus" className="me-2" />
+            Crear Nueva Modalidad
+          </Link>
+        </div>
+      </div>
+
+      <div className="entity-card">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
+          <div className="search-input-wrapper w-100">
+            <FontAwesomeIcon icon="search" />
             <ValidatedInput name="search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
-            <option value="ALL">Todas</option>
-            <option value="ACTIVE">Activas</option>
-            <option value="INACTIVE">Inactivas</option>
-          </ValidatedInput>
+          <div className="d-flex align-items-center w-100 w-md-auto">
+            <span className="me-2 text-muted fw-bold" style={{ fontSize: '0.85rem' }}>
+              ESTADO:
+            </span>
+            <ValidatedInput
+              type="select"
+              name="state"
+              className="w-100 mb-0"
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+            >
+              <option value="ALL">Todas las modalidades</option>
+              <option value="ACTIVE">Activas</option>
+              <option value="INACTIVE">Inactivas</option>
+            </ValidatedInput>
+          </div>
         </div>
-        <LinkButton to="/modality/new" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon="plus" />{' '}
-          <Translate contentKey="senaAttendanceApp.modality.home.createLabel">Create new Modality</Translate>
-        </LinkButton>
-      </Col>
-      <div className="table-responsive">
-        {filteredModalityList?.length > 0 ? (
-          <Card>
-            <Table responsive>
+
+        <div className="table-responsive">
+          {filteredModalityList?.length > 0 ? (
+            <Table className="custom-table" hover responsive>
               <thead>
                 <tr>
                   <th className="hand" onClick={sort('name')}>
-                    <Translate contentKey="senaAttendanceApp.modality.name">Name</Translate>{' '}
+                    NOMBRE <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
                   </th>
                   <th className="hand" onClick={sort('isActive')}>
-                    <Translate contentKey="senaAttendanceApp.modality.isActive">Is Active</Translate>{' '}
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('isActive')} />
                   </th>
                   <th />
                 </tr>
@@ -102,47 +135,40 @@ export const Modality = () => {
               <tbody>
                 {filteredModalityList.map(modality => (
                   <tr key={`entity-${modality.id}`} data-cy="entityTable">
-                    <td>{modality.name}</td>
-                    <td>{modality.isActive ? 'true' : 'false'}</td>
+                    <td className="fw-bold">{modality.name}</td>
+                    <td>
+                      {modality.isActive ? (
+                        <span className="badge-status active">
+                          <span className="dot"></span> Activo
+                        </span>
+                      ) : (
+                        <span className="badge-status inactive">
+                          <span className="dot"></span> Inactivo
+                        </span>
+                      )}
+                    </td>
                     <td className="text-end">
-                      <div className="btn-group flex-btn-group-container">
-                        <Button
-                          as={Link as any}
-                          to={`/modality/${modality.id}/edit`}
-                          variant="primary"
-                          size="sm"
-                          data-cy="entityEditButton"
-                        >
-                          <FontAwesomeIcon icon="pencil-alt" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.edit">Edit</Translate>
-                          </span>
-                        </Button>
-                        <Button
-                          onClick={() => (globalThis.location.href = `/modality/${modality.id}/delete`)}
-                          variant="danger"
-                          size="sm"
-                          data-cy="entityDeleteButton"
-                        >
-                          <FontAwesomeIcon icon="trash" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.delete">Delete</Translate>
-                          </span>
-                        </Button>
+                      <div className="action-icons">
+                        <Link to={`/modality/${modality.id}/edit`} title="Editar">
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
+                        <Link to={`/modality/${modality.id}/delete`} className="delete" title="Eliminar">
+                          <FontAwesomeIcon icon="trash" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </Card>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.modality.home.notFound">No Modalities found</Translate>
-            </div>
-          )
-        )}
+          ) : (
+            !loading && (
+              <div className="alert alert-success">
+                <Translate contentKey="senaAttendanceApp.modality.home.notFound">No Modalities found</Translate>
+              </div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

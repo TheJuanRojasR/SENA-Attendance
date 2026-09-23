@@ -126,48 +126,68 @@ export const Program = () => {
 
   return (
     <div>
-      <h2 id="program-heading" data-cy="ProgramHeading">
-        <Translate contentKey="senaAttendanceApp.program.home.title">Programs</Translate>
-      </h2>
-      <p>
-        Administre el catálogo de programas ofrecidos. Puede crear nuevos programas, modificar sus caracteristicas o gestionar su estado de
-        disponibilidad.{' '}
-      </p>
-      <Col className="d-flex justify-content-between align-items-center" md="12">
-        <div className="d-flex align-items-center entitiesSearchBar">
-          <div className="d-flex align-items-center w-50">
-            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">PROGRAMAS</span>
+          </div>
+          <h2 id="program-heading" data-cy="ProgramHeading" className="page-title">
+            Gestión de Programas
+          </h2>
+          <p className="page-description">
+            Administre el catálogo de programas ofrecidos. Puede crear nuevos programas, modificar sus caracteristicas o gestionar su estado
+            de disponibilidad.
+          </p>
+        </div>
+        <div>
+          <Link
+            to="/program/new"
+            className="btn btn-success fw-bold"
+            style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+          >
+            <FontAwesomeIcon icon="plus" className="me-2" />
+            Crear Nuevo Programa
+          </Link>
+        </div>
+      </div>
+
+      <div className="entity-card">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
+          <div className="search-input-wrapper w-100">
+            <FontAwesomeIcon icon="search" />
             <ValidatedInput name="search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
-            <option value="ALL">Todas</option>
-            <option value="ACTIVE">Activas</option>
-            <option value="INACTIVE">Inactivas</option>
-          </ValidatedInput>
+          <div className="d-flex align-items-center w-100 w-md-auto">
+            <span className="me-2 text-muted fw-bold" style={{ fontSize: '0.85rem' }}>
+              ESTADO:
+            </span>
+            <ValidatedInput
+              type="select"
+              name="state"
+              className="w-100 mb-0"
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+            >
+              <option value="ALL">Todos los programas</option>
+              <option value="ACTIVE">Activos</option>
+              <option value="INACTIVE">Inactivos</option>
+            </ValidatedInput>
+          </div>
         </div>
-        <LinkButton to="/program/new" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon="plus" />
-          &nbsp;
-          <Translate contentKey="senaAttendanceApp.program.home.createLabel">Create new Program</Translate>
-        </LinkButton>
-      </Col>
-      <div className="table-responsive">
-        {filteredProgramList?.length > 0 ? (
-          <Card>
-            <Table responsive>
+
+        <div className="table-responsive">
+          {filteredProgramList?.length > 0 ? (
+            <Table className="custom-table" hover responsive>
               <thead>
                 <tr>
                   <th className="hand" onClick={sort('code')}>
-                    <Translate contentKey="senaAttendanceApp.program.code">Code</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
+                    CÓDIGO <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
                   </th>
                   <th className="hand" onClick={sort('name')}>
-                    <Translate contentKey="senaAttendanceApp.program.name">Name</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
+                    NOMBRE <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
                   </th>
                   <th className="hand" onClick={sort('status')}>
-                    <Translate contentKey="senaAttendanceApp.program.status">Code</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('status')} />
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('status')} />
                   </th>
                   <th />
                 </tr>
@@ -175,69 +195,69 @@ export const Program = () => {
               <tbody>
                 {filteredProgramList.map(program => (
                   <tr key={`entity-${program.id}`} data-cy="entityTable">
-                    <td>{program.code}</td>
-                    <td>{program.name}</td>
-                    <td>{program.status ? 'Activo' : 'Inactivo'}</td>
+                    <td>
+                      <span className="badge-initials">{program.code}</span>
+                    </td>
+                    <td className="fw-bold">{program.name}</td>
+                    <td>
+                      {program.status ? (
+                        <span className="badge-status active">
+                          <span className="dot"></span> Activo
+                        </span>
+                      ) : (
+                        <span className="badge-status inactive">
+                          <span className="dot"></span> Inactivo
+                        </span>
+                      )}
+                    </td>
                     <td className="text-end">
-                      <div className="btn-group flex-btn-group-container">
-                        <Button
-                          as={Link as any}
+                      <div className="action-icons">
+                        <Link
                           to={`/program/${program.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                          variant="primary"
-                          size="sm"
-                          data-cy="entityEditButton"
+                          title="Editar"
                         >
-                          <FontAwesomeIcon icon="pencil-alt" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.edit">Edit</Translate>
-                          </span>
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            (globalThis.location.href = `/program/${program.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                          }
-                          variant="danger"
-                          size="sm"
-                          data-cy="entityDeleteButton"
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
+                        <Link
+                          to={`/program/${program.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
+                          className="delete"
+                          title="Eliminar"
                         >
-                          <FontAwesomeIcon icon="trash" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.delete">Delete</Translate>
-                          </span>
-                        </Button>
+                          <FontAwesomeIcon icon="trash" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </Card>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.program.home.notFound">No Programs found</Translate>
+          ) : (
+            !loading && (
+              <div className="alert alert-success">
+                <Translate contentKey="senaAttendanceApp.program.home.notFound">No Programs found</Translate>
+              </div>
+            )
+          )}
+        </div>
+        {totalItems ? (
+          <div className={filteredProgramList && filteredProgramList.length > 0 ? '' : 'd-none'}>
+            <div className="justify-content-center d-flex mt-4 mb-2 text-muted" style={{ fontSize: '0.85rem' }}>
+              <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
             </div>
-          )
+            <div className="justify-content-center d-flex">
+              <JhiPagination
+                activePage={paginationState.activePage}
+                onSelect={handlePagination}
+                maxButtons={5}
+                itemsPerPage={paginationState.itemsPerPage}
+                totalItems={totalItems}
+              />
+            </div>
+          </div>
+        ) : (
+          ''
         )}
       </div>
-      {totalItems ? (
-        <div className={filteredProgramList && filteredProgramList.length > 0 ? '' : 'd-none'}>
-          <div className="justify-content-center d-flex">
-            <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
-          </div>
-          <div className="justify-content-center d-flex">
-            <JhiPagination
-              activePage={paginationState.activePage}
-              onSelect={handlePagination}
-              maxButtons={5}
-              itemsPerPage={paginationState.itemsPerPage}
-              totalItems={totalItems}
-            />
-          </div>
-        </div>
-      ) : (
-        ''
-      )}
     </div>
   );
 };

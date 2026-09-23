@@ -73,50 +73,73 @@ export const TimeSlot = () => {
 
   return (
     <div>
-      <h2 id="time-slot-heading" data-cy="TimeSlotHeading">
-        <Translate contentKey="senaAttendanceApp.timeSlot.home.title">Time Slots</Translate>
-      </h2>
-      <p>
-        Administre jornadas académicas y franjas horarias de formación del centro formativo. Configure horarios, habilite o deshabilite
-        turnos según la disponibilidad
-      </p>
-      <Col className="d-flex justify-content-between align-items-center" md="12">
-        <div className="d-flex align-items-center entitiesSearchBar">
-          <div className="d-flex align-items-center w-50">
-            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+      {/* 1. HEADER REUTILIZABLE */}
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">JORNADAS</span>
+          </div>
+          <h2 id="time-slot-heading" data-cy="TimeSlotHeading" className="page-title">
+            Gestión de Jornadas
+          </h2>
+          <p className="page-description">
+            Administre jornadas académicas y franjas horarias de formación del centro formativo. Configure horarios, habilite o deshabilite
+            turnos según la disponibilidad.
+          </p>
+        </div>
+        <div>
+          <Link
+            to="/time-slot/new"
+            className="btn btn-success fw-bold"
+            style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+          >
+            <FontAwesomeIcon icon="plus" className="me-2" />
+            Crear Nueva Jornada
+          </Link>
+        </div>
+      </div>
+
+      {/* 2. CONTENEDOR CARD Y TABLA */}
+      <div className="entity-card">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
+          <div className="search-input-wrapper w-100">
+            <FontAwesomeIcon icon="search" />
             <ValidatedInput name="search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
-            <option value="ALL">Todas</option>
-            <option value="ACTIVE">Activas</option>
-            <option value="INACTIVE">Inactivas</option>
-          </ValidatedInput>
+          <div className="d-flex align-items-center w-100 w-md-auto">
+            <span className="me-2 text-muted fw-bold" style={{ fontSize: '0.85rem' }}>
+              ESTADO:
+            </span>
+            <ValidatedInput
+              type="select"
+              name="state"
+              className="w-100 mb-0"
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+            >
+              <option value="ALL">Todas las jornadas</option>
+              <option value="ACTIVE">Activas</option>
+              <option value="INACTIVE">Inactivas</option>
+            </ValidatedInput>
+          </div>
         </div>
-        <LinkButton to="new" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon={faPlus} /> <Translate contentKey="userManagement.home.createLabel">Create a new user</Translate>
-        </LinkButton>
-      </Col>
-      <div className="table-responsive">
-        {filteredTimeSlotList?.length > 0 ? (
-          <Card>
-            <Table responsive>
+
+        <div className="table-responsive">
+          {filteredTimeSlotList?.length > 0 ? (
+            <Table className="custom-table" hover responsive>
               <thead>
                 <tr>
                   <th className="hand" onClick={sort('name')}>
-                    <Translate contentKey="senaAttendanceApp.timeSlot.name">Name</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
+                    NOMBRE <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
                   </th>
                   <th className="hand" onClick={sort('startTime')}>
-                    <Translate contentKey="senaAttendanceApp.timeSlot.startTime">Start Time</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('startTime')} />
+                    HORA INICIO <FontAwesomeIcon icon={getSortIconByFieldName('startTime')} />
                   </th>
                   <th className="hand" onClick={sort('endTime')}>
-                    <Translate contentKey="senaAttendanceApp.timeSlot.endTime">End Time</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('endTime')} />
+                    HORA FIN <FontAwesomeIcon icon={getSortIconByFieldName('endTime')} />
                   </th>
                   <th className="hand" onClick={sort('isActive')}>
-                    <Translate contentKey="senaAttendanceApp.timeSlot.isActive">Is Active</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('isActive')} />
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('isActive')} />
                   </th>
                   <th />
                 </tr>
@@ -124,38 +147,39 @@ export const TimeSlot = () => {
               <tbody>
                 {filteredTimeSlotList.map(timeSlot => (
                   <tr key={`entity-${timeSlot.id}`} data-cy="entityTable">
-                    <td>{timeSlot.name}</td>
+                    <td className="fw-bold">{timeSlot.name}</td>
                     <td>{timeSlot.startTime}</td>
                     <td>{timeSlot.endTime}</td>
-                    <td>{timeSlot.isActive ? 'true' : 'false'}</td>
+                    <td>
+                      {timeSlot.isActive ? (
+                        <span className="badge-status active">
+                          <span className="dot"></span> Activo
+                        </span>
+                      ) : (
+                        <span className="badge-status inactive">
+                          <span className="dot"></span> Inactivo
+                        </span>
+                      )}
+                    </td>
                     <td className="text-end">
-                      <div className="btn-group flex-btn-group-container">
-                        <Button
-                          as={Link as any}
-                          to={`/time-slot/${timeSlot.id}/edit`}
-                          variant="primary"
-                          size="sm"
-                          data-cy="entityEditButton"
-                        >
-                          <FontAwesomeIcon icon="pencil-alt" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.edit">Edit</Translate>
-                          </span>
-                        </Button>
+                      <div className="action-icons">
+                        <Link to={`/time-slot/${timeSlot.id}/edit`} title="Editar">
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </Card>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.timeSlot.home.notFound">No Time Slots found</Translate>
-            </div>
-          )
-        )}
+          ) : (
+            !loading && (
+              <div className="alert alert-success">
+                <Translate contentKey="senaAttendanceApp.timeSlot.home.notFound">No Time Slots found</Translate>
+              </div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

@@ -148,4 +148,4 @@ db.attendance.insertMany([
 ]);
 
 print("¡Simulación completada con éxito! Se han insertado 2 programas, 2 fichas, 4 aprendices y sus asistencias asociadas.");
-```
+```;

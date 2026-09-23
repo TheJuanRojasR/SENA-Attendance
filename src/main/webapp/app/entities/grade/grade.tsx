@@ -93,138 +93,148 @@ export const Grade = () => {
 
   return (
     <div>
-      <h2 id="grade-heading" data-cy="GradeHeading">
-        <Translate contentKey="senaAttendanceApp.grade.home.title">Grades</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon="sync" spin={loading} />{' '}
-            <Translate contentKey="senaAttendanceApp.grade.home.refreshListLabel">Refresh List</Translate>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">FICHAS</span>
+          </div>
+          <h2 id="grade-heading" data-cy="GradeHeading" className="page-title">
+            Gestión de Fichas
+          </h2>
+          <p className="page-description">
+            Administre las fichas (grupos) de formación. Gestione su estado, fechas de inicio y fin, programa asociado y demás
+            configuraciones.
+          </p>
+        </div>
+        <div>
+          <Button
+            className="me-2 fw-bold"
+            variant="outline-success"
+            onClick={handleSyncList}
+            disabled={loading}
+            style={{ borderRadius: '8px', padding: '10px 20px', border: '1px solid #388e3c', color: '#388e3c' }}
+          >
+            <FontAwesomeIcon icon="sync" spin={loading} className="me-2" />
+            Actualizar
           </Button>
-          <Link to="/grade/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.grade.home.createLabel">Create new Grade</Translate>
+          <Link
+            to="/grade/new"
+            className="btn btn-success fw-bold"
+            style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+          >
+            <FontAwesomeIcon icon="plus" className="me-2" />
+            Crear Nueva Ficha
           </Link>
         </div>
-      </h2>
-      <div className="table-responsive">
-        {gradeList?.length > 0 ? (
-          <Table responsive>
-            <thead>
-              <tr>
-                <th className="hand" onClick={sort('id')}>
-                  <Translate contentKey="senaAttendanceApp.grade.id">ID</Translate> <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
-                </th>
-                <th className="hand" onClick={sort('code')}>
-                  <Translate contentKey="senaAttendanceApp.grade.code">Code</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
-                </th>
-                <th className="hand" onClick={sort('state')}>
-                  <Translate contentKey="senaAttendanceApp.grade.state">State</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('state')} />
-                </th>
-                <th className="hand" onClick={sort('startDate')}>
-                  <Translate contentKey="senaAttendanceApp.grade.startDate">Start Date</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('startDate')} />
-                </th>
-                <th className="hand" onClick={sort('endDate')}>
-                  <Translate contentKey="senaAttendanceApp.grade.endDate">End Date</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('endDate')} />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.grade.program">Program</Translate> <FontAwesomeIcon icon="sort" />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.grade.modality">Modality</Translate> <FontAwesomeIcon icon="sort" />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.grade.timeSlot">Time Slot</Translate> <FontAwesomeIcon icon="sort" />
-                </th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {gradeList.map(grade => (
-                <tr key={`entity-${grade.id}`} data-cy="entityTable">
-                  <td>
-                    <Button as={Link as any} to={`/grade/${grade.id}`} variant="link" size="sm">
-                      {grade.id}
-                    </Button>
-                  </td>
-                  <td>{grade.code}</td>
-                  <td>
-                    <Translate contentKey={`senaAttendanceApp.StateGrade.${grade.state}`} />
-                  </td>
-                  <td>{grade.startDate ? <TextFormat type="date" value={grade.startDate} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
-                  <td>{grade.endDate ? <TextFormat type="date" value={grade.endDate} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
-                  <td>{grade.program ? <Link to={`/program/${grade.program.id}`}>{grade.program.name}</Link> : ''}</td>
-                  <td>{grade.modality ? <Link to={`/modality/${grade.modality.id}`}>{grade.modality.name}</Link> : ''}</td>
-                  <td>{grade.timeSlot ? <Link to={`/time-slot/${grade.timeSlot.id}`}>{grade.timeSlot.name}</Link> : ''}</td>
-                  <td className="text-end">
-                    <div className="btn-group flex-btn-group-container">
-                      <Button as={Link as any} to={`/grade/${grade.id}`} variant="info" size="sm" data-cy="entityDetailsButton">
-                        <FontAwesomeIcon icon="eye" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/grade/${grade.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          (globalThis.location.href = `/grade/${grade.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                        }
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
-                    </div>
-                  </td>
+      </div>
+
+      <div className="entity-card">
+        <div className="table-responsive">
+          {gradeList?.length > 0 ? (
+            <Table className="custom-table" hover responsive>
+              <thead>
+                <tr>
+                  <th className="hand" onClick={sort('code')}>
+                    CÓDIGO <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
+                  </th>
+                  <th className="hand" onClick={sort('state')}>
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('state')} />
+                  </th>
+                  <th className="hand" onClick={sort('startDate')}>
+                    FECHA INICIO <FontAwesomeIcon icon={getSortIconByFieldName('startDate')} />
+                  </th>
+                  <th className="hand" onClick={sort('endDate')}>
+                    FECHA FIN <FontAwesomeIcon icon={getSortIconByFieldName('endDate')} />
+                  </th>
+                  <th>
+                    PROGRAMA <FontAwesomeIcon icon="sort" />
+                  </th>
+                  <th>
+                    MODALIDAD <FontAwesomeIcon icon="sort" />
+                  </th>
+                  <th>
+                    JORNADA <FontAwesomeIcon icon="sort" />
+                  </th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.grade.home.notFound">No Grades found</Translate>
+              </thead>
+              <tbody>
+                {gradeList.map(grade => (
+                  <tr key={`entity-${grade.id}`} data-cy="entityTable">
+                    <td>
+                      <span className="badge-initials">{grade.code}</span>
+                    </td>
+                    <td>
+                      {grade.state === 'LECTIVA' ? (
+                        <span className="badge-status active">
+                          <span className="dot"></span> Lectiva
+                        </span>
+                      ) : grade.state === 'PRACTICA' ? (
+                        <span className="badge-status pending">
+                          <span className="dot" style={{ backgroundColor: '#ffb74d' }}></span> Práctica
+                        </span>
+                      ) : (
+                        <span className="badge-status inactive">
+                          <span className="dot"></span> Inactiva
+                        </span>
+                      )}
+                    </td>
+                    <td>{grade.startDate ? <TextFormat type="date" value={grade.startDate} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
+                    <td>{grade.endDate ? <TextFormat type="date" value={grade.endDate} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
+                    <td>{grade.program ? <Link to={`/program/${grade.program.id}`}>{grade.program.name}</Link> : ''}</td>
+                    <td>{grade.modality ? <Link to={`/modality/${grade.modality.id}`}>{grade.modality.name}</Link> : ''}</td>
+                    <td>{grade.timeSlot ? <Link to={`/time-slot/${grade.timeSlot.id}`}>{grade.timeSlot.name}</Link> : ''}</td>
+                    <td className="text-end">
+                      <div className="action-icons">
+                        <Link to={`/grade/${grade.id}`} title="Ver">
+                          <FontAwesomeIcon icon="eye" />
+                        </Link>
+                        <Link
+                          to={`/grade/${grade.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
+                          title="Editar"
+                        >
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
+                        <Link
+                          to={`/grade/${grade.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
+                          className="delete"
+                          title="Eliminar"
+                        >
+                          <FontAwesomeIcon icon="trash" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          ) : (
+            !loading && (
+              <div className="alert alert-success">
+                <Translate contentKey="senaAttendanceApp.grade.home.notFound">No Grades found</Translate>
+              </div>
+            )
+          )}
+        </div>
+        {totalItems ? (
+          <div className={gradeList && gradeList.length > 0 ? '' : 'd-none'}>
+            <div className="justify-content-center d-flex mt-4 mb-2 text-muted" style={{ fontSize: '0.85rem' }}>
+              <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
             </div>
-          )
+            <div className="justify-content-center d-flex">
+              <JhiPagination
+                activePage={paginationState.activePage}
+                onSelect={handlePagination}
+                maxButtons={5}
+                itemsPerPage={paginationState.itemsPerPage}
+                totalItems={totalItems}
+              />
+            </div>
+          </div>
+        ) : (
+          ''
         )}
       </div>
-      {totalItems ? (
-        <div className={gradeList && gradeList.length > 0 ? '' : 'd-none'}>
-          <div className="justify-content-center d-flex">
-            <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
-          </div>
-          <div className="justify-content-center d-flex">
-            <JhiPagination
-              activePage={paginationState.activePage}
-              onSelect={handlePagination}
-              maxButtons={5}
-              itemsPerPage={paginationState.itemsPerPage}
-              totalItems={totalItems}
-            />
-          </div>
-        </div>
-      ) : (
-        ''
-      )}
     </div>
   );
 };
