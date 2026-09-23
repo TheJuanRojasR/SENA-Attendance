@@ -27,7 +27,7 @@ export type AuthenticationState = Readonly<typeof initialState>;
 
 // Actions
 
-export const getSession = (): AppThunk => async (dispatch, getState) => {
+export const getSession = (): AppThunk<Promise<void>> => async (dispatch, getState) => {
   await dispatch(getAccount());
 
   const { account } = getState().authentication;

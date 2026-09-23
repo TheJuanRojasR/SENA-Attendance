@@ -47,7 +47,9 @@ export const PasswordSlice = createSlice({
         state.loading = false;
         state.updateSuccess = false;
         state.updateFailure = true;
-        state.errorMessage = 'password.messages.error';
+        // El mensaje específico (E4/E5/E6: contraseña actual incorrecta, política no cumplida,
+        // igual a la actual) ya lo muestra el middleware global a partir del error del backend;
+        // aquí no se pisa con un texto genérico.
       })
       .addCase(savePassword.fulfilled, state => {
         state.loading = false;

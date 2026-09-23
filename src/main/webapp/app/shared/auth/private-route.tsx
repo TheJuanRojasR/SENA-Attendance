@@ -26,6 +26,12 @@ const PrivateRoute = ({ children, hasAnyAuthorities = [], ...rest }: IOwnProps) 
   }
 
   if (isAuthenticated) {
+    // UC002-A1/UC003-A2: mustChangePassword bloquea el resto de la app hasta que el usuario
+    // cambie su contraseña; solo esa pantalla queda accesible mientras el flag siga activo.
+    if (account.mustChangePassword && pageLocation.pathname !== '/account/password') {
+      return <Navigate to="/account/password" replace />;
+    }
+
     if (isAuthorized) {
       return <ErrorBoundary>{children}</ErrorBoundary>;
     }
