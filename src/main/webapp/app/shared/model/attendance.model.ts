@@ -15,3 +15,24 @@ export interface IAttendance {
 }
 
 export const defaultValue: Readonly<IAttendance> = {};
+
+// UC009: PUT /api/attendances/session solo acepta PRESENTE/FALLA (JUSTIFICADA llega por UC010).
+export interface IAttendanceMark {
+  studentId: string;
+  stateAttendance: 'PRESENTE' | 'FALLA';
+}
+
+export interface IAttendanceSessionRequest {
+  classSection: { id: string };
+  date: string;
+  attendances: IAttendanceMark[];
+}
+
+export interface IAttendanceSessionResponse {
+  classSection?: IClassSection;
+  date?: string;
+  records: IAttendance[];
+  complete: boolean;
+  enrolledCount: number;
+  recordedCount: number;
+}

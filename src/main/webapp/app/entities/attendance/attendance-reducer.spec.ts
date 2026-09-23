@@ -3,18 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-import { IAttendance, defaultValue } from 'app/shared/model/attendance.model';
-import { EntityState } from 'app/shared/reducers/reducer.utils';
+import { defaultValue } from 'app/shared/model/attendance.model';
 
-import reducer, {
-  createEntity,
-  deleteEntity,
-  getEntities,
-  getEntity,
-  partialUpdateEntity,
-  reset,
-  updateEntity,
-} from './attendance.reducer';
+import reducer, { getEntities, getEntity, reset, saveSession, updateAttendanceState } from './attendance.reducer';
 
 describe('Entities reducer tests', () => {
   function isEmpty(element): boolean {
@@ -24,11 +15,12 @@ describe('Entities reducer tests', () => {
     return Object.keys(element).length === 0;
   }
 
-  const initialState: EntityState<IAttendance> = {
+  const initialState = {
     loading: false,
     errorMessage: null,
     entities: [],
     entity: defaultValue,
+    session: null,
     totalItems: 0,
     updating: false,
     updateSuccess: false,
@@ -69,17 +61,13 @@ describe('Entities reducer tests', () => {
     });
 
     it('should set state to updating', () => {
-      testMultipleTypes(
-        [createEntity.pending.type, updateEntity.pending.type, partialUpdateEntity.pending.type, deleteEntity.pending.type],
-        {},
-        state => {
-          expect(state).toMatchObject({
-            errorMessage: null,
-            updateSuccess: false,
-            updating: true,
-          });
-        },
-      );
+      testMultipleTypes([saveSession.pending.type, updateAttendanceState.pending.type], {}, state => {
+        expect(state).toMatchObject({
+          errorMessage: null,
+          updateSuccess: false,
+          updating: true,
+        });
+      });
     });
 
     it('should reset the state', () => {
@@ -92,18 +80,11 @@ describe('Entities reducer tests', () => {
   describe('Failures', () => {
     it('should set a message in errorMessage', () => {
       testMultipleTypes(
-        [
-          getEntities.rejected.type,
-          getEntity.rejected.type,
-          createEntity.rejected.type,
-          updateEntity.rejected.type,
-          partialUpdateEntity.rejected.type,
-          deleteEntity.rejected.type,
-        ],
+        [getEntities.rejected.type, getEntity.rejected.type, saveSession.rejected.type, updateAttendanceState.rejected.type],
         'some message',
         state => {
           expect(state).toMatchObject({
-            errorMessage: null,
+            loading: false,
             updateSuccess: false,
             updating: false,
           });
@@ -145,11 +126,26 @@ describe('Entities reducer tests', () => {
       });
     });
 
-    it('should create/update entity', () => {
-      const payload = { data: 'fake payload' };
+    it('should save a session', () => {
+      const payload = { data: { records: [], complete: true, enrolledCount: 0, recordedCount: 0 } };
       expect(
         reducer(undefined, {
-          type: createEntity.fulfilled.type,
+          type: saveSession.fulfilled.type,
+          payload,
+        }),
+      ).toEqual({
+        ...initialState,
+        updating: false,
+        updateSuccess: true,
+        session: payload.data,
+      });
+    });
+
+    it('should update the attendance state (A2)', () => {
+      const payload = { data: { id: '1', stateAttendance: 'FALLA' } };
+      expect(
+        reducer(undefined, {
+          type: updateAttendanceState.fulfilled.type,
           payload,
         }),
       ).toEqual({
@@ -157,18 +153,6 @@ describe('Entities reducer tests', () => {
         updating: false,
         updateSuccess: true,
         entity: payload.data,
-      });
-    });
-
-    it('should delete entity', () => {
-      const payload = 'fake payload';
-      const toTest = reducer(undefined, {
-        type: deleteEntity.fulfilled.type,
-        payload,
-      });
-      expect(toTest).toMatchObject({
-        updating: false,
-        updateSuccess: true,
       });
     });
   });
@@ -185,10 +169,8 @@ describe('Entities reducer tests', () => {
         reducer: (state = [], action) => [...state, action],
       });
       axios.get = vi.fn().mockResolvedValue(resolvedObject);
-      axios.post = vi.fn().mockResolvedValue(resolvedObject);
       axios.put = vi.fn().mockResolvedValue(resolvedObject);
       axios.patch = vi.fn().mockResolvedValue(resolvedObject);
-      axios.delete = vi.fn().mockResolvedValue(resolvedObject);
     });
 
     it('dispatches FETCH_ATTENDANCE_LIST actions', async () => {
@@ -206,7 +188,7 @@ describe('Entities reducer tests', () => {
     });
 
     it('dispatches FETCH_ATTENDANCE actions', async () => {
-      const arg = 42666;
+      const arg = '42666';
 
       const result = await getEntity(arg)(dispatch, getState, extra);
 
@@ -219,60 +201,32 @@ describe('Entities reducer tests', () => {
       expect(getEntity.fulfilled.match(result)).toBe(true);
     });
 
-    it('dispatches CREATE_ATTENDANCE actions', async () => {
-      const arg = { id: 'e7ad7451-b4db-4803-807a-4c14806448f5' };
+    it('dispatches SAVE_SESSION actions', async () => {
+      const arg = { classSection: { id: 'cs1' }, date: '2026-09-15', attendances: [] };
 
-      const result = await createEntity(arg)(dispatch, getState, extra);
+      const result = await saveSession(arg)(dispatch, getState, extra);
 
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: createEntity.pending.type,
+          type: saveSession.pending.type,
           meta: expect.objectContaining({ requestStatus: 'pending' }),
         }),
       );
-      expect(createEntity.fulfilled.match(result)).toBe(true);
+      expect(saveSession.fulfilled.match(result)).toBe(true);
     });
 
-    it('dispatches UPDATE_ATTENDANCE actions', async () => {
-      const arg = { id: 'e7ad7451-b4db-4803-807a-4c14806448f5' };
+    it('dispatches UPDATE_ATTENDANCE_STATE actions', async () => {
+      const arg = { id: 'e7ad7451-b4db-4803-807a-4c14806448f5', stateAttendance: 'FALLA' as const };
 
-      const result = await updateEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: updateEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(updateEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches PARTIAL_UPDATE_ATTENDANCE actions', async () => {
-      const arg = { id: 'ABC' };
-
-      const result = await partialUpdateEntity(arg)(dispatch, getState, extra);
+      const result = await updateAttendanceState(arg)(dispatch, getState, extra);
 
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: partialUpdateEntity.pending.type,
+          type: updateAttendanceState.pending.type,
           meta: expect.objectContaining({ requestStatus: 'pending' }),
         }),
       );
-      expect(partialUpdateEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches DELETE_ATTENDANCE actions', async () => {
-      const arg = 42666;
-
-      const result = await deleteEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: deleteEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(deleteEntity.fulfilled.match(result)).toBe(true);
+      expect(updateAttendanceState.fulfilled.match(result)).toBe(true);
     });
 
     it('dispatches RESET actions', async () => {

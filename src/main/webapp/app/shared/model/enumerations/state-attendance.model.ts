@@ -4,6 +4,4 @@ export enum StateAttendance {
   FALLA = 'FALLA',
 
   JUSTIFICADA = 'JUSTIFICADA',
-
-  TARDE = 'TARDE',
 }

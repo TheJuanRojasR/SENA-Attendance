@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, TextFormat, Translate, getPaginationState } from 'react-jhipster';
+import { Badge, Button, Col, Row, Table } from 'react-bootstrap';
+import { JhiItemCount, JhiPagination, getPaginationState } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-import { APP_LOCAL_DATE_FORMAT } from 'app/config/constants';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
+import { getMine } from 'app/entities/class-section/class-section.reducer';
+import { StateAttendance } from 'app/shared/model/enumerations/state-attendance.model';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
-import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
+import { ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
 
 import { getEntities } from './attendance.reducer';
 
+// A1: historial de asistencia. El backend ya acota por rol (instructor -> sus materias,
+// aprendiz -> las suyas), así que este mismo listado sirve para ambos.
 export const Attendance = () => {
   const dispatch = useAppDispatch();
 
@@ -20,12 +22,21 @@ export const Attendance = () => {
   const navigate = useNavigate();
 
   const [paginationState, setPaginationState] = useState(
-    overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
+    overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'date'), pageLocation.search),
   );
+  const [classSectionId, setClassSectionId] = useState('');
+  const [date, setDate] = useState('');
+  const [stateAttendance, setStateAttendance] = useState('');
 
   const attendanceList = useAppSelector(state => state.attendance.entities);
+  const myClassSections = useAppSelector(state => state.classSection.mine);
   const loading = useAppSelector(state => state.attendance.loading);
   const totalItems = useAppSelector(state => state.attendance.totalItems);
+  const isInstructor = myClassSections.length > 0;
+
+  useEffect(() => {
+    dispatch(getMine());
+  }, []);
 
   const getAllEntities = () => {
     dispatch(
@@ -33,21 +44,20 @@ export const Attendance = () => {
         page: paginationState.activePage - 1,
         size: paginationState.itemsPerPage,
         sort: `${paginationState.sort},${paginationState.order}`,
+        classSectionId: classSectionId || undefined,
+        date: date || undefined,
+        stateAttendance: stateAttendance || undefined,
       }),
     );
   };
 
-  const sortEntities = () => {
+  useEffect(() => {
     getAllEntities();
     const endURL = `?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`;
     if (pageLocation.search !== endURL) {
       navigate(`${pageLocation.pathname}${endURL}`);
     }
-  };
-
-  useEffect(() => {
-    sortEntities();
-  }, [paginationState.activePage, paginationState.order, paginationState.sort]);
+  }, [paginationState.activePage, paginationState.order, paginationState.sort, classSectionId, date, stateAttendance]);
 
   useEffect(() => {
     const params = new URLSearchParams(pageLocation.search);
@@ -64,162 +74,119 @@ export const Attendance = () => {
     }
   }, [pageLocation.search]);
 
-  const sort = p => () => {
-    setPaginationState({
-      ...paginationState,
-      order: paginationState.order === ASC ? DESC : ASC,
-      sort: p,
-    });
-  };
+  const handlePagination = currentPage => setPaginationState({ ...paginationState, activePage: currentPage });
 
-  const handlePagination = currentPage =>
-    setPaginationState({
-      ...paginationState,
-      activePage: currentPage,
-    });
-
-  const handleSyncList = () => {
-    sortEntities();
-  };
-
-  const getSortIconByFieldName = (fieldName: string) => {
-    const sortFieldName = paginationState.sort;
-    const { order } = paginationState;
-    if (sortFieldName !== fieldName) {
-      return faSort;
-    }
-    return order === ASC ? faSortUp : faSortDown;
-  };
+  const resetToFirstPage = () => setPaginationState({ ...paginationState, activePage: 1 });
 
   return (
     <div>
-      <h2 id="attendance-heading" data-cy="AttendanceHeading">
-        <Translate contentKey="senaAttendanceApp.attendance.home.title">Attendances</Translate>
-        <div className="d-flex justify-content-end">
-          <Button className="me-2" variant="info" onClick={handleSyncList} disabled={loading}>
-            <FontAwesomeIcon icon="sync" spin={loading} />{' '}
-            <Translate contentKey="senaAttendanceApp.attendance.home.refreshListLabel">Refresh List</Translate>
+      <h2 id="attendance-heading" data-cy="AttendanceHeading" className="d-flex justify-content-between align-items-center">
+        Historial de asistencia
+        {isInstructor && (
+          <Button as={Link as any} to="/attendance/session" variant="primary" size="sm">
+            <FontAwesomeIcon icon="clipboard-list" /> Tomar asistencia
           </Button>
-          <Link to="/attendance/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.attendance.home.createLabel">Create new Attendance</Translate>
-          </Link>
-        </div>
+        )}
       </h2>
+      <Row className="mb-3">
+        {isInstructor && (
+          <Col md="4">
+            <select
+              className="form-select"
+              value={classSectionId}
+              onChange={e => {
+                setClassSectionId(e.target.value);
+                resetToFirstPage();
+              }}
+            >
+              <option value="">Todas mis materias</option>
+              {myClassSections.map(cs => (
+                <option value={cs.id} key={cs.id}>
+                  {cs.subjectName} — Ficha {cs.grade?.code}
+                </option>
+              ))}
+            </select>
+          </Col>
+        )}
+        <Col md="3">
+          <input
+            type="date"
+            className="form-control"
+            value={date}
+            onChange={e => {
+              setDate(e.target.value);
+              resetToFirstPage();
+            }}
+          />
+        </Col>
+        <Col md="3">
+          <select
+            className="form-select"
+            value={stateAttendance}
+            onChange={e => {
+              setStateAttendance(e.target.value);
+              resetToFirstPage();
+            }}
+          >
+            <option value="">Todos los estados</option>
+            {Object.keys(StateAttendance).map(value => (
+              <option value={value} key={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </Col>
+      </Row>
       <div className="table-responsive">
         {attendanceList?.length > 0 ? (
           <Table responsive>
             <thead>
               <tr>
-                <th className="hand" onClick={sort('id')}>
-                  <Translate contentKey="senaAttendanceApp.attendance.id">ID</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('id')} />
-                </th>
-                <th className="hand" onClick={sort('date')}>
-                  <Translate contentKey="senaAttendanceApp.attendance.date">Date</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('date')} />
-                </th>
-                <th className="hand" onClick={sort('stateAttendance')}>
-                  <Translate contentKey="senaAttendanceApp.attendance.stateAttendance">State Attendance</Translate>{' '}
-                  <FontAwesomeIcon icon={getSortIconByFieldName('stateAttendance')} />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.attendance.classSection">Class Section</Translate>{' '}
-                  <FontAwesomeIcon icon="sort" />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.attendance.student">Student</Translate> <FontAwesomeIcon icon="sort" />
-                </th>
-                <th>
-                  <Translate contentKey="senaAttendanceApp.attendance.modifiedByJustification">Modified By Justification</Translate>{' '}
-                  <FontAwesomeIcon icon="sort" />
-                </th>
+                <th>Fecha</th>
+                <th>Materia</th>
+                <th>Aprendiz</th>
+                <th>Estado</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {attendanceList.map(attendance => (
                 <tr key={`entity-${attendance.id}`} data-cy="entityTable">
+                  <td>{attendance.date ? attendance.date.toString() : ''}</td>
+                  <td>{attendance.classSection?.subjectName}</td>
                   <td>
-                    <Button as={Link as any} to={`/attendance/${attendance.id}`} variant="link" size="sm">
-                      {attendance.id}
-                    </Button>
-                  </td>
-                  <td>{attendance.date ? <TextFormat type="date" value={attendance.date} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
-                  <td>
-                    <Translate contentKey={`senaAttendanceApp.StateAttendance.${attendance.stateAttendance}`} />
+                    {attendance.student?.firstName} {attendance.student?.firstLastName}
                   </td>
                   <td>
-                    {attendance.classSection ? (
-                      <Link to={`/class-section/${attendance.classSection.id}`}>{attendance.classSection.subjectName}</Link>
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                  <td>
-                    {attendance.student ? (
-                      <Link to={`/user-profile/${attendance.student.id}`}>{attendance.student.documentNumber}</Link>
-                    ) : (
-                      ''
-                    )}
-                  </td>
-                  <td>
-                    {attendance.modifiedByJustification ? (
-                      <Link to={`/justification/${attendance.modifiedByJustification.id}`}>{attendance.modifiedByJustification.id}</Link>
-                    ) : (
-                      ''
-                    )}
+                    <Badge
+                      bg={
+                        attendance.stateAttendance === 'FALLA'
+                          ? 'danger'
+                          : attendance.stateAttendance === 'JUSTIFICADA'
+                            ? 'info'
+                            : 'success'
+                      }
+                    >
+                      {attendance.stateAttendance}
+                    </Badge>
                   </td>
                   <td className="text-end">
-                    <div className="btn-group flex-btn-group-container">
-                      <Button as={Link as any} to={`/attendance/${attendance.id}`} variant="info" size="sm" data-cy="entityDetailsButton">
-                        <FontAwesomeIcon icon="eye" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
+                    {attendance.stateAttendance !== 'JUSTIFICADA' && (
+                      <Button as={Link as any} to={`/attendance/${attendance.id}/edit`} variant="primary" size="sm">
+                        <FontAwesomeIcon icon="pencil-alt" />
                       </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/attendance/${attendance.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          (globalThis.location.href = `/attendance/${attendance.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                        }
-                        variant="danger"
-                        size="sm"
-                        data-cy="entityDeleteButton"
-                      >
-                        <FontAwesomeIcon icon="trash" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.delete">Delete</Translate>
-                        </span>
-                      </Button>
-                    </div>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
         ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.attendance.home.notFound">No Attendances found</Translate>
-            </div>
-          )
+          !loading && <div className="alert alert-success">No se encontraron registros de asistencia.</div>
         )}
       </div>
       {totalItems ? (
-        <div className={attendanceList && attendanceList.length > 0 ? '' : 'd-none'}>
+        <div className={attendanceList?.length > 0 ? '' : 'd-none'}>
           <div className="justify-content-center d-flex">
             <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
           </div>

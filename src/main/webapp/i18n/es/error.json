@@ -44,7 +44,7 @@
     "instructorInactive": "El instructor seleccionado ya no está disponible, selecciona otro.",
     "classSectionInUse": "No es posible eliminar la materia: tiene registros de asistencia. Puede desactivarla para retirarla de operación.",
     "classSectionInUseWithJustifications": "No es posible eliminar la materia: tiene justificaciones asociadas. Puede desactivarla para retirarla de operación.",
-    "notYourClassSection": "Solo el instructor asignado a la materia puede gestionar sus fechas no lectivas.",
+    "notYourClassSection": "Solo el instructor asignado a la materia puede gestionar sus registros.",
     "scheduleCrossesMidnight": "La sesión debe iniciar y terminar el mismo día.",
     "scheduleOutOfTimeSlot": "El horario debe estar dentro de la jornada de la ficha.",
     "scheduleOverlap": "El horario se solapa con otro horario de la ficha en ese trimestre.",
@@ -69,6 +69,14 @@
     "documentTypeInUse": "No es posible eliminar el tipo de documento: está en uso por usuarios. Puedes desactivarlo.",
     "justificationTypeNameAlreadyUsed": "Ya existe un tipo de justificación con este nombre.",
     "justificationTypeInUse": "No es posible eliminar el tipo: ya fue usado en justificaciones. Puedes desactivarlo.",
-    "programInUse": "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo."
+    "programInUse": "No es posible eliminar el programa: tiene fichas asociadas. Puedes desactivarlo.",
+    "futureSessionDate": "No puedes registrar asistencia para fechas futuras.",
+    "dateOutOfTrimester": "La fecha seleccionada está fuera del trimestre vigente.",
+    "dateOutOfGradeRange": "La fecha está fuera del rango de fechas de la ficha.",
+    "nonTeachingDate": "Esta fecha está marcada como no lectiva, no se puede registrar asistencia.",
+    "noActiveApprentices": "No hay aprendices activos en esta ficha.",
+    "invalidAttendanceState": "La asistencia solo se puede registrar o editar como Presente o Falla.",
+    "studentNotEnrolled": "El aprendiz no está matriculado en esta ficha.",
+    "classSectionWithoutInstructor": "Esta materia no tiene instructor asignado. Contacta al Administrador."
   }
 }
