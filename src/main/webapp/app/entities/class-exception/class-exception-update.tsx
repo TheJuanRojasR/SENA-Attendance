@@ -24,6 +24,11 @@ export const ClassExceptionUpdate = () => {
   const updating = useAppSelector(state => state.classException.updating);
   const updateSuccess = useAppSelector(state => state.classException.updateSuccess);
 
+  // UC009-A4: una fecha no lectiva pasada es un precedente; el backend solo permite
+  // cambiar el motivo (error.pastExceptionLocked si se intenta mover la fecha o la materia).
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const isPastException = !isNew && classExceptionEntity?.date != null && `${classExceptionEntity.date}` < todayIso;
+
   const handleClose = () => {
     navigate(`/class-exception${location.search}`);
   };
@@ -97,10 +102,12 @@ export const ClassExceptionUpdate = () => {
                 name="date"
                 data-cy="date"
                 type="date"
+                disabled={isPastException}
                 validate={{
                   required: { value: true, message: translate('entity.validation.required') },
                 }}
               />
+              {isPastException && <FormText>{translate('error.pastExceptionLocked')}</FormText>}
               <ValidatedField
                 label={translate('senaAttendanceApp.classException.reason')}
                 id="class-exception-reason"
@@ -118,6 +125,7 @@ export const ClassExceptionUpdate = () => {
                 data-cy="classSection"
                 label={translate('senaAttendanceApp.classException.classSection')}
                 type="select"
+                disabled={isPastException}
                 required
               >
                 <option value="" key="0" />
