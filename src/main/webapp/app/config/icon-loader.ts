@@ -48,6 +48,7 @@ import {
   faTag,
   faBarsStaggered,
   faQuestionCircle,
+  faPowerOff,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const loadIcons = () => {
@@ -100,5 +101,6 @@ export const loadIcons = () => {
     faTag,
     faBarsStaggered,
     faQuestionCircle,
+    faPowerOff,
   );
 };

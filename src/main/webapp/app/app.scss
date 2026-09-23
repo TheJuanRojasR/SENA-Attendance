@@ -375,3 +375,165 @@ http://stackoverflow.com/questions/23436430/bootstrap-3-input-group-100-width */
   width: 75%;
   gap: 5%;
 }
+
+/* ==========================================================================
+   ESTILOS REUTILIZABLES PARA TABLAS DE ENTIDADES (CRUD)
+   ========================================================================== */
+
+.entity-page-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  .breadcrumb-text {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    .separator {
+      margin: 0 8px;
+      color: #ccc;
+    }
+    .current {
+      color: #16c829;
+    }
+  }
+
+  .page-title {
+    font-weight: 800;
+    color: #112236;
+    margin-top: 0.5rem;
+    font-size: 1.8rem;
+  }
+
+  .page-description {
+    color: #6c757d;
+    max-width: 800px;
+    margin-top: 0.5rem;
+    line-height: 1.5;
+    font-size: 0.95rem;
+  }
+}
+
+.entity-card {
+  border: 1px solid #eaeaea;
+  border-radius: 10px;
+  background-color: #ffffff;
+  padding: 1.5rem;
+}
+
+.custom-table {
+  margin-top: 1rem;
+  margin-bottom: 0;
+
+  thead th {
+    border-bottom: 2px solid #f8f9fa;
+    border-top: none;
+    color: #9e9e9e;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 1rem;
+  }
+
+  tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid #f8f9fa;
+    vertical-align: middle;
+    color: #333;
+  }
+}
+
+/* Buscador con icono interno */
+.search-input-wrapper {
+  position: relative;
+  width: 400px;
+
+  svg {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #aaa;
+  }
+
+  input {
+    padding-left: 40px !important;
+    border-radius: 8px !important;
+    height: 42px;
+  }
+}
+
+/* Badges y estados */
+.badge-initials {
+  background-color: #f1f3f5;
+  color: #555;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+
+  &.active {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    .dot {
+      background-color: #2e7d32;
+    }
+  }
+
+  &.inactive {
+    background-color: #f5f5f5;
+    color: #757575;
+    .dot {
+      background-color: #9e9e9e;
+    }
+  }
+}
+
+/* Iconos de Acción */
+.action-icons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+
+  a,
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #9e9e9e;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    text-decoration: none;
+
+    &:hover {
+      color: #4a4a4a;
+    }
+    &.delete:hover {
+      color: #d32f2f;
+    }
+    &.power:hover {
+      color: #1976d2;
+    }
+  }
+}

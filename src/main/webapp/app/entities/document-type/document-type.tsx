@@ -69,97 +69,144 @@ export const DocumentType = () => {
 
   return (
     <div>
-      <h2 id="document-type-heading" data-cy="DocumentTypeHeading">
-        <Translate contentKey="senaAttendanceApp.documentType.home.title">Document Types</Translate>
-      </h2>
-      <p>
-        {' '}
-        Administre los tipos de documento válidos para la identificación y registro institucional de usuarios, instructores y aprendices en
-        la plataforma.{' '}
-      </p>
-      <Col className="d-flex justify-content-between align-items-center" md="12">
-        <div className="d-flex align-items-center entitiesSearchBar">
-          <div className="d-flex align-items-center w-50">
-            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
-            <ValidatedInput name="search" placeholder="Buscar por nombre..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* 1. HEADER REUTILIZABLE */}
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">TIPOS DE DOCUMENTO</span>
           </div>
-          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
-            <option value="ALL">Todas</option>
-            <option value="ACTIVE">Activas</option>
-            <option value="INACTIVE">Inactivas</option>
-          </ValidatedInput>
+          <h2 id="document-type-heading" data-cy="DocumentTypeHeading" className="page-title">
+            Gestión de Tipos de Documento
+          </h2>
+          <p className="page-description">
+            Administre los tipos de documento válidos para la identificación y registro institucional de usuarios, instructores y aprendices
+            en la plataforma SENA.
+          </p>
         </div>
-        <LinkButton to="/document-type/new" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon="plus" />
-          <Translate contentKey="senaAttendanceApp.documentType.home.createLabel">Create new Document Type</Translate>
-        </LinkButton>
-      </Col>
-      <div className="table-responsive">
-        {filteredDocumentTypeList?.length > 0 ? (
-          <Card>
-            <Table responsive>
+        <div>
+          <Link
+            to="/document-type/new"
+            className="btn btn-success fw-bold"
+            style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+          >
+            <FontAwesomeIcon icon="plus" className="me-2" />
+            Crear Nuevo Tipo de Documento
+          </Link>
+        </div>
+      </div>
+
+      {/* 2. CONTENEDOR CARD Y TABLA */}
+      <div className="entity-card">
+        {/* Barra de Herramientas (Buscador y Filtro) */}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="search-input-wrapper">
+            <FontAwesomeIcon icon="search" />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Buscar por nombre o iniciales de documento..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="d-flex align-items-center">
+            <span className="me-2 text-muted fw-bold" style={{ fontSize: '0.80rem', letterSpacing: '0.5px' }}>
+              ESTADO:
+            </span>
+            <select
+              className="form-control"
+              style={{ width: 'auto', borderRadius: '8px', height: '42px' }}
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+            >
+              <option value="ALL">Todos los estados</option>
+              <option value="ACTIVE">Activos</option>
+              <option value="INACTIVE">Inactivos</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Tabla */}
+        <div className="table-responsive">
+          {filteredDocumentTypeList && filteredDocumentTypeList.length > 0 ? (
+            <Table className="custom-table" hover>
               <thead>
                 <tr>
-                  <th className="hand" onClick={sort('name')}>
-                    <Translate contentKey="senaAttendanceApp.documentType.name">Name</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
+                  <th onClick={sort('name')} className="hand">
+                    NOMBRE DEL DOCUMENTO <FontAwesomeIcon icon={getSortIconByFieldName('name')} className="ms-1" />
                   </th>
-                  <th className="hand" onClick={sort('initials')}>
-                    <Translate contentKey="senaAttendanceApp.documentType.initials">Initials</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('initials')} />
+                  <th onClick={sort('initials')} className="hand text-center">
+                    INICIALES <FontAwesomeIcon icon={getSortIconByFieldName('initials')} className="ms-1" />
                   </th>
-                  <th className="hand" onClick={sort('id')}>
-                    <Translate contentKey="senaAttendanceApp.documentType.isActive">State</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('isActive')} />
+                  <th onClick={sort('isActive')} className="hand text-center">
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('isActive')} className="ms-1" />
                   </th>
-                  <th />
+                  <th className="text-end">ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredDocumentTypeList.map(documentType => (
                   <tr key={`entity-${documentType.id}`} data-cy="entityTable">
-                    <td>{documentType.name}</td>
-                    <td>{documentType.initials}</td>
-                    <td>{documentType.isActive ? 'true' : 'false'}</td>
-                    <td className="text-end">
-                      <div className="btn-group flex-btn-group-container">
-                        <Button
-                          as={Link as any}
-                          to={`/document-type/${documentType.id}/edit`}
-                          variant="primary"
-                          size="sm"
-                          data-cy="entityEditButton"
-                        >
-                          <FontAwesomeIcon icon="pencil-alt" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.edit">Edit</Translate>
-                          </span>
-                        </Button>
-                        <Button
-                          onClick={() => (globalThis.location.href = `/document-type/${documentType.id}/delete`)}
-                          variant="danger"
-                          size="sm"
-                          data-cy="entityDeleteButton"
-                        >
-                          <FontAwesomeIcon icon="trash" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.delete">Delete</Translate>
-                          </span>
-                        </Button>
+                    <td className="fw-bold">{documentType.name}</td>
+                    <td className="text-center">
+                      <span className="badge-initials">{documentType.initials}</span>
+                    </td>
+                    <td className="text-center">
+                      {documentType.isActive ? (
+                        <span className="badge-status active">
+                          <span className="dot"></span> Activo
+                        </span>
+                      ) : (
+                        <span className="badge-status inactive">
+                          <span className="dot"></span> Inactivo
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="action-icons">
+                        <Link to={`/document-type/${documentType.id}/edit`} title="Editar">
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
+                        {/* Botón de apagar/encender */}
+                        <button className="power" title={documentType.isActive ? 'Desactivar' : 'Activar'}>
+                          <FontAwesomeIcon icon="power-off" />
+                        </button>
+                        <Link to={`/document-type/${documentType.id}/delete`} className="delete" title="Eliminar">
+                          <FontAwesomeIcon icon="trash" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </Card>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.documentType.home.notFound">No Document Types found</Translate>
-            </div>
-          )
-        )}
+          ) : (
+            !loading && <div className="alert alert-warning mt-4">No se encontraron Tipos de Documento</div>
+          )}
+        </div>
+
+        {/* Footer (Paginador Visual) */}
+        <div className="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+          <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+            Mostrando 1 a {filteredDocumentTypeList?.length || 0} de {filteredDocumentTypeList?.length || 0} registros
+          </span>
+          <ul className="pagination mb-0" style={{ gap: '5px' }}>
+            <li className="page-item disabled">
+              <span className="page-link border-0 text-muted">&lt;</span>
+            </li>
+            <li className="page-item active">
+              <span
+                className="page-link"
+                style={{ backgroundColor: '#fff', color: '#2e7d32', borderColor: '#43a047', borderRadius: '4px', fontWeight: 'bold' }}
+              >
+                1
+              </span>
+            </li>
+            <li className="page-item disabled">
+              <span className="page-link border-0 text-muted">&gt;</span>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   );
