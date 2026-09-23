@@ -4,7 +4,6 @@ import axios from 'axios';
 import { ITimeSlot, defaultValue } from 'app/shared/model/time-slot.model';
 import { EntityState, IQueryParams, createEntitySlice, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 import { cleanEntity } from 'app/shared/util/entity-utils';
-import { ASC } from 'app/shared/util/pagination.constants';
 
 const initialState: EntityState<ITimeSlot> = {
   loading: false,
@@ -12,6 +11,7 @@ const initialState: EntityState<ITimeSlot> = {
   entities: [],
   entity: defaultValue,
   updating: false,
+  totalItems: 0,
   updateSuccess: false,
 };
 
@@ -21,8 +21,8 @@ const apiUrl = 'api/time-slots';
 
 export const getEntities = createAsyncThunk(
   'timeSlot/fetch_entity_list',
-  async ({ sort }: IQueryParams) => {
-    const requestUrl = `${apiUrl}?${sort ? `sort=${sort}&` : ''}cacheBuster=${Date.now()}`;
+  async ({ page, size, sort }: IQueryParams) => {
+    const requestUrl = `${apiUrl}?${sort ? `page=${page}&size=${size}&sort=${sort}&` : ''}cacheBuster=${Date.now()}`;
     return axios.get<ITimeSlot[]>(requestUrl);
   },
   { serializeError: serializeAxiosError },
@@ -87,20 +87,19 @@ export const TimeSlotSlice = createEntitySlice({
         state.loading = false;
         state.entity = action.payload.data;
       })
-      .addMatcher(isFulfilled(getEntities, getActiveEntities), (state, action) => {
-        const { data } = action.payload;
+      .addMatcher(isFulfilled(getEntities), (state, action) => {
+        const { data, headers } = action.payload;
 
         return {
           ...state,
           loading: false,
-          entities: data.sort((a, b) => {
-            if (!action.meta?.arg?.sort) {
-              return 1;
-            }
-            const [predicate, order] = action.meta.arg.sort.split(',');
-            return order === ASC ? (a[predicate] < b[predicate] ? -1 : 1) : b[predicate] < a[predicate] ? -1 : 1;
-          }),
+          entities: data,
+          totalItems: parseInt(headers['x-total-count'], 10),
         };
+      })
+      .addMatcher(isFulfilled(getActiveEntities), (state, action) => {
+        state.loading = false;
+        state.entities = action.payload.data;
       })
       .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
         state.updating = false;
