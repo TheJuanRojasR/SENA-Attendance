@@ -109,7 +109,12 @@ const EntitiesMenu = () => {
       {/* ══════════════════════════════════════════
           ADMIN + INSTRUCTOR — Toma de asistencia
       ══════════════════════════════════════════ */}
-      {adminOrInstructor && (
+      {isInstructor && (
+        <MenuItem icon="clipboard-list" to="/attendance/session">
+          Tomar asistencia
+        </MenuItem>
+      )}
+      {(adminOrInstructor || isApprentice) && (
         <MenuItem icon="tasks" to="/attendance">
           <Translate contentKey="global.menu.entities.attendance" />
         </MenuItem>
