@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { getEntities as getGrades, getEntity as getGrade } from 'app/entities/grade/grade.reducer';
 import { getEntities as getUserProfiles } from 'app/entities/user-profile/user-profile.reducer';
 
+import ClassSectionSchedules from './class-section-schedules';
 import { createEntity, getEntity, reset, updateEntity } from './class-section.reducer';
 
 export const ClassSectionUpdate = () => {
@@ -54,9 +55,16 @@ export const ClassSectionUpdate = () => {
     }
   }, []);
 
+  // Al crear (no al editar), se navega al edit de la competencia recién creada en vez de volver
+  // a la ficha: así el horario (UC015, paso 2 del flujo básico) queda disponible de inmediato,
+  // en la misma pantalla, sin tener que reabrir "Editar" para encontrarlo.
   useEffect(() => {
     if (updateSuccess) {
-      handleClose();
+      if (isNew && classSectionEntity.id) {
+        navigate(`/class-section/${classSectionEntity.id}/edit${gradeIdParam ? `?gradeId=${gradeIdParam}` : ''}`, { replace: true });
+      } else {
+        handleClose();
+      }
     }
   }, [updateSuccess]);
 
@@ -197,6 +205,9 @@ export const ClassSectionUpdate = () => {
                 <Translate contentKey="entity.action.save">Save</Translate>
               </Button>
             </ValidatedForm>
+          )}
+          {!isNew && classSectionEntity.id && (
+            <ClassSectionSchedules classSectionId={classSectionEntity.id} timeSlot={gradeIdParam ? contextGrade?.timeSlot : undefined} />
           )}
         </Col>
       </Row>
