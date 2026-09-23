@@ -33,7 +33,7 @@ export const JustificationDetails = () => {
   const navigate = useNavigate();
 
   const [paginationState, setPaginationState] = useState(
-    overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id'), pageLocation.search),
+    overridePaginationStateWithQueryParams(getPaginationState(pageLocation, ITEMS_PER_PAGE, 'id', 'desc'), pageLocation.search),
   );
   const [stateFilter, setStateFilter] = useState('');
   const [classSectionId, setClassSectionId] = useState('');
