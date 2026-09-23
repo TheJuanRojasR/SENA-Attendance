@@ -54,7 +54,7 @@ export const RegisterModal = (props: IRegisterProps) => {
         phoneNumber,
         documentTypeId,
         email,
-        password: password,
+        password,
         langKey: currentLocale,
       }),
     );

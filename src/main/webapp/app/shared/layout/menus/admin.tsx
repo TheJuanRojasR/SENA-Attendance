@@ -32,10 +32,18 @@ const openAPIItem = () => (
   </MenuItem>
 );
 
-export const AdminMenu = ({ showOpenAPI, variant = 'dropdown' }: { showOpenAPI: boolean; variant?: 'dropdown' | 'accordion' }) => {
+export const AdminMenu = ({
+  showOpenAPI,
+  variant = 'dropdown',
+  showName = true,
+}: {
+  showOpenAPI: boolean;
+  variant?: 'dropdown' | 'accordion';
+  showName?: boolean;
+}) => {
   const Container = variant === 'accordion' ? AccordionNavItem : NavDropdown;
   return (
-    <Container icon="users-cog" name={translate('global.menu.admin.main')} id="admin-menu" data-cy="adminMenu">
+    <Container icon="users-cog" name={showName ? translate('global.menu.admin.main') : ''} id="admin-menu" data-cy="adminMenu">
       {adminMenuItems()}
       {showOpenAPI && openAPIItem()}
     </Container>

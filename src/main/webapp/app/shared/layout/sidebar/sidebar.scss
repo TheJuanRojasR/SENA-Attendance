@@ -1,35 +1,76 @@
 .sidebar {
-  background-color: #f1faf2;
+  background-color: #f5f6f8;
   flex-direction: column;
-  width: 250px;
+  width: 265px;
   min-height: 100vh;
   position: relative;
-  padding: 15px 20px;
+  padding: 15px 0;
+  border-right: 1px solid #eaeaea;
 
-  .accordion-nav-item {
-    width: 100%;
+  .sidebar-brand-wrapper {
+    padding: 0 15px;
   }
 
-  .accordion-nav-toggle {
-    width: 100%;
-    border: none;
-    background: none;
-    text-align: left;
+  .sidebar-menu-items,
+  .sidebar-footer {
+    display: flex;
+    flex-direction: column;
+
+    // Sobrescribimos la clase por defecto de los MenuItems de JHipster
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      color: #6c757d;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      background-color: transparent;
+      border-left: 4px solid transparent;
+      white-space: normal;
+
+      svg {
+        width: 20px;
+        margin-right: 15px;
+        text-align: center;
+      }
+
+      &:hover {
+        background-color: #eef2f5;
+        color: #333;
+      }
+
+      // Estilo de elemento ACTIVO (como el Dashboard verde en el mockup)
+      &.active {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border-left: 4px solid #2e7d32;
+        font-weight: 600;
+
+        svg {
+          color: #2e7d32;
+        }
+      }
+
+      // Cerrar Sesión en Rojo (apunta al data-cy genérico de JHipster)
+      &[data-cy='logout'] {
+        color: #d32f2f;
+        margin-top: 15px;
+        border-top: 1px solid #eaeaea; // Para separarlo un poco si es necesario
+        padding-top: 15px;
+
+        svg {
+          color: #d32f2f;
+        }
+
+        &:hover {
+          background-color: #ffebee;
+        }
+      }
+    }
   }
 
-  .accordion-nav-caret {
-    transition: transform 0.2s ease-in-out;
-  }
-
-  .accordion-nav-caret-open {
-    transform: rotate(180deg);
-  }
-
-  .accordion-nav-body {
-    margin: 0.25rem 0.75rem 0.5rem;
-    padding: 0.5rem 0;
-    border: 1px solid rgba(0, 0, 0, 0.125);
-    border-radius: 0.375rem;
-    background-color: #fff;
+  .entities-menu-flat {
+    display: flex;
+    flex-direction: column;
   }
 }

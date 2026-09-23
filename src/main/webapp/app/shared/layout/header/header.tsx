@@ -12,6 +12,7 @@ import LinkButton from 'app/shared/components/link-button';
 import { AccountMenu, AdminMenu, EntitiesMenu, LocaleMenu } from '../menus';
 
 import { Brand } from './header-components';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 export interface IHeaderProps {
   isAuthenticated: boolean;
@@ -32,6 +33,9 @@ const Header = (props: IHeaderProps) => {
 
   const loadingBarRef = useRef<LoadingBarRef>(null);
   const loadingCount = useAppSelector(state => state.loadingBar.count);
+  const account = useAppSelector(state => state.authentication.account);
+  // Construye el nombre: si tiene nombre/apellido lo usa, sino usa su username (login)
+  const fullName = account?.firstName ? `${account.firstName} ${account.lastName || ''}`.trim() : account?.login;
 
   useEffect(() => {
     if (loadingCount > 0) {
@@ -48,7 +52,13 @@ const Header = (props: IHeaderProps) => {
   return (
     <div id="app-header">
       <LoadingBar ref={loadingBarRef} className="loading-bar" color="#009cd8" />
-      <Navbar data-cy="navbar" data-bs-theme="light" expand="md" className="navbar pad" collapseOnSelect>
+      <Navbar
+        data-cy="navbar"
+        data-bs-theme={props.isAuthenticated ? 'dark' : 'light'}
+        expand="md"
+        className={`navbar pad ${props.isAuthenticated ? 'navbar-authenticated' : 'navbar-public'}`}
+        collapseOnSelect
+      >
         <Navbar.Toggle aria-controls="header-tabs" aria-label="Menu" />
         {/* CONTROL DE LOGO RESPONSIVO */}
         {props.isAuthenticated ? (
@@ -61,29 +71,54 @@ const Header = (props: IHeaderProps) => {
           <Brand isAuthenticated={props.isAuthenticated} />
         )}
         <Navbar.Collapse id="header-tabs">
-          <Nav className="ms-auto gap-3">
+          <Nav className="ms-auto d-flex align-items-center header-right-panel gap-3">
+            {/* VISTA PARA NO LOGUEADOS */}
             {!props.isAuthenticated && (
-              <LinkButton to="/login" variant="primary" translationKey="global.menu.account.login" data-cy="login">
-                Sign in
-              </LinkButton>
+              <>
+                <LinkButton to="/login" variant="primary" translationKey="global.menu.account.login">
+                  Sign in
+                </LinkButton>
+                <LinkButton to="/account/register" translationKey="global.menu.account.register">
+                  Register
+                </LinkButton>
+              </>
             )}
-            {!props.isAuthenticated && (
-              <LinkButton to="/account/register" translationKey="global.menu.account.register" data-cy="register">
-                Register
-              </LinkButton>
-            )}
-            {/* Admin/Entities ya se muestran en el sidebar desde 'md' en adelante; en el header solo hacen falta en móvil. */}
-            {props.isAuthenticated && props.isAdmin && (
-              <div className="d-md-none">
-                <AdminMenu showOpenAPI={props.isOpenAPIEnabled} />
-              </div>
-            )}
+
+            {/* VISTA PARA LOGUEADOS */}
             {props.isAuthenticated && (
-              <div className="d-md-none">
-                <EntitiesMenu />
-              </div>
+              <>
+                {/* Campana */}
+                <div className="header-icon-btn">
+                  <FontAwesomeIcon icon="bell" />
+                  <span className="notification-dot"></span>
+                </div>
+
+                {/* Ayuda */}
+                <div className="header-icon-btn">
+                  <FontAwesomeIcon icon="question-circle" />
+                </div>
+
+                {/* Dropdown del Admin (Solo visible para Admin, mostrando solo icono) */}
+                {props.isAdmin && (
+                  <div className="admin-icon-menu">
+                    <AdminMenu showOpenAPI={props.isOpenAPIEnabled} showName={false} />
+                  </div>
+                )}
+
+                {/* Separador */}
+                <div className="header-separator"></div>
+
+                {/* Perfil de Usuario */}
+                <div className="user-profile-info d-flex align-items-center">
+                  <span className="user-name me-3">{fullName}</span>
+                  <div className="user-avatar-icon">
+                    <FontAwesomeIcon icon="user" />
+                  </div>
+                </div>
+              </>
             )}
-            {props.isAuthenticated && <AccountMenu isAuthenticated={props.isAuthenticated} />}
+
+            {/* Selector de idioma */}
             <LocaleMenu currentLocale={props.currentLocale} onClick={handleLocaleChange} />
           </Nav>
         </Navbar.Collapse>

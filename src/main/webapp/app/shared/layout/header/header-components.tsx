@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 interface IHomeProps {
   isAuthenticated: boolean;
+  roleName?: string;
 }
 
 export const BrandIcon = props => (
@@ -17,13 +18,19 @@ export const BrandIcon = props => (
 );
 
 export const Brand = (props: IHomeProps) => (
-  <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo">
+  <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo d-flex align-items-center">
     <BrandIcon />
-    <span className="brand-title">
-      <span> SENA </span>
-      <span style={{ color: '#16C829' }}>Attendance</span>
-    </span>
-    {/* Número de versión eliminado */}
+    <div className="d-flex flex-column ms-2">
+      <span className="brand-title mb-0" style={{ lineHeight: '1.2' }}>
+        <span style={{ color: '#4a4a4a', fontWeight: 'bold' }}>SENA </span>
+        <span style={{ color: '#16C829', fontWeight: 'bold' }}>Attendance</span>
+      </span>
+      {props.roleName && (
+        <span className="text-muted" style={{ fontSize: '0.80rem' }}>
+          {props.roleName}
+        </span>
+      )}
+    </div>
   </NavbarBrand>
 );
 
