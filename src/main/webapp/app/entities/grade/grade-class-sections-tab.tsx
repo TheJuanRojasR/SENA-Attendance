@@ -47,7 +47,7 @@ export const GradeClassSectionsTab = ({ gradeId, canManage }: GradeClassSections
 
       {!canManage && (
         <div className="alert alert-warning">
-          Esta ficha no admite nuevas competencias en su estado actual; solo puede desactivar o eliminar las existentes.
+          Esta ficha no admite crear, modificar, desactivar ni eliminar competencias en su estado actual; solo puede consultarlas.
         </div>
       )}
 
@@ -84,11 +84,12 @@ export const GradeClassSectionsTab = ({ gradeId, canManage }: GradeClassSections
                       <Button
                         variant={classSection.isActive ? 'secondary' : 'success'}
                         size="sm"
+                        disabled={!canManage}
                         onClick={() => handleToggleActive(classSection)}
                       >
                         {classSection.isActive ? 'Desactivar' : 'Reactivar'}
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDelete(classSection)}>
+                      <Button variant="danger" size="sm" disabled={!canManage} onClick={() => handleDelete(classSection)}>
                         <FontAwesomeIcon icon="trash" />
                       </Button>
                     </div>

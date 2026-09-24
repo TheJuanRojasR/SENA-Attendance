@@ -11,6 +11,7 @@ import { getActiveEntities as getActivePrograms } from 'app/entities/program/pro
 import { getActiveEntities as getActiveTimeSlots } from 'app/entities/time-slot/time-slot.reducer';
 import { StateGrade } from 'app/shared/model/enumerations/state-grade.model';
 
+import { GradeApprenticesTab } from './grade-apprentices-tab';
 import { GradeClassSectionsTab } from './grade-class-sections-tab';
 import { cancelGrade, createEntity, getEntity, postponeGrade, resumeGrade, reset, updateEntity } from './grade.reducer';
 
@@ -23,7 +24,8 @@ export const GradeUpdate = () => {
 
   const { id } = useParams<'id'>();
   const isNew = id === undefined;
-  const initialTab = new URLSearchParams(pageLocation.search).get('tab') === 'competencias' ? 'competencias' : 'info';
+  const requestedTab = new URLSearchParams(pageLocation.search).get('tab');
+  const initialTab = requestedTab === 'competencias' || requestedTab === 'aprendices' ? requestedTab : 'info';
 
   const programs = useAppSelector(state => state.program.entities);
   const modalities = useAppSelector(state => state.modality.entities);
@@ -33,6 +35,7 @@ export const GradeUpdate = () => {
   const updating = useAppSelector(state => state.grade.updating);
   const updateSuccess = useAppSelector(state => state.grade.updateSuccess);
   const classSections = useAppSelector(state => state.classSection.entities);
+  const apprentices = useAppSelector(state => state.apprentice.entities);
 
   const handleEditClick = () => setIsEditing(true);
   const handleCancelClick = () => setIsEditing(false);
@@ -82,6 +85,9 @@ export const GradeUpdate = () => {
   // Las materias solo se crean/editan en fichas PENDIENTE o ACTIVA.
   const canManageClassSections = !isNew && (gradeEntity.state === 'PENDIENTE' || gradeEntity.state === 'ACTIVA');
   const classSectionsCount = (classSections ?? []).filter(classSection => classSection.grade?.id === gradeEntity.id).length;
+  // UC008: vincular/desvincular aprendices solo se permite en fichas PENDIENTE o ACTIVA.
+  const canManageApprentices = !isNew && (gradeEntity.state === 'PENDIENTE' || gradeEntity.state === 'ACTIVA');
+  const apprenticesCount = (apprentices ?? []).filter(apprentice => apprentice.grade?.id === gradeEntity.id).length;
 
   const handlePostpone = () => dispatch(postponeGrade(gradeEntity.id));
   const handleResume = () => dispatch(resumeGrade(gradeEntity.id));
@@ -362,6 +368,23 @@ export const GradeUpdate = () => {
                 <Card>
                   <Card.Body>
                     <GradeClassSectionsTab gradeId={gradeEntity.id} canManage={canManageClassSections} />
+                  </Card.Body>
+                </Card>
+              </Tab>
+              <Tab
+                eventKey="aprendices"
+                title={
+                  <span>
+                    Aprendices{' '}
+                    <Badge bg="secondary" pill>
+                      {apprenticesCount}
+                    </Badge>
+                  </span>
+                }
+              >
+                <Card>
+                  <Card.Body>
+                    <GradeApprenticesTab gradeId={gradeEntity.id} canManage={canManageApprentices} />
                   </Card.Body>
                 </Card>
               </Tab>
