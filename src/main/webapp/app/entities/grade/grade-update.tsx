@@ -9,7 +9,6 @@ import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { getActiveEntities as getActiveModalities } from 'app/entities/modality/modality.reducer';
 import { getActiveEntities as getActivePrograms } from 'app/entities/program/program.reducer';
 import { getActiveEntities as getActiveTimeSlots } from 'app/entities/time-slot/time-slot.reducer';
-import { StateGrade } from 'app/shared/model/enumerations/state-grade.model';
 
 import { GradeApprenticesTab } from './grade-apprentices-tab';
 import { GradeClassSectionsTab } from './grade-class-sections-tab';

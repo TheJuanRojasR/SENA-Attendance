@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Table } from 'react-bootstrap';
+import { Table } from 'react-bootstrap';
 import { JhiItemCount, JhiPagination, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
+import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { toast } from 'react-toastify';
 
@@ -13,7 +13,6 @@ import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.cons
 import { IProgram } from 'app/shared/model/program.model';
 
 import { clearActivationWarning, getActiveEntities, getEntities, searchEntities, setActivated } from './program.reducer';
-import LinkButton from 'app/shared/components/link-button';
 
 const SEARCH_DEBOUNCE_MS = 300;
 

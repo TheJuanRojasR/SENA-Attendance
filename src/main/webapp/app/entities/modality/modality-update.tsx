@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { Button, Card, Col, Row } from 'react-bootstrap';
-import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
+import { Button } from 'react-bootstrap';
+import { ValidatedField, ValidatedForm, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

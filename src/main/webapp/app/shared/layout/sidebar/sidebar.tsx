@@ -2,7 +2,6 @@ import './sidebar.scss';
 
 import React from 'react';
 import { Navbar } from 'react-bootstrap';
-import { Translate } from 'react-jhipster';
 
 import { AccountMenuItemsAuthenticated, EntitiesMenu } from '../menus';
 import MenuItem from '../menus/menu-item';

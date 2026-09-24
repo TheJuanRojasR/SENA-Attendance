@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Table } from 'react-bootstrap';
+import { Table } from 'react-bootstrap';
 import { Translate, getSortState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
-import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
+import { faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
@@ -11,7 +11,6 @@ import { overrideSortStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC } from 'app/shared/util/pagination.constants';
 
 import { getEntities, getActiveEntities } from './justification-type.reducer';
-import LinkButton from 'app/shared/components/link-button';
 
 export const JustificationType = () => {
   const dispatch = useAppDispatch();
