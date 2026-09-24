@@ -99,13 +99,12 @@ export const ClassSchedule = () => {
             <FontAwesomeIcon icon="sync" spin={loading} />{' '}
             <Translate contentKey="senaAttendanceApp.classSchedule.home.refreshListLabel">Refresh List</Translate>
           </Button>
-          <Link to="/class-schedule/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-            <FontAwesomeIcon icon="plus" />
-            &nbsp;
-            <Translate contentKey="senaAttendanceApp.classSchedule.home.createLabel">Create new Class Schedule</Translate>
-          </Link>
         </div>
       </h2>
+      <div className="alert alert-info">
+        Los horarios se crean y editan desde la ficha: abra la ficha, vaya a la pestaña "Competencias" y edite la materia. Esta pantalla es
+        solo de consulta.
+      </div>
       <div className="table-responsive">
         {classScheduleList?.length > 0 ? (
           <Table responsive>
@@ -176,18 +175,6 @@ export const ClassSchedule = () => {
                         <FontAwesomeIcon icon="eye" />{' '}
                         <span className="d-none d-md-inline">
                           <Translate contentKey="entity.action.view">View</Translate>
-                        </span>
-                      </Button>
-                      <Button
-                        as={Link as any}
-                        to={`/class-schedule/${classSchedule.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                        variant="primary"
-                        size="sm"
-                        data-cy="entityEditButton"
-                      >
-                        <FontAwesomeIcon icon="pencil-alt" />{' '}
-                        <span className="d-none d-md-inline">
-                          <Translate contentKey="entity.action.edit">Edit</Translate>
                         </span>
                       </Button>
                       <Button

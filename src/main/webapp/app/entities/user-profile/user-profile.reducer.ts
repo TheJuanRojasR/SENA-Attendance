@@ -28,6 +28,14 @@ export const getEntities = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+// UC015-E7: lista de instructores para asignar a una materia. Se refresca explícitamente antes
+// de guardar y otra vez si el guardado falla (el instructor pudo desactivarse entre tanto).
+export const getInstructors = createAsyncThunk(
+  'userProfile/fetch_instructors',
+  async () => axios.get<IUserProfile[]>(`${apiUrl}/instructors?cacheBuster=${Date.now()}`),
+  { serializeError: serializeAxiosError },
+);
+
 export const getEntity = createAsyncThunk(
   'userProfile/fetch_entity',
   async (id: string | number) => {
@@ -104,13 +112,17 @@ export const UserProfileSlice = createEntitySlice({
           totalItems: parseInt(headers['x-total-count'], 10),
         };
       })
+      .addMatcher(isFulfilled(getInstructors), (state, action) => {
+        state.loading = false;
+        state.entities = action.payload.data;
+      })
       .addMatcher(isFulfilled(createEntity, updateEntity, partialUpdateEntity), (state, action) => {
         state.updating = false;
         state.loading = false;
         state.updateSuccess = true;
         state.entity = action.payload.data;
       })
-      .addMatcher(isPending(getEntities, getEntity), state => {
+      .addMatcher(isPending(getEntities, getEntity, getInstructors), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.loading = true;

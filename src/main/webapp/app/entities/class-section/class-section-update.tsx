@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { getEntities as getGrades, getEntity as getGrade } from 'app/entities/grade/grade.reducer';
-import { getEntities as getUserProfiles } from 'app/entities/user-profile/user-profile.reducer';
+import { getInstructors } from 'app/entities/user-profile/user-profile.reducer';
 
 import ClassSectionSchedules from './class-section-schedules';
 import { createEntity, getEntity, reset, updateEntity } from './class-section.reducer';
@@ -47,7 +47,7 @@ export const ClassSectionUpdate = () => {
       dispatch(getEntity(id));
     }
 
-    dispatch(getUserProfiles({}));
+    dispatch(getInstructors());
     if (gradeIdParam) {
       dispatch(getGrade(gradeIdParam));
     } else {
@@ -70,7 +70,7 @@ export const ClassSectionUpdate = () => {
 
   // UC015: "toda materia nace vinculada a una única ficha y no puede moverse a otra". Al editar,
   // la ficha siempre se conserva tal como está persistida, sin importar qué traiga el formulario.
-  const saveEntity = values => {
+  const saveEntity = async values => {
     const entity = {
       ...classSectionEntity,
       ...values,
@@ -82,10 +82,11 @@ export const ClassSectionUpdate = () => {
         : classSectionEntity.grade,
     };
 
-    if (isNew) {
-      dispatch(createEntity(entity));
-    } else {
-      dispatch(updateEntity(entity));
+    const resultAction = isNew ? await dispatch(createEntity(entity)) : await dispatch(updateEntity(entity));
+    // UC015-E7: si el guardado falla (p.ej. el instructor fue desactivado mientras se editaba el
+    // formulario), se refresca la lista de instructores para que la selección vuelva a ser válida.
+    if ((isNew ? createEntity : updateEntity).rejected.match(resultAction)) {
+      dispatch(getInstructors());
     }
   };
 
