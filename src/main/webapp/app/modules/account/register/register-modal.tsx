@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 
 import './register-modal.scss';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
-import { getEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
+import { getActiveEntities as getDocumentTypes } from 'app/entities/document-type/document-type.reducer';
 import PasswordStrengthBar from 'app/shared/layout/password/password-strength-bar';
 
 import { handleRegister, reset } from './register.reducer';
@@ -24,7 +24,7 @@ export const RegisterModal = (props: IRegisterProps) => {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    dispatch(getDocumentTypes({}));
+    dispatch(getDocumentTypes());
     return () => {
       dispatch(reset());
     };
@@ -252,8 +252,8 @@ export const RegisterModal = (props: IRegisterProps) => {
               }}
               data-cy="password"
               register={register}
-              error={errors.firstPassword as FieldError}
-              isTouched={touchedFields.firstPassword}
+              error={errors.password as FieldError}
+              isTouched={touchedFields.password}
             />
             <PasswordStrengthBar password={password} />
           </ModalBody>

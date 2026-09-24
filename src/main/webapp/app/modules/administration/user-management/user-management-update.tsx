@@ -281,23 +281,24 @@ export const UserManagementUpdate = () => {
                     isTouched={touchedFields.phoneNumber}
                     className="smallFormField"
                   />
-                  <ValidatedField
-                    name="password"
-                    label={translate('global.form.newpassword.label')}
-                    placeholder={translate('global.form.newpassword.placeholder')}
-                    disabled={!isNew && !isEditing}
-                    type="password"
-                    className="smallFormField"
-                    validate={{
-                      required: { value: true, message: translate('global.messages.validate.newpassword.required') },
-                      minLength: { value: 4, message: translate('global.messages.validate.newpassword.minlength') },
-                      maxLength: { value: 50, message: translate('global.messages.validate.newpassword.maxlength') },
-                    }}
-                    data-cy="firstPassword"
-                    register={register}
-                    error={errors.password as FieldError}
-                    isTouched={touchedFields.password}
-                  />
+                  {isNew && (
+                    <ValidatedField
+                      name="password"
+                      label={translate('global.form.newpassword.label')}
+                      placeholder={translate('global.form.newpassword.placeholder')}
+                      type="password"
+                      className="smallFormField"
+                      validate={{
+                        required: { value: true, message: translate('global.messages.validate.newpassword.required') },
+                        minLength: { value: 4, message: translate('global.messages.validate.newpassword.minlength') },
+                        maxLength: { value: 50, message: translate('global.messages.validate.newpassword.maxlength') },
+                      }}
+                      data-cy="firstPassword"
+                      register={register}
+                      error={errors.password as FieldError}
+                      isTouched={touchedFields.password}
+                    />
+                  )}
                 </Col>
               </div>
               {isNew ? (
