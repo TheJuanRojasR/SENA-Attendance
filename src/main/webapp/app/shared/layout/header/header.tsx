@@ -35,8 +35,10 @@ const Header = (props: IHeaderProps) => {
   const loadingBarRef = useRef<LoadingBarRef>(null);
   const loadingCount = useAppSelector(state => state.loadingBar.count);
   const account = useAppSelector(state => state.authentication.account);
-  // Construye el nombre: si tiene nombre/apellido lo usa, sino usa su username (login)
-  const fullName = account?.firstName ? `${account.firstName} ${account.lastName || ''}`.trim() : account?.login;
+  // El nombre real vive en el UserProfile (state.settings.profile), no en el User/account: el
+  // AdminUserDTO que devuelve /api/account no tiene firstName/lastName, solo login/email/etc.
+  const profile = useAppSelector(state => state.settings.profile);
+  const fullName = profile?.firstName ? `${profile.firstName} ${profile.firstLastName || ''}`.trim() : account?.login;
 
   useEffect(() => {
     if (loadingCount > 0) {
