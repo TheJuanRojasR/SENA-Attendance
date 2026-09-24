@@ -78,10 +78,10 @@ const Header = (props: IHeaderProps) => {
             {/* VISTA PARA NO LOGUEADOS */}
             {!props.isAuthenticated && (
               <>
-                <LinkButton to="/login" variant="primary" translationKey="global.menu.account.login">
+                <LinkButton to="/login" variant="primary" translationKey="global.menu.account.login" data-cy="login">
                   Sign in
                 </LinkButton>
-                <LinkButton to="/account/register" translationKey="global.menu.account.register">
+                <LinkButton to="/account/register" translationKey="global.menu.account.register" data-cy="register">
                   Register
                 </LinkButton>
               </>

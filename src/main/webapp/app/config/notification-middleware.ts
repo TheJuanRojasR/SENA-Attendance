@@ -1,4 +1,4 @@
-import { translate } from 'react-jhipster';
+import { TranslatorContext, translate } from 'react-jhipster';
 
 import { isAxiosError } from 'axios';
 import { toast } from 'react-toastify';
@@ -14,7 +14,13 @@ type ToastMessage = {
 };
 
 const addErrorAlert = (message: ToastMessage) => {
-  toast.error(message.key ? (translate(message.key, message.data) ?? message.message) : message.message);
+  // Backend messages that aren't registered i18n keys (e.g. a generic "Error") fall through
+  // translate() as a "translation-not-found[key]" string instead of undefined; that placeholder
+  // is stripped back down to the bare key so the raw key text still ends up on the toast.
+  const translated = message.key ? translate(message.key, message.data) : undefined;
+  const isMissingTranslation = translated === `${TranslatorContext.context.missingTranslationMsg}[${message.key}]`;
+  const resolved = isMissingTranslation ? message.key : translated;
+  toast.error(resolved ?? message.message);
 };
 
 const getFieldErrorsToasts = (fieldErrors: FieldErrorVM[]): ToastMessage[] =>

@@ -52,6 +52,7 @@ describe('Settings reducer tests', () => {
     it('should reset the state', () => {
       const initialState = {
         loading: false,
+        profile: null,
         errorMessage: null,
         successMessage: null,
         updateSuccess: false,
@@ -76,6 +77,7 @@ describe('Settings reducer tests', () => {
       });
       axios.get = vi.fn().mockResolvedValue(resolvedObject);
       axios.post = vi.fn().mockResolvedValue(resolvedObject);
+      axios.patch = vi.fn().mockResolvedValue(resolvedObject);
     });
 
     it('dispatches UPDATE_ACCOUNT_PENDING and UPDATE_ACCOUNT_FULFILLED actions', async () => {

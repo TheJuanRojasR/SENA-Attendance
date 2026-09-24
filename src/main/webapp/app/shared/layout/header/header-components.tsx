@@ -13,6 +13,11 @@ interface IHomeProps {
   placeholder: string;
 }
 
+interface IBrandProps {
+  isAuthenticated: boolean;
+  roleName?: string;
+}
+
 interface INotificationsProps {
   isAuthenticated: boolean;
   icon: any;
@@ -29,7 +34,7 @@ export const BrandIcon = props => (
   </div>
 );
 
-export const Brand = (props: IHomeProps) => (
+export const Brand = (props: IBrandProps) => (
   <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo d-flex align-items-center">
     <BrandIcon />
     <div className="d-flex flex-column ms-2">

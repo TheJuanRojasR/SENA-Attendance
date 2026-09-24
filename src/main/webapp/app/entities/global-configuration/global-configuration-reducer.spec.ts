@@ -1,48 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { configureStore } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-import { IGlobalConfiguration, defaultValue } from 'app/shared/model/global-configuration.model';
-import { EntityState } from 'app/shared/reducers/reducer.utils';
-
-import reducer, {
-  createEntity,
-  deleteEntity,
-  getEntities,
-  getEntity,
-  partialUpdateEntity,
-  reset,
-  updateEntity,
-} from './global-configuration.reducer';
+import reducer, { getConfigurations, partialUpdateEntity, reset } from './global-configuration.reducer';
 
 describe('Entities reducer tests', () => {
-  function isEmpty(element): boolean {
-    if (Array.isArray(element)) {
-      return element.length === 0;
-    }
-    return Object.keys(element).length === 0;
-  }
-
-  const initialState: EntityState<IGlobalConfiguration> = {
+  const initialState = {
     loading: false,
     errorMessage: null,
-    entities: [],
-    entity: defaultValue,
+    entity: null,
     updating: false,
     updateSuccess: false,
   };
-
-  function testInitialState(state) {
-    expect(state).toMatchObject({
-      loading: false,
-      errorMessage: null,
-      updating: false,
-      updateSuccess: false,
-    });
-    expect(isEmpty(state.entities));
-    expect(isEmpty(state.entity));
-  }
 
   function testMultipleTypes(types, payload, testFunction, error?) {
     types.forEach(e => {
@@ -52,33 +22,28 @@ describe('Entities reducer tests', () => {
 
   describe('Common', () => {
     it('should return the initial state', () => {
-      testInitialState(reducer(undefined, { type: '' }));
+      expect(reducer(undefined, { type: '' })).toEqual(initialState);
     });
   });
 
   describe('Requests', () => {
     it('should set state to loading', () => {
-      testMultipleTypes([getEntities.pending.type, getEntity.pending.type], {}, state => {
+      testMultipleTypes([getConfigurations.pending.type], {}, state => {
         expect(state).toMatchObject({
           errorMessage: null,
-          updateSuccess: false,
           loading: true,
         });
       });
     });
 
     it('should set state to updating', () => {
-      testMultipleTypes(
-        [createEntity.pending.type, updateEntity.pending.type, partialUpdateEntity.pending.type, deleteEntity.pending.type],
-        {},
-        state => {
-          expect(state).toMatchObject({
-            errorMessage: null,
-            updateSuccess: false,
-            updating: true,
-          });
-        },
-      );
+      testMultipleTypes([partialUpdateEntity.pending.type], {}, state => {
+        expect(state).toMatchObject({
+          errorMessage: null,
+          updateSuccess: false,
+          updating: true,
+        });
+      });
     });
 
     it('should reset the state', () => {
@@ -89,51 +54,40 @@ describe('Entities reducer tests', () => {
   });
 
   describe('Failures', () => {
-    it('should set a message in errorMessage', () => {
+    it('should stop loading on getConfigurations failure', () => {
       testMultipleTypes(
-        [
-          getEntities.rejected.type,
-          getEntity.rejected.type,
-          createEntity.rejected.type,
-          updateEntity.rejected.type,
-          partialUpdateEntity.rejected.type,
-          deleteEntity.rejected.type,
-        ],
-        'some message',
+        [getConfigurations.rejected.type],
+        undefined,
         state => {
           expect(state).toMatchObject({
-            errorMessage: null,
+            loading: false,
+          });
+        },
+        { message: 'error message' },
+      );
+    });
+
+    it('should set a message in errorMessage on partialUpdateEntity failure', () => {
+      testMultipleTypes(
+        [partialUpdateEntity.rejected.type],
+        undefined,
+        state => {
+          expect(state).toMatchObject({
             updateSuccess: false,
             updating: false,
           });
         },
-        {
-          message: 'error message',
-        },
+        { message: 'error message' },
       );
     });
   });
 
   describe('Successes', () => {
-    it('should fetch all entities', () => {
-      const payload = { data: [{ 1: 'fake1' }, { 2: 'fake2' }] };
+    it('should fetch the configuration', () => {
+      const payload = { data: { limitPerTrimester: 3 } };
       expect(
         reducer(undefined, {
-          type: getEntities.fulfilled.type,
-          payload,
-        }),
-      ).toEqual({
-        ...initialState,
-        loading: false,
-        entities: payload.data,
-      });
-    });
-
-    it('should fetch a single entity', () => {
-      const payload = { data: { 1: 'fake1' } };
-      expect(
-        reducer(undefined, {
-          type: getEntity.fulfilled.type,
+          type: getConfigurations.fulfilled.type,
           payload,
         }),
       ).toEqual({
@@ -143,11 +97,11 @@ describe('Entities reducer tests', () => {
       });
     });
 
-    it('should create/update entity', () => {
-      const payload = { data: 'fake payload' };
+    it('should partially update the configuration', () => {
+      const payload = { data: { limitPerTrimester: 5 } };
       expect(
         reducer(undefined, {
-          type: createEntity.fulfilled.type,
+          type: partialUpdateEntity.fulfilled.type,
           payload,
         }),
       ).toEqual({
@@ -155,18 +109,6 @@ describe('Entities reducer tests', () => {
         updating: false,
         updateSuccess: true,
         entity: payload.data,
-      });
-    });
-
-    it('should delete entity', () => {
-      const payload = 'fake payload';
-      const toTest = reducer(undefined, {
-        type: deleteEntity.fulfilled.type,
-        payload,
-      });
-      expect(toTest).toMatchObject({
-        updating: false,
-        updateSuccess: true,
       });
     });
   });
@@ -183,70 +125,23 @@ describe('Entities reducer tests', () => {
         reducer: (state = [], action) => [...state, action],
       });
       axios.get = vi.fn().mockResolvedValue(resolvedObject);
-      axios.post = vi.fn().mockResolvedValue(resolvedObject);
-      axios.put = vi.fn().mockResolvedValue(resolvedObject);
       axios.patch = vi.fn().mockResolvedValue(resolvedObject);
-      axios.delete = vi.fn().mockResolvedValue(resolvedObject);
-    });
-
-    it('dispatches FETCH_GLOBALCONFIGURATION_LIST actions', async () => {
-      const arg = {};
-
-      const result = await getEntities(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: getEntities.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(getEntities.fulfilled.match(result)).toBe(true);
     });
 
     it('dispatches FETCH_GLOBALCONFIGURATION actions', async () => {
-      const arg = 42666;
-
-      const result = await getEntity(arg)(dispatch, getState, extra);
+      const result = await getConfigurations()(dispatch, getState, extra);
 
       expect(dispatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: getEntity.pending.type,
+          type: getConfigurations.pending.type,
           meta: expect.objectContaining({ requestStatus: 'pending' }),
         }),
       );
-      expect(getEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches CREATE_GLOBALCONFIGURATION actions', async () => {
-      const arg = { id: '5a3bacd0-2eca-4852-aa71-642cecc1d13f' };
-
-      const result = await createEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: createEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(createEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches UPDATE_GLOBALCONFIGURATION actions', async () => {
-      const arg = { id: '5a3bacd0-2eca-4852-aa71-642cecc1d13f' };
-
-      const result = await updateEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: updateEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(updateEntity.fulfilled.match(result)).toBe(true);
+      expect(getConfigurations.fulfilled.match(result)).toBe(true);
     });
 
     it('dispatches PARTIAL_UPDATE_GLOBALCONFIGURATION actions', async () => {
-      const arg = { id: 'ABC' };
+      const arg = { limitPerTrimester: 3 };
 
       const result = await partialUpdateEntity(arg)(dispatch, getState, extra);
 
@@ -257,20 +152,6 @@ describe('Entities reducer tests', () => {
         }),
       );
       expect(partialUpdateEntity.fulfilled.match(result)).toBe(true);
-    });
-
-    it('dispatches DELETE_GLOBALCONFIGURATION actions', async () => {
-      const arg = 42666;
-
-      const result = await deleteEntity(arg)(dispatch, getState, extra);
-
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: deleteEntity.pending.type,
-          meta: expect.objectContaining({ requestStatus: 'pending' }),
-        }),
-      );
-      expect(deleteEntity.fulfilled.match(result)).toBe(true);
     });
 
     it('dispatches RESET actions', async () => {

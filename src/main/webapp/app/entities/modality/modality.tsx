@@ -91,8 +91,8 @@ export const Modality = () => {
     });
 
   const getSortIconByFieldName = (fieldName: string) => {
-    const sortFieldName = sortState.sort;
-    const { order } = sortState;
+    const sortFieldName = paginationState.sort;
+    const { order } = paginationState;
     if (sortFieldName !== fieldName) {
       return faSort;
     }
