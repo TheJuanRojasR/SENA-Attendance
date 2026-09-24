@@ -151,9 +151,6 @@ export const TimeSlot = () => {
             </ValidatedInput>
           </div>
         </div>
-        <LinkButton to="new" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon={faPlus} /> <Translate contentKey="userManagement.home.createLabel">Create a new user</Translate>
-        </LinkButton>
         <div className="table-responsive">
           {filteredTimeSlotList?.length > 0 ? (
             <Table className="custom-table" hover responsive>

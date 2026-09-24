@@ -67,12 +67,6 @@ export const AuditLogDetail = () => {
           </span>
         </Button>
         &nbsp;
-        <Button as={Link as any} to={`/audit-log/${auditLogEntity.id}/edit`} replace variant="primary">
-          <FontAwesomeIcon icon="pencil-alt" />{' '}
-          <span className="d-none d-md-inline">
-            <Translate contentKey="entity.action.edit">Edit</Translate>
-          </span>
-        </Button>
       </Col>
     </Row>
   );
