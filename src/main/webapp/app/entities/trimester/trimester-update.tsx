@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Row } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -120,40 +120,34 @@ export const TrimesterUpdate = () => {
               Ingrese el nombre identificador oficial del período académico.
             </small>
 
-            <Row>
-              <Col md={6}>
-                <ValidatedField
-                  label="FECHA DE INICIO *"
-                  id="trimester-startDate"
-                  name="startDate"
-                  data-cy="startDate"
-                  disabled={!isNew && !isEditing}
-                  type="date"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                  }}
-                />
-                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
-                  Fecha oficial de inicio de actividades lectivas.
-                </small>
-              </Col>
-              <Col md={6}>
-                <ValidatedField
-                  label="FECHA DE FIN *"
-                  id="trimester-endDate"
-                  name="endDate"
-                  data-cy="endDate"
-                  disabled={!isNew && !isEditing}
-                  type="date"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                  }}
-                />
-                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
-                  Fecha oficial de culminación del trimestre.
-                </small>
-              </Col>
-            </Row>
+            <ValidatedField
+              label="FECHA DE INICIO *"
+              id="trimester-startDate"
+              name="startDate"
+              data-cy="startDate"
+              disabled={!isNew && !isEditing}
+              type="date"
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Fecha oficial de inicio de actividades lectivas.
+            </small>
+            <ValidatedField
+              label="FECHA DE FIN *"
+              id="trimester-endDate"
+              name="endDate"
+              data-cy="endDate"
+              disabled={!isNew && !isEditing}
+              type="date"
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Fecha oficial de culminación del trimestre.
+            </small>
 
             {!isNew && <ValidatedField label="ESTADO" id="trimester-status" name="status" data-cy="status" type="text" disabled />}
 

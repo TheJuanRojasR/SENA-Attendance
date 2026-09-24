@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Button, Card, Col, Row } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Button } from 'react-bootstrap';
 import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -22,6 +22,10 @@ export const DocumentTypeUpdate = () => {
   const updating = useAppSelector(state => state.documentType.updating);
   const updateSuccess = useAppSelector(state => state.documentType.updateSuccess);
 
+  // UC022-E3: si el backend rechaza el cambio porque el tipo ya está en uso, las iniciales se
+  // bloquean visualmente para que el Administrador no repita el mismo intento.
+  const [initialsLocked, setInitialsLocked] = useState(false);
+
   const handleClose = () => {
     navigate('/document-type');
   };
@@ -40,16 +44,18 @@ export const DocumentTypeUpdate = () => {
     }
   }, [updateSuccess]);
 
-  const saveEntity = values => {
+  const saveEntity = async values => {
     const entity = {
       ...documentTypeEntity,
       ...values,
     };
 
-    if (isNew) {
-      dispatch(createEntity(entity));
-    } else {
-      dispatch(updateEntity(entity));
+    const resultAction = isNew ? await dispatch(createEntity(entity)) : await dispatch(updateEntity(entity));
+    if (!isNew && updateEntity.rejected.match(resultAction)) {
+      const data = (resultAction.error as any)?.response?.data;
+      if (data?.message === 'error.documentTypeInitialsInUse') {
+        setInitialsLocked(true);
+      }
     }
   };
 
@@ -112,25 +118,24 @@ export const DocumentTypeUpdate = () => {
               Ingrese el nombre formal completo del tipo de documento de identidad.
             </small>
 
-            <Row>
-              <Col md={6}>
-                <ValidatedField
-                  label="Iniciales / Sigla *"
-                  id="document-type-initials"
-                  name="initials"
-                  data-cy="initials"
-                  type="text"
-                  placeholder="EJ. CC, TI, PAS, CE..."
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                    maxLength: { value: 10, message: translate('entity.validation.maxlength', { max: 10 }) },
-                  }}
-                />
-                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
-                  Abreviatura oficial utilizada en reportes y listas del sistema.
-                </small>
-              </Col>
-            </Row>
+            <ValidatedField
+              label="Iniciales / Sigla *"
+              id="document-type-initials"
+              name="initials"
+              data-cy="initials"
+              type="text"
+              placeholder="EJ. CC, TI, PAS, CE..."
+              disabled={initialsLocked}
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+                maxLength: { value: 10, message: translate('entity.validation.maxlength', { max: 10 }) },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              {initialsLocked
+                ? 'Este tipo de documento ya está en uso por usuarios: las iniciales no se pueden modificar.'
+                : 'Abreviatura oficial utilizada en reportes y listas del sistema.'}
+            </small>
 
             {!isNew && (
               <ValidatedField label="Estado (Activo)" id="documentType-isActive" name="isActive" data-cy="isActive" check type="checkbox" />

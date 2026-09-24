@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Button, Card, Col, Row } from 'react-bootstrap';
-import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
+import { Translate, ValidatedField, ValidatedForm, isNumber, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -107,6 +107,11 @@ export const JustificationTypeUpdate = () => {
                   name="limitPerTrimester"
                   data-cy="limitPerTrimester"
                   type="text"
+                  validate={{
+                    required: { value: true, message: translate('entity.validation.required') },
+                    validate: v => isNumber(v) || translate('entity.validation.number'),
+                    min: { value: 1, message: translate('entity.validation.min', { min: 1 }) },
+                  }}
                 />
                 {!isNew && (
                   <ValidatedField

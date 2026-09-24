@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Button, Card, Col, Row } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Button } from 'react-bootstrap';
 import { Translate, ValidatedField, ValidatedForm, translate } from 'react-jhipster';
 import { Link, useNavigate, useParams } from 'react-router';
 
@@ -21,6 +21,15 @@ export const TimeSlotUpdate = () => {
   const loading = useAppSelector(state => state.timeSlot.loading);
   const updating = useAppSelector(state => state.timeSlot.updating);
   const updateSuccess = useAppSelector(state => state.timeSlot.updateSuccess);
+
+  // UC020-E2: la hora inicio y la hora fin no pueden ser iguales (sí se permite que la hora fin
+  // sea menor, para jornadas que cruzan la medianoche). Se registra localmente para validar
+  // endTime en cliente, en espejo del chequeo que ya hace el backend.
+  const [startTime, setStartTime] = useState(timeSlotEntity?.startTime ?? '');
+
+  useEffect(() => {
+    setStartTime(timeSlotEntity?.startTime ?? '');
+  }, [timeSlotEntity]);
 
   const handleClose = () => {
     navigate('/time-slot');
@@ -104,40 +113,36 @@ export const TimeSlotUpdate = () => {
               Ingrese el nombre identificador para la jornada institucional.
             </small>
 
-            <Row>
-              <Col md={6}>
-                <ValidatedField
-                  label="Hora Inicio *"
-                  id="time-slot-startTime"
-                  name="startTime"
-                  data-cy="startTime"
-                  type="time"
-                  placeholder="HH:mm"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                  }}
-                />
-                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
-                  Hora de inicio de la jornada formativa.
-                </small>
-              </Col>
-              <Col md={6}>
-                <ValidatedField
-                  label="Hora Fin *"
-                  id="time-slot-endTime"
-                  name="endTime"
-                  data-cy="endTime"
-                  type="time"
-                  placeholder="HH:mm"
-                  validate={{
-                    required: { value: true, message: translate('entity.validation.required') },
-                  }}
-                />
-                <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
-                  Hora de finalización habitual.
-                </small>
-              </Col>
-            </Row>
+            <ValidatedField
+              label="Hora Inicio *"
+              id="time-slot-startTime"
+              name="startTime"
+              data-cy="startTime"
+              type="time"
+              placeholder="HH:mm"
+              onChange={e => setStartTime(e.target.value)}
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Hora de inicio de la jornada formativa.
+            </small>
+            <ValidatedField
+              label="Hora Fin *"
+              id="time-slot-endTime"
+              name="endTime"
+              data-cy="endTime"
+              type="time"
+              placeholder="HH:mm"
+              validate={{
+                required: { value: true, message: translate('entity.validation.required') },
+                validate: v => v !== startTime || translate('error.timeSlotSameTime'),
+              }}
+            />
+            <small className="form-text text-muted mb-4 d-block" style={{ marginTop: '-12px' }}>
+              Hora de finalización habitual.
+            </small>
 
             {!isNew && (
               <ValidatedField label="Estado (Activo)" id="time-slot-isActive" name="isActive" data-cy="isActive" check type="checkbox" />
