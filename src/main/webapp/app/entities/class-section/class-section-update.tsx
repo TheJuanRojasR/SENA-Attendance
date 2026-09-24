@@ -167,29 +167,36 @@ export const ClassSectionUpdate = () => {
                   : null}
               </ValidatedField>
               <FormText>Instructor opcional: la materia puede crearse sin instructor y asignarlo después.</FormText>
+              {/*
+                El campo debe ser hijo DIRECTO de ValidatedForm: cualquier wrapper (Fragment, Row/Col,
+                div) rompe la inyección de register y el select queda fuera del formulario, de modo que
+                el POST viaja sin grade y el backend lo rechaza con "must not be null".
+              */}
               {isNew && !gradeIdParam && (
-                <>
-                  <ValidatedField
-                    id="class-section-grade"
-                    name="grade"
-                    data-cy="grade"
-                    label={translate('senaAttendanceApp.classSection.grade')}
-                    type="select"
-                    required
-                  >
-                    <option value="" key="0" />
-                    {grades
-                      ? grades.map(otherEntity => (
-                          <option value={otherEntity.id} key={otherEntity.id}>
-                            {otherEntity.code}
-                          </option>
-                        ))
-                      : null}
-                  </ValidatedField>
-                  <FormText>
-                    <Translate contentKey="entity.validation.required">This field is required.</Translate>
-                  </FormText>
-                </>
+                <ValidatedField
+                  id="class-section-grade"
+                  name="grade"
+                  data-cy="grade"
+                  label={translate('senaAttendanceApp.classSection.grade')}
+                  type="select"
+                  validate={{
+                    required: { value: true, message: translate('entity.validation.required') },
+                  }}
+                >
+                  <option value="" key="0" />
+                  {grades
+                    ? grades.map(otherEntity => (
+                        <option value={otherEntity.id} key={otherEntity.id}>
+                          {otherEntity.code}
+                        </option>
+                      ))
+                    : null}
+                </ValidatedField>
+              )}
+              {isNew && !gradeIdParam && (
+                <FormText>
+                  <Translate contentKey="entity.validation.required">This field is required.</Translate>
+                </FormText>
               )}
               {!isNew && (
                 <p className="text-muted">
