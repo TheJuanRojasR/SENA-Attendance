@@ -16,7 +16,7 @@ describe('Entities reducer tests', () => {
     return Object.keys(element).length === 0;
   }
 
-  const initialState: EntityState<IProgram> = {
+  const initialState: EntityState<IProgram> & { activationWarning: string | null } = {
     loading: false,
     errorMessage: null,
     entities: [],
@@ -24,6 +24,7 @@ describe('Entities reducer tests', () => {
     totalItems: 0,
     updating: false,
     updateSuccess: false,
+    activationWarning: null,
   };
 
   function testInitialState(state) {

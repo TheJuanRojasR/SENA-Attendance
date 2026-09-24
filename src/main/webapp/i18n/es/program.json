@@ -1,4 +1,8 @@
 {
+  "program": {
+    "activated": "Programa activado",
+    "deactivated": "Programa desactivado"
+  },
   "senaAttendanceApp": {
     "program": {
       "home": {

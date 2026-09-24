@@ -5,12 +5,14 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { toast } from 'react-toastify';
 
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
+import { IProgram } from 'app/shared/model/program.model';
 
-import { getActiveEntities, getEntities, searchEntities } from './program.reducer';
+import { clearActivationWarning, getActiveEntities, getEntities, searchEntities, setActivated } from './program.reducer';
 import LinkButton from 'app/shared/components/link-button';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -31,6 +33,27 @@ export const Program = () => {
   const programList = useAppSelector(state => state.program.entities);
   const loading = useAppSelector(state => state.program.loading);
   const totalItems = useAppSelector(state => state.program.totalItems);
+  const activationWarning = useAppSelector(state => state.program.activationWarning);
+
+  useEffect(() => {
+    if (activationWarning) {
+      toast.warning(activationWarning);
+      dispatch(clearActivationWarning());
+    }
+  }, [activationWarning]);
+
+  const toggleActive = (program: IProgram) => () => {
+    const nextStatus = !program.status;
+    if (!nextStatus) {
+      const confirmed = window.confirm(
+        `¿Deseas desactivar el programa "${program.name}"? Las fichas existentes, sus materias y asistencias no se verán afectadas.`,
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    dispatch(setActivated({ id: program.id!, status: nextStatus }));
+  };
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
@@ -218,6 +241,14 @@ export const Program = () => {
                         >
                           <FontAwesomeIcon icon="pencil-alt" />
                         </Link>
+                        <button
+                          type="button"
+                          className="power"
+                          onClick={toggleActive(program)}
+                          title={program.status ? 'Desactivar' : 'Reactivar'}
+                        >
+                          <FontAwesomeIcon icon="power-off" />
+                        </button>
                         <Link
                           to={`/program/${program.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
                           className="delete"

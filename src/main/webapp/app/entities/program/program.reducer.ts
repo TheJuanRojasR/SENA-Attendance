@@ -1,11 +1,11 @@
-import { createAsyncThunk, isFulfilled, isPending } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, isFulfilled, isPending } from '@reduxjs/toolkit';
 import axios from 'axios';
 
 import { IProgram, defaultValue } from 'app/shared/model/program.model';
-import { EntityState, IQueryParams, createEntitySlice, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
+import { EntityState, IQueryParams, isRejectedAction, serializeAxiosError } from 'app/shared/reducers/reducer.utils';
 import { cleanEntity } from 'app/shared/util/entity-utils';
 
-const initialState: EntityState<IProgram> = {
+const initialState: EntityState<IProgram> & { activationWarning: string | null } = {
   loading: false,
   errorMessage: null,
   entities: [],
@@ -13,6 +13,7 @@ const initialState: EntityState<IProgram> = {
   updating: false,
   totalItems: 0,
   updateSuccess: false,
+  activationWarning: null,
 };
 
 const apiUrl = 'api/programs';
@@ -92,6 +93,19 @@ export const partialUpdateEntity = createAsyncThunk(
   { serializeError: serializeAxiosError },
 );
 
+export const setActivated = createAsyncThunk(
+  'program/set_activated',
+  async ({ id, status }: { id: string; status: boolean }, thunkAPI) => {
+    const result = await axios.patch<{ program: IProgram; activeFichasCount: number; warning?: string }>(`${apiUrl}/activated`, {
+      id,
+      status,
+    });
+    thunkAPI.dispatch(getEntities({}));
+    return result;
+  },
+  { serializeError: serializeAxiosError },
+);
+
 export const deleteEntity = createAsyncThunk(
   'program/delete_entity',
   async (id: string | number, thunkAPI) => {
@@ -105,9 +119,17 @@ export const deleteEntity = createAsyncThunk(
 
 // slice
 
-export const ProgramSlice = createEntitySlice({
+export const ProgramSlice = createSlice({
   name: 'program',
   initialState,
+  reducers: {
+    reset() {
+      return initialState;
+    },
+    clearActivationWarning(state) {
+      state.activationWarning = null;
+    },
+  },
   extraReducers(builder) {
     builder
       .addCase(getEntity.fulfilled, (state, action) => {
@@ -118,6 +140,11 @@ export const ProgramSlice = createEntitySlice({
         state.updating = false;
         state.updateSuccess = true;
         state.entity = {};
+      })
+      .addCase(setActivated.fulfilled, (state, action) => {
+        state.updating = false;
+        state.updateSuccess = true;
+        state.activationWarning = action.payload.data.warning ?? null;
       })
       .addMatcher(isFulfilled(getEntities, searchEntities), (state, action) => {
         const { data, headers } = action.payload;
@@ -144,15 +171,21 @@ export const ProgramSlice = createEntitySlice({
         state.updateSuccess = false;
         state.loading = true;
       })
-      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity), state => {
+      .addMatcher(isPending(createEntity, updateEntity, partialUpdateEntity, deleteEntity, setActivated), state => {
         state.errorMessage = null;
         state.updateSuccess = false;
         state.updating = true;
+      })
+      .addMatcher(isRejectedAction, state => {
+        state.loading = false;
+        state.updating = false;
+        state.updateSuccess = false;
+        state.errorMessage = null;
       });
   },
 });
 
-export const { reset } = ProgramSlice.actions;
+export const { reset, clearActivationWarning } = ProgramSlice.actions;
 
 // Reducer
 export default ProgramSlice.reducer;
