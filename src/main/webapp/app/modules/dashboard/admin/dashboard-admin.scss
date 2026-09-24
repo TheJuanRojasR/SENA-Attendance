@@ -1,0 +1,135 @@
+.admin-dashboard-container {
+  padding: 1rem 0;
+
+  .dashboard-header {
+    .header-text {
+      h2 {
+        color: #112236;
+        font-size: 1.8rem;
+      }
+      p {
+        max-width: 850px;
+        font-size: 0.95rem;
+      }
+    }
+
+    .header-actions {
+      .btn {
+        padding: 0.5rem 1.2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .btn-outline-success {
+        color: #16c829;
+        border-color: #16c829;
+        background-color: transparent;
+        &:hover {
+          background-color: #e8f5e9;
+        }
+      }
+      .btn-success {
+        background-color: #1a6b0c; // Verde oscuro del mockup
+        border-color: #1a6b0c;
+        &:hover {
+          background-color: #14550a;
+        }
+      }
+    }
+  }
+
+  .kpi-cards-container {
+    .kpi-card {
+      border: 1px solid #dcdcdc;
+      border-radius: 4px;
+      padding: 1.5rem;
+      box-shadow: none;
+
+      .icon-wrapper {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+
+        &.green-bg {
+          background-color: #e8f5e9;
+          color: #2e7d32;
+        }
+
+        .kpi-icon {
+          font-size: 1.3rem;
+        }
+      }
+
+      .text-sm {
+        font-size: 0.8rem;
+      }
+
+      .kpi-title {
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+      }
+
+      .kpi-value {
+        font-size: 2.2rem;
+        color: #1a6b0c !important;
+      }
+    }
+  }
+
+  .recent-grades-card {
+    border: 1px solid #dcdcdc;
+    border-radius: 4px;
+    box-shadow: none;
+    overflow: hidden;
+
+    .bg-light {
+      background-color: #f8f9fa !important;
+    }
+
+    .custom-dashboard-table {
+      th {
+        border-bottom: 2px solid #eaeaea;
+        //border-top: none;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 1.2rem 0.5rem;
+      }
+      td {
+        vertical-align: middle;
+        padding: 1rem 0.5rem;
+        border-bottom: 1px solid #eaeaea;
+      }
+
+      .status-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+
+        &.status-active {
+          background-color: #81c784; // Verde claro (fondo badge)
+          color: #ffffff;
+        }
+        &.status-pending {
+          background-color: #ffcdd2; // Rosa claro
+          color: #c62828;
+        }
+      }
+
+      .action-icon {
+        color: #757575;
+        font-size: 1.1rem;
+        transition: color 0.2s;
+        &:hover {
+          color: #112236;
+        }
+      }
+    }
+  }
+}

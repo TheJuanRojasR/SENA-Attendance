@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Table } from 'react-bootstrap';
+import { Button, Col, Table } from 'react-bootstrap';
 import { JhiItemCount, JhiPagination, TextFormat, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
@@ -121,16 +121,35 @@ export const Trimester = () => {
 
   return (
     <div>
-      <h2 id="trimester-heading" data-cy="TrimesterHeading">
-        <Translate contentKey="senaAttendanceApp.trimester.home.title">Trimesters</Translate>
-      </h2>
-      <p>
-        Administre y programe los trimestres académicos, rangos de fechas lectivas y estado operativo para la formacion institucional SENA.
-      </p>
-      <Col className="d-flex justify-content-between align-items-center" md="12">
-        <div className="d-flex align-items-center entitiesSearchBar">
-          <div className="d-flex align-items-center w-50">
-            <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">TRIMESTRES</span>
+          </div>
+          <h2 id="trimester-heading" data-cy="TrimesterHeading" className="page-title">
+            Gestión de Trimestres
+          </h2>
+          <p className="page-description">
+            Administre y programe los trimestres académicos, rangos de fechas lectivas y estado operativo para la formacion institucional
+            SENA.
+          </p>
+        </div>
+        <div>
+          <Link
+            to="/trimester/new"
+            className="btn btn-success fw-bold"
+            style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+          >
+            <FontAwesomeIcon icon="plus" className="me-2" />
+            Crear Nuevo Trimestre
+          </Link>
+        </div>
+      </div>
+
+      <div className="entity-card">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
+          <div className="search-input-wrapper w-100">
+            <FontAwesomeIcon icon="search" />
             <ValidatedInput
               name="search"
               placeholder="Buscar por nombre o año..."
@@ -138,40 +157,41 @@ export const Trimester = () => {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <ValidatedInput type="select" name="state" className="w-25" value={stateFilter} onChange={e => setStateFilter(e.target.value)}>
-            <option value="ALL">Todas</option>
-            <option value="FUTURO">Futuras</option>
-            <option value="ACTIVO">Activas</option>
-            <option value="CERRADO">Cerradas</option>
-          </ValidatedInput>
+          <div className="d-flex align-items-center w-100 w-md-auto">
+            <span className="me-2 text-muted fw-bold" style={{ fontSize: '0.85rem' }}>
+              ESTADO:
+            </span>
+            <ValidatedInput
+              type="select"
+              name="state"
+              className="w-100 mb-0"
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+            >
+              <option value="ALL">Todos los trimestres</option>
+              <option value="FUTURO">Futuros</option>
+              <option value="ACTIVO">Activos</option>
+              <option value="CERRADO">Cerrados</option>
+            </ValidatedInput>
+          </div>
         </div>
-        <LinkButton to="/trimester/new" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon="plus" />
-          &nbsp;
-          <Translate contentKey="senaAttendanceApp.trimester.home.createLabel">Create new Trimester</Translate>
-        </LinkButton>
-      </Col>
-      <div className="table-responsive">
-        {trimesterList?.length > 0 ? (
-          <Card>
-            <Table responsive>
+
+        <div className="table-responsive">
+          {trimesterList?.length > 0 ? (
+            <Table className="custom-table" hover responsive>
               <thead>
                 <tr>
                   <th className="hand" onClick={sort('name')}>
-                    <Translate contentKey="senaAttendanceApp.trimester.name">Name</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
+                    NOMBRE <FontAwesomeIcon icon={getSortIconByFieldName('name')} />
                   </th>
                   <th className="hand" onClick={sort('startDate')}>
-                    <Translate contentKey="senaAttendanceApp.trimester.startDate">Start Date</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('startDate')} />
+                    FECHA INICIO <FontAwesomeIcon icon={getSortIconByFieldName('startDate')} />
                   </th>
                   <th className="hand" onClick={sort('endDate')}>
-                    <Translate contentKey="senaAttendanceApp.trimester.endDate">End Date</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('endDate')} />
+                    FECHA FIN <FontAwesomeIcon icon={getSortIconByFieldName('endDate')} />
                   </th>
                   <th className="hand" onClick={sort('status')}>
-                    <Translate contentKey="senaAttendanceApp.trimester.state">State</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('status')} />
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('status')} />
                   </th>
                   <th />
                 </tr>
@@ -179,7 +199,7 @@ export const Trimester = () => {
               <tbody>
                 {trimesterList.map(trimester => (
                   <tr key={`entity-${trimester.id}`} data-cy="entityTable">
-                    <td>{trimester.name}</td>
+                    <td className="fw-bold">{trimester.name}</td>
                     <td>
                       {trimester.startDate ? <TextFormat type="date" value={trimester.startDate} format={APP_LOCAL_DATE_FORMAT} /> : null}
                     </td>
@@ -187,68 +207,68 @@ export const Trimester = () => {
                       {trimester.endDate ? <TextFormat type="date" value={trimester.endDate} format={APP_LOCAL_DATE_FORMAT} /> : null}
                     </td>
                     <td>
-                      <Translate contentKey={`senaAttendanceApp.StateTrimester.${trimester.status}`} />
+                      {trimester.status === 'ACTIVO' ? (
+                        <span className="badge-status active">
+                          <span className="dot"></span> Activo
+                        </span>
+                      ) : trimester.status === 'FUTURO' ? (
+                        <span className="badge-status pending">
+                          <span className="dot" style={{ backgroundColor: '#ffb74d' }}></span> Futuro
+                        </span>
+                      ) : (
+                        <span className="badge-status inactive">
+                          <span className="dot"></span> Cerrado
+                        </span>
+                      )}
                     </td>
                     <td className="text-end">
-                      <div className="btn-group flex-btn-group-container">
-                        <Button
-                          as={Link as any}
+                      <div className="action-icons">
+                        <Link
                           to={`/trimester/${trimester.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                          variant="primary"
-                          size="sm"
-                          data-cy="entityEditButton"
+                          title="Editar"
                         >
-                          <FontAwesomeIcon icon="pencil-alt" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.edit">Edit</Translate>
-                          </span>
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            (globalThis.location.href = `/trimester/${trimester.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                          }
-                          variant="danger"
-                          size="sm"
-                          data-cy="entityDeleteButton"
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
+                        <Link
+                          to={`/trimester/${trimester.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
+                          className="delete"
+                          title="Eliminar"
                         >
-                          <FontAwesomeIcon icon="trash" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.delete">Delete</Translate>
-                          </span>
-                        </Button>
+                          <FontAwesomeIcon icon="trash" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </Card>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.trimester.home.notFound">No Trimesters found</Translate>
+          ) : (
+            !loading && (
+              <div className="alert alert-success">
+                <Translate contentKey="senaAttendanceApp.trimester.home.notFound">No Trimesters found</Translate>
+              </div>
+            )
+          )}
+        </div>
+        {totalItems ? (
+          <div className={trimesterList && trimesterList.length > 0 ? '' : 'd-none'}>
+            <div className="justify-content-center d-flex mt-4 mb-2 text-muted" style={{ fontSize: '0.85rem' }}>
+              <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
             </div>
-          )
+            <div className="justify-content-center d-flex">
+              <JhiPagination
+                activePage={paginationState.activePage}
+                onSelect={handlePagination}
+                maxButtons={5}
+                itemsPerPage={paginationState.itemsPerPage}
+                totalItems={totalItems}
+              />
+            </div>
+          </div>
+        ) : (
+          ''
         )}
       </div>
-      {totalItems ? (
-        <div className={trimesterList && trimesterList.length > 0 ? '' : 'd-none'}>
-          <div className="justify-content-center d-flex">
-            <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
-          </div>
-          <div className="justify-content-center d-flex">
-            <JhiPagination
-              activePage={paginationState.activePage}
-              onSelect={handlePagination}
-              maxButtons={5}
-              itemsPerPage={paginationState.itemsPerPage}
-              totalItems={totalItems}
-            />
-          </div>
-        </div>
-      ) : (
-        ''
-      )}
     </div>
   );
 };

@@ -70,12 +70,35 @@ Navbar styles
 .brand-title {
   font-size: 1.25rem;
   margin-left: 0.25rem;
-  color: $header-color-secondary;
+
+  .logo-sena {
+    color: #4a4a4a;
+    font-weight: bold;
+  }
+  .logo-attendance {
+    color: #16c829;
+    font-weight: bold;
+  }
 }
 
-.navbar {
-  background-color: bootstrap-variables.$navbar-primary;
+.navbar-authenticated {
+  .brand-title {
+    .logo-sena,
+    .logo-attendance {
+      color: #ffffff;
+    }
+  }
+}
+
+.navbar-public {
+  background-color: bootstrap-variables.$navbar-primary; // o #ffffff si prefieres forzar el blanco
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.navbar-authenticated {
+  background-color: #1e7018;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-bottom: none;
 }
 
 .loading-bar {
@@ -83,36 +106,109 @@ Navbar styles
   z-index: 1031;
 }
 
-/* ==========================================================================
-User info (header)
-========================================================================== */
-.user-info {
-  .user-info-text {
-    text-align: right;
-    line-height: 1.1;
+// Estilos del panel derecho del header
+.header-right-panel {
+  // Iconos globales (Campana, Ayuda)
+  .header-icon-btn {
+    position: relative;
+    font-size: 1.3rem;
+    cursor: pointer;
+    color: #ffffff;
+    transition: opacity 0.2s;
+    margin-right: 15px;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    // Punto rojo de notificaciones
+    .notification-dot {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 8px;
+      height: 8px;
+      background-color: #ff3b30;
+      border-radius: 50%;
+    }
   }
 
-  .user-info-name {
-    margin-bottom: 0;
-    font-weight: 600;
+  // Estilo del menú Admin (Sobrescribe bootstrap para quitar la flecha del dropdown)
+  .admin-icon-menu {
+    .nav-item.dropdown {
+      .nav-link {
+        color: #ffffff !important;
+        font-size: 1.3rem;
+        padding: 0;
+        margin-right: 5px;
+
+        &::after {
+          display: none; // Oculta la flecha que indica que es un dropdown
+        }
+      }
+    }
   }
 
-  .user-info-role {
-    margin-bottom: 0;
-    font-size: 0.8em;
-    color: $header-color-secondary;
+  // Separador vertical
+  .header-separator {
+    width: 1px;
+    height: 35px;
+    background-color: rgba(255, 255, 255, 0.4);
+    margin: 0 10px;
+
+    @media (max-width: 767px) {
+      display: none; /* Oculta la rayita en celulares para ahorrar espacio */
+    }
   }
 
-  .user-info-avatar {
+  // Contenedor de Usuario
+  .user-profile-info {
+    cursor: pointer;
+
+    .user-name {
+      font-weight: 500;
+      font-size: 1rem;
+      color: #ffffff;
+    }
+
+    .user-avatar-icon {
+      width: 40px;
+      height: 40px;
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 8px; // Cuadrado con bordes redondeados
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #ffffff;
+      transition: background-color 0.2s;
+
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+      }
+    }
+  }
+}
+
+.mobile-nav-links {
+  a {
+    color: #ffffff !important;
+    padding: 12px 15px;
+    font-size: 1.1rem;
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    margin: 0 0 0 10px;
-    border-radius: 50%;
-    background-color: bootstrap-variables.$navbar-primary;
-    color: #fff;
-    font-weight: 600;
+    border-radius: 6px;
+    text-decoration: none;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+
+    svg {
+      margin-right: 15px;
+      width: 25px;
+      text-align: center;
+    }
   }
 }

@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { getActiveEntities as getActiveModalities } from 'app/entities/modality/modality.reducer';
 import { getActiveEntities as getActivePrograms } from 'app/entities/program/program.reducer';
 import { getActiveEntities as getActiveTimeSlots } from 'app/entities/time-slot/time-slot.reducer';
+import { StateGrade } from 'app/shared/model/enumerations/state-grade.model';
 
 import { GradeClassSectionsTab } from './grade-class-sections-tab';
 import { cancelGrade, createEntity, getEntity, postponeGrade, resumeGrade, reset, updateEntity } from './grade.reducer';
@@ -57,7 +58,7 @@ export const GradeUpdate = () => {
     }
   }, [updateSuccess]);
 
-  // Reglas de edición por estado (UC007): FINALIZADA no admite cambios; ACTIVA solo
+  // Reglas de edición por estado: FINALIZADA no admite cambios; ACTIVA solo
   // endDate/program/code; APLAZADA solo endDate; PENDIENTE y CANCELADA admiten todo.
   const isFieldEditable = (field: 'code' | 'startDate' | 'endDate' | 'program' | 'modality' | 'timeSlot') => {
     if (isNew) return true;
@@ -78,7 +79,7 @@ export const GradeUpdate = () => {
   const canPostpone = !isNew && (gradeEntity.state === 'PENDIENTE' || gradeEntity.state === 'ACTIVA');
   const canResume = !isNew && gradeEntity.state === 'APLAZADA';
   const canCancel = !isNew && gradeEntity.state !== 'CANCELADA';
-  // UC015-E1: las materias solo se crean/editan en fichas PENDIENTE o ACTIVA.
+  // Las materias solo se crean/editan en fichas PENDIENTE o ACTIVA.
   const canManageClassSections = !isNew && (gradeEntity.state === 'PENDIENTE' || gradeEntity.state === 'ACTIVA');
   const classSectionsCount = (classSections ?? []).filter(classSection => classSection.grade?.id === gradeEntity.id).length;
 

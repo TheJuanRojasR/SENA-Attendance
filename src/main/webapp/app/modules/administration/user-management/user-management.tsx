@@ -193,7 +193,7 @@ export const UserManagement = () => {
               </td>
               <td className="text-end">
                 <div className="btn-group flex-btn-group-container">
-                  {/*<Button as={Link as any} to={user.login} variant="info" size="sm" data-cy="entityDetailsButton">
+                  {/* <Button as={Link as any} to={user.login} variant="info" size="sm" data-cy="entityDetailsButton">
                     <FontAwesomeIcon icon={faEye}/>{' '}
                     <span className="d-none d-md-inline">
                       <Translate contentKey="entity.action.view">View</Translate>

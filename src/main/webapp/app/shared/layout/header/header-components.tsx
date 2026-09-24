@@ -1,15 +1,14 @@
 import React from 'react';
-import { NavItem, NavbarBrand } from 'react-bootstrap';
+import { NavItem, NavLink, NavbarBrand } from 'react-bootstrap';
+import { Translate } from 'react-jhipster';
 import { NavLink as Link } from 'react-router';
 
+import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
-interface IHeaderProps {
+interface IHomeProps {
   isAuthenticated: boolean;
-}
-
-interface ISearchBarProps {
-  isAuthenticated: boolean;
+  roleName?: string;
   icon: any;
   placeholder: string;
 }
@@ -30,21 +29,31 @@ export const BrandIcon = props => (
   </div>
 );
 
-export const Brand = (props: IHeaderProps) => (
-  <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo">
+export const Brand = (props: IHomeProps) => (
+  <NavbarBrand as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="brand-logo d-flex align-items-center">
     <BrandIcon />
-    <span className="brand-title">
-      <span> SENA </span>
-      <span style={{ color: '#16C829' }}>Attendance</span>
-    </span>
-    {/* Número de versión eliminado */}
+    <div className="d-flex flex-column ms-2">
+      <span className="brand-title mb-0" style={{ lineHeight: '1.2' }}>
+        <span className="logo-sena">SENA </span>
+        <span className="logo-attendance">Attendance</span>
+      </span>
+      {props.roleName && (
+        <span className="text-muted" style={{ fontSize: '0.80rem' }}>
+          {props.roleName}
+        </span>
+      )}
+    </div>
   </NavbarBrand>
 );
 
-export const SearchBar = (props: ISearchBarProps) => (
-  <NavItem className="search-bar d-flex align-items-center">
-    <FontAwesomeIcon icon={props.icon} />
-    <input type="search" placeholder={props.placeholder} />
+export const Home = (props: IHomeProps) => (
+  <NavItem>
+    <NavLink as={Link as any} to={props.isAuthenticated ? '/dashboard' : '/'} className="d-flex align-items-center">
+      <FontAwesomeIcon icon={faHome} />
+      <span>
+        <Translate contentKey="global.menu.home">Home</Translate>
+      </span>
+    </NavLink>
   </NavItem>
 );
 

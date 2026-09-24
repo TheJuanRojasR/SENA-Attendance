@@ -50,6 +50,8 @@ import {
   faIdCard,
   faTag,
   faBarsStaggered,
+  faQuestionCircle,
+  faPowerOff,
   faThLarge,
   faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
@@ -106,6 +108,8 @@ export const loadIcons = () => {
     faIdCard,
     faTag,
     faBarsStaggered,
+    faQuestionCircle,
+    faPowerOff,
     faThLarge,
     faTriangleExclamation,
   );

@@ -7,8 +7,8 @@ import { AccordionNavItem, NavDropdown } from './menu-components';
 
 const adminMenuItems = () => (
   <>
-    <MenuItem icon="users" to="/admin/users">
-      <Translate contentKey="global.menu.admin.userManagement">User management</Translate>
+    <MenuItem icon="user" to="/user-profile">
+      <Translate contentKey="global.menu.entities.userProfile">User profile</Translate>
     </MenuItem>
     <MenuItem icon="tachometer-alt" to="/admin/metrics">
       <Translate contentKey="global.menu.admin.metrics">Metrics</Translate>
@@ -32,10 +32,18 @@ const openAPIItem = () => (
   </MenuItem>
 );
 
-export const AdminMenu = ({ showOpenAPI, variant = 'dropdown' }: { showOpenAPI: boolean; variant?: 'dropdown' | 'accordion' }) => {
+export const AdminMenu = ({
+  showOpenAPI,
+  variant = 'dropdown',
+  showName = true,
+}: {
+  showOpenAPI: boolean;
+  variant?: 'dropdown' | 'accordion';
+  showName?: boolean;
+}) => {
   const Container = variant === 'accordion' ? AccordionNavItem : NavDropdown;
   return (
-    <Container icon="users-cog" name={translate('global.menu.admin.main')} id="admin-menu" data-cy="adminMenu">
+    <Container icon="users-cog" name={showName ? translate('global.menu.admin.main') : ''} id="admin-menu" data-cy="adminMenu">
       {adminMenuItems()}
       {showOpenAPI && openAPIItem()}
     </Container>

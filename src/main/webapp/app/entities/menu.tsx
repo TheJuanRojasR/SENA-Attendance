@@ -11,9 +11,11 @@ const EntitiesMenu = () => {
   const authorities = useAppSelector(state => state.authentication.account.authorities);
 
   const isAdmin = hasAnyAuthority(authorities, [Authority.ADMIN]);
+  const isCoordinator = hasAnyAuthority(authorities, ['ROLE_COORDINATOR']);
   const isInstructor = hasAnyAuthority(authorities, ['ROLE_INSTRUCTOR']);
   const isApprentice = hasAnyAuthority(authorities, ['ROLE_APPRENTICE']);
 
+  const adminOrCoordinator = isAdmin || isCoordinator;
   const adminOrInstructor = isAdmin || isInstructor;
   const adminOrApprentice = isAdmin || isApprentice;
   return (
@@ -38,12 +40,10 @@ const EntitiesMenu = () => {
           <Translate contentKey="global.menu.entities.documentType" />
         </MenuItem>
       )}
-      {isAdmin && (
-        <MenuItem icon="user" to="/user-profile">
-          <Translate contentKey="global.menu.entities.userProfile" />
-        </MenuItem>
-      )}
-      {isAdmin && (
+      {/* ══════════════════════════════════════════
+          ADMIN + COORDINADOR — Estructura académica
+      ══════════════════════════════════════════ */}
+      {adminOrCoordinator && (
         <MenuItem icon="cogs" to="/global-configuration">
           <Translate contentKey="global.menu.entities.globalConfiguration" />
         </MenuItem>

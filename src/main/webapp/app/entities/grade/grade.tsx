@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Card, Col, Table } from 'react-bootstrap';
-import { JhiItemCount, JhiPagination, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
+import { JhiItemCount, JhiPagination, TextFormat, Translate, getPaginationState, ValidatedInput } from 'react-jhipster';
 import { Link, useLocation, useNavigate } from 'react-router';
 
 import { faSearch, faSort, faSortDown, faSortUp } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
+import { APP_LOCAL_DATE_FORMAT } from 'app/config/constants';
 import { useAppDispatch, useAppSelector } from 'app/config/store';
 import { overridePaginationStateWithQueryParams } from 'app/shared/util/entity-utils';
 import { ASC, DESC, ITEMS_PER_PAGE, SORT } from 'app/shared/util/pagination.constants';
@@ -99,11 +100,19 @@ export const Grade = () => {
 
   return (
     <div>
-      <h2 id="grade-heading" data-cy="GradeHeading">
-        <Translate contentKey="senaAttendanceApp.grade.home.title">Grades</Translate>
-      </h2>
-      <p> Administre las fichas de formación, asigne programas asociados y controle el estado operativo en el centro de formación. </p>
-      <Col className="d-flex justify-content-between align-items-center" md="12">
+      <div className="entity-page-header">
+        <div>
+          <div className="breadcrumb-text">
+            INICIO <span className="separator">/</span> <span className="current">FICHAS</span>
+          </div>
+          <h2 id="grade-heading" data-cy="GradeHeading" className="page-title">
+            Gestión de Fichas
+          </h2>
+          <p className="page-description">
+            Administre las fichas (grupos) de formación. Gestione su estado, fechas de inicio y fin, programa asociado y demás
+            configuraciones.
+          </p>
+        </div>
         <div className="d-flex align-items-center entitiesSearchBar">
           <div className="d-flex align-items-center w-50">
             <FontAwesomeIcon icon={faSearch}></FontAwesomeIcon>
@@ -118,85 +127,95 @@ export const Grade = () => {
             <option value="CANCELADA">Canceladas</option>
           </ValidatedInput>
         </div>
-        <Link to="/grade/new" className="btn btn-primary jh-create-entity" id="jh-create-entity" data-cy="entityCreateButton">
-          <FontAwesomeIcon icon="plus" />
-          &nbsp;
-          <Translate contentKey="senaAttendanceApp.grade.home.createLabel">Create new Grade</Translate>
+        <Link
+          to="/grade/new"
+          className="btn btn-success fw-bold"
+          style={{ backgroundColor: '#388e3c', borderColor: '#388e3c', borderRadius: '8px', padding: '10px 20px' }}
+        >
+          <FontAwesomeIcon icon="plus" className="me-2" />
+          Crear Nueva Ficha
         </Link>
-      </Col>
-      <div className="table-responsive">
-        {filteredGradeList?.length > 0 ? (
-          <Card>
-            <Table responsive>
+      </div>
+      <div className="entity-card">
+        <div className="table-responsive">
+          {gradeList?.length > 0 ? (
+            <Table className="custom-table" hover responsive>
               <thead>
                 <tr>
                   <th className="hand" onClick={sort('code')}>
-                    <Translate contentKey="senaAttendanceApp.grade.code">Code</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
-                  </th>
-                  <th>
-                    <Translate contentKey="senaAttendanceApp.grade.program">Program</Translate> <FontAwesomeIcon icon="sort" />
+                    CÓDIGO <FontAwesomeIcon icon={getSortIconByFieldName('code')} />
                   </th>
                   <th className="hand" onClick={sort('state')}>
-                    <Translate contentKey="senaAttendanceApp.grade.state">State</Translate>{' '}
-                    <FontAwesomeIcon icon={getSortIconByFieldName('state')} />
+                    ESTADO <FontAwesomeIcon icon={getSortIconByFieldName('state')} />
+                  </th>
+                  <th className="hand" onClick={sort('startDate')}>
+                    FECHA INICIO <FontAwesomeIcon icon={getSortIconByFieldName('startDate')} />
+                  </th>
+                  <th className="hand" onClick={sort('endDate')}>
+                    FECHA FIN <FontAwesomeIcon icon={getSortIconByFieldName('endDate')} />
+                  </th>
+                  <th>
+                    PROGRAMA <FontAwesomeIcon icon="sort" />
+                  </th>
+                  <th>
+                    MODALIDAD <FontAwesomeIcon icon="sort" />
+                  </th>
+                  <th>
+                    JORNADA <FontAwesomeIcon icon="sort" />
                   </th>
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {filteredGradeList.map(grade => (
+                {gradeList.map(grade => (
                   <tr key={`entity-${grade.id}`} data-cy="entityTable">
-                    <td>{grade.code}</td>
-                    <td>{grade.program.name}</td>
+                    <td>
+                      <span className="badge-initials">{grade.code}</span>
+                    </td>
                     <td>
                       <Translate contentKey={`senaAttendanceApp.StateGrade.${grade.state}`} />
                     </td>
+                    <td>{grade.startDate ? <TextFormat type="date" value={grade.startDate} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
+                    <td>{grade.endDate ? <TextFormat type="date" value={grade.endDate} format={APP_LOCAL_DATE_FORMAT} /> : null}</td>
+                    <td>{grade.program ? <Link to={`/program/${grade.program.id}`}>{grade.program.name}</Link> : ''}</td>
+                    <td>{grade.modality ? <Link to={`/modality/${grade.modality.id}`}>{grade.modality.name}</Link> : ''}</td>
+                    <td>{grade.timeSlot ? <Link to={`/time-slot/${grade.timeSlot.id}`}>{grade.timeSlot.name}</Link> : ''}</td>
                     <td className="text-end">
-                      <div className="btn-group flex-btn-group-container">
-                        <Button
-                          as={Link as any}
+                      <div className="action-icons">
+                        <Link to={`/grade/${grade.id}`} title="Ver">
+                          <FontAwesomeIcon icon="eye" />
+                        </Link>
+                        <Link
                           to={`/grade/${grade.id}/edit?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
-                          variant="primary"
-                          size="sm"
-                          data-cy="entityEditButton"
+                          title="Editar"
                         >
-                          <FontAwesomeIcon icon="pencil-alt" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.edit">Edit</Translate>
-                          </span>
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            (globalThis.location.href = `/grade/${grade.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`)
-                          }
-                          variant="danger"
-                          size="sm"
-                          data-cy="entityDeleteButton"
+                          <FontAwesomeIcon icon="pencil-alt" />
+                        </Link>
+                        <Link
+                          to={`/grade/${grade.id}/delete?page=${paginationState.activePage}&sort=${paginationState.sort},${paginationState.order}`}
+                          className="delete"
+                          title="Eliminar"
                         >
-                          <FontAwesomeIcon icon="trash" />{' '}
-                          <span className="d-none d-md-inline">
-                            <Translate contentKey="entity.action.delete">Delete</Translate>
-                          </span>
-                        </Button>
+                          <FontAwesomeIcon icon="trash" />
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-          </Card>
-        ) : (
-          !loading && (
-            <div className="alert alert-success">
-              <Translate contentKey="senaAttendanceApp.grade.home.notFound">No Grades found</Translate>
-            </div>
-          )
-        )}
+          ) : (
+            !loading && (
+              <div className="alert alert-success">
+                <Translate contentKey="senaAttendanceApp.grade.home.notFound">No Grades found</Translate>
+              </div>
+            )
+          )}
+        </div>
       </div>
       {totalItems ? (
         <div className={filteredGradeList && filteredGradeList.length > 0 ? '' : 'd-none'}>
-          <div className="justify-content-center d-flex">
+          <div className="justify-content-center d-flex mt-4 mb-2 text-muted" style={{ fontSize: '0.85rem' }}>
             <JhiItemCount page={paginationState.activePage} total={totalItems} itemsPerPage={paginationState.itemsPerPage} i18nEnabled />
           </div>
           <div className="justify-content-center d-flex">
